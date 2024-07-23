@@ -1,4 +1,5 @@
 - Problem Name: 769_D. k-Interesting Pairs Of Integers
 - Conversation Link: https://chatgpt.com/share/4c7baa65-95e3-45c7-a5f8-99173b4335fd
+    - only provide with the source code
 - Test Generator: gen.py
 - Result: cannot invalidate any solution at all
