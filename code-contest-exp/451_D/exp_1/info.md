@@ -1,0 +1,6 @@
+- Problem Name: 451_D. Count Good Substrings
+- Conversation Link: https://chatgpt.com/share/b9047cdc-3ae9-4cd8-9d28-9e1f0b14bd66
+    - provide the problem statement (with input constraint) + source code
+- Test Generator: gen.py
+- Result: invalidate 34 out of 37 mislabeled solutions in "incorrect solution"
+    - Those 34 solutions are all invalidated by wrong answer
