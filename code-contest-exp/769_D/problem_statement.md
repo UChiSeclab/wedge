@@ -4,9 +4,9 @@ Vasya wants to know how many pairs of indexes (i, j) are in his sequence so that
 
 Input
 
-The first line contains two integers n and k — the number of integers in Vasya's sequence and the number of bits in which integers in k-interesting pair should differ.
+The first line contains two integers n and k (2 ≤ n ≤ 105, 0 ≤ k ≤ 14) — the number of integers in Vasya's sequence and the number of bits in which integers in k-interesting pair should differ.
 
-The second line contains the sequence a1, a2, ..., an, which Vasya has.
+The second line contains the sequence a1, a2, ..., an (0 ≤ ai ≤ 104), which Vasya has.
 
 Output
 
@@ -53,6 +53,4 @@ In the second test k = 0. Consequently, integers in any k-interesting pair shoul
   * (2, 3), 
   * (2, 4), 
   * (3, 4), 
-  * (5, 6).
-
-This is the problem statement, the source code will be provided in the next message.
+  * (5, 6). 
