@@ -1,0 +1,6 @@
+- Problem Name: 1427_B. Chess Cheater
+- Conversation Link: https://chatgpt.com/share/652a3687-fff2-4799-9779-0c72baf49a79
+    - provide the problem statement (with input constraint) + source code
+- Test Generator: gen.py
+- Result: invalidate 1 out of 34 mislabeled solutions in "incorrect solution"
+    - The solution is a TLE solution, which will output the correct answer in 13 secs
