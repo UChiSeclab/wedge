@@ -1,0 +1,178 @@
+diff --git a/hadoop-common-project/hadoop-common/CHANGES.txt b/hadoop-common-project/hadoop-common/CHANGES.txt
+index 616842fa5ff8..d4962766bed5 100644
+--- a/hadoop-common-project/hadoop-common/CHANGES.txt
++++ b/hadoop-common-project/hadoop-common/CHANGES.txt
+@@ -516,6 +516,9 @@ Release 2.7.0 - UNRELEASED
+     HADOOP-11343. Overflow is not properly handled in caclulating final iv for
+     AES CTR. (Jerry Chen via wang)
+ 
++    HADOOP-11354. ThrottledInputStream doesn't perform effective throttling.
++    (Ted Yu via jing9)
++
+ Release 2.6.0 - 2014-11-18
+ 
+   INCOMPATIBLE CHANGES
+diff --git a/hadoop-maven-plugins/pom.xml b/hadoop-maven-plugins/pom.xml
+index c271c91800a2..063b4f2cf4e7 100644
+--- a/hadoop-maven-plugins/pom.xml
++++ b/hadoop-maven-plugins/pom.xml
+@@ -57,7 +57,7 @@
+       <plugin>
+         <groupId>org.apache.maven.plugins</groupId>
+         <artifactId>maven-plugin-plugin</artifactId>
+-        <version>${maven.dependency.version}</version>
++        <version>3.4</version>
+         <configuration>
+           <skipErrorNoDescriptorsFound>true</skipErrorNoDescriptorsFound>
+         </configuration>
+diff --git a/hadoop-tools/hadoop-distcp/src/main/java/org/apache/hadoop/tools/util/ThrottledInputStream.java b/hadoop-tools/hadoop-distcp/src/main/java/org/apache/hadoop/tools/util/ThrottledInputStream.java
+index f6fe11847a25..d08a3012e27a 100644
+--- a/hadoop-tools/hadoop-distcp/src/main/java/org/apache/hadoop/tools/util/ThrottledInputStream.java
++++ b/hadoop-tools/hadoop-distcp/src/main/java/org/apache/hadoop/tools/util/ThrottledInputStream.java
+@@ -115,7 +115,7 @@ public int read(long position, byte[] buffer, int offset, int length)
+   }
+ 
+   private void throttle() throws IOException {
+-    if (getBytesPerSec() > maxBytesPerSec) {
++    while (getBytesPerSec() > maxBytesPerSec) {
+       try {
+         Thread.sleep(SLEEP_DURATION_MS);
+         totalSleepTime += SLEEP_DURATION_MS;
+diff --git a/hadoop-tools/hadoop-distcp/src/test/java/org/apache/hadoop/tools/util/TestThrottledInputStream.java b/hadoop-tools/hadoop-distcp/src/test/java/org/apache/hadoop/tools/util/TestThrottledInputStream.java
+index 0ac89980c580..dbb1ad295728 100644
+--- a/hadoop-tools/hadoop-distcp/src/test/java/org/apache/hadoop/tools/util/TestThrottledInputStream.java
++++ b/hadoop-tools/hadoop-distcp/src/test/java/org/apache/hadoop/tools/util/TestThrottledInputStream.java
+@@ -23,47 +23,103 @@
+ import org.apache.hadoop.io.IOUtils;
+ import org.junit.Assert;
+ import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.junit.runners.Parameterized;
++import java.util.Collection;
++import java.util.Arrays;
+ 
+ import java.io.*;
++import java.util.LinkedList;
+ 
++@RunWith(Parameterized.class)
+ public class TestThrottledInputStream {
+   private static final Log LOG = LogFactory.getLog(TestThrottledInputStream.class);
+   private static final int BUFF_SIZE = 1024;
+ 
+   private enum CB {ONE_C, BUFFER, BUFF_OFFSET}
+ 
++  private Integer buffSize;
++
++  // Frank: commented out because test functions in Parameterized test class can't be run individually and we don't want to run this test function
++//  @Test
++//  public void testRead() {
++//    File tmpFile;
++//    File outFile;
++//    try {
++//      tmpFile = createFile(1024);
++//      outFile = createFile();
++//
++//      tmpFile.deleteOnExit();
++//      outFile.deleteOnExit();
++//
++//      long maxBandwidth = copyAndAssert(tmpFile, outFile, 0, 1, -1, CB.BUFFER);
++//
++//      copyAndAssert(tmpFile, outFile, maxBandwidth, 20, 0, CB.BUFFER);
++///*
++//      copyAndAssert(tmpFile, outFile, maxBandwidth, 10, 0, CB.BUFFER);
++//      copyAndAssert(tmpFile, outFile, maxBandwidth, 50, 0, CB.BUFFER);
++//*/
++//
++//      copyAndAssert(tmpFile, outFile, maxBandwidth, 20, 0, CB.BUFF_OFFSET);
++///*
++//      copyAndAssert(tmpFile, outFile, maxBandwidth, 10, 0, CB.BUFF_OFFSET);
++//      copyAndAssert(tmpFile, outFile, maxBandwidth, 50, 0, CB.BUFF_OFFSET);
++//*/
++//
++//      copyAndAssert(tmpFile, outFile, maxBandwidth, 20, 0, CB.ONE_C);
++///*
++//      copyAndAssert(tmpFile, outFile, maxBandwidth, 10, 0, CB.ONE_C);
++//      copyAndAssert(tmpFile, outFile, maxBandwidth, 50, 0, CB.ONE_C);
++//*/
++//    } catch (IOException e) {
++//      LOG.error("Exception encountered ", e);
++//    }
++//  }
++
++  @Parameterized.Parameters
++  public static Collection data() {
++    int buffSizeLow = 256;
++    int buffSizeHigh = 1024 * 256;
++    LinkedList<Object[]> buffSizes = new LinkedList<>();
++    for (int buffSize = buffSizeLow; buffSize <= buffSizeHigh; buffSize *= 2) {
++        buffSizes.add(new Object[]{buffSize});
++    }
++    return buffSizes;
++  }
++
++  public TestThrottledInputStream(Integer buffSize) {
++    this.buffSize = buffSize;
++  }
++
+   @Test
+-  public void testRead() {
+-    File tmpFile;
+-    File outFile;
++  public void testThrottledInputStreamBW() throws Exception {
++    System.out.println("buffSize=" + buffSize);
++    long totalSizeInKB = 1024;
++    File tmpFile = createFile(totalSizeInKB);
++    File outFile = createFile();
++
++    tmpFile.deleteOnExit();
++    outFile.deleteOnExit();
++
++    long targetedBandwidth = 1024 * 8;  // Max bytes/sec
++    ThrottledInputStream in;
++
++    in = new ThrottledInputStream(new FileInputStream(tmpFile), targetedBandwidth);
++    OutputStream out = new FileOutputStream(outFile);
+     try {
+-      tmpFile = createFile(1024);
+-      outFile = createFile();
+-
+-      tmpFile.deleteOnExit();
+-      outFile.deleteOnExit();
+-
+-      long maxBandwidth = copyAndAssert(tmpFile, outFile, 0, 1, -1, CB.BUFFER);
+-
+-      copyAndAssert(tmpFile, outFile, maxBandwidth, 20, 0, CB.BUFFER);
+-/*
+-      copyAndAssert(tmpFile, outFile, maxBandwidth, 10, 0, CB.BUFFER);
+-      copyAndAssert(tmpFile, outFile, maxBandwidth, 50, 0, CB.BUFFER);
+-*/
+-
+-      copyAndAssert(tmpFile, outFile, maxBandwidth, 20, 0, CB.BUFF_OFFSET);
+-/*
+-      copyAndAssert(tmpFile, outFile, maxBandwidth, 10, 0, CB.BUFF_OFFSET);
+-      copyAndAssert(tmpFile, outFile, maxBandwidth, 50, 0, CB.BUFF_OFFSET);
+-*/
+-
+-      copyAndAssert(tmpFile, outFile, maxBandwidth, 20, 0, CB.ONE_C);
+-/*
+-      copyAndAssert(tmpFile, outFile, maxBandwidth, 10, 0, CB.ONE_C);
+-      copyAndAssert(tmpFile, outFile, maxBandwidth, 50, 0, CB.ONE_C);
+-*/
+-    } catch (IOException e) {
+-      LOG.error("Exception encountered ", e);
++      copyBytes(in, out, buffSize);
++
++      long bandwidth = in.getBytesPerSec();
++      LOG.info(in);
++      System.out.println("total data size (KB)=" + totalSizeInKB
++              + ", buffer size=" + buffSize
++              + ", targeted BW=" + targetedBandwidth
++              + ", effective BW=" + bandwidth + " bytes/sec");
++      Assert.assertEquals(in.getTotalBytesRead(), tmpFile.length());
++    } finally {
++      IOUtils.closeStream(in);
++      IOUtils.closeStream(out);
++      Thread.sleep(200);
+     }
+   }
+ 

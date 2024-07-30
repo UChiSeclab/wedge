@@ -1,0 +1,208 @@
+diff --git a/hadoop-common-project/hadoop-common/CHANGES.txt b/hadoop-common-project/hadoop-common/CHANGES.txt
+index 217f06e3c9e1..436509f262d8 100644
+--- a/hadoop-common-project/hadoop-common/CHANGES.txt
++++ b/hadoop-common-project/hadoop-common/CHANGES.txt
+@@ -158,6 +158,8 @@ Release 2.7.0 - UNRELEASED
+     HADOOP-11441. Hadoop-azure: Change few methods scope to public.
+     (Shashank Khandelwal via cnauroth)
+ 
++    HADOOP-9137. Support connection limiting in IPC server (kihwal)
++
+   OPTIMIZATIONS
+ 
+     HADOOP-11323. WritableComparator#compare keeps reference to byte array.
+diff --git a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeysPublic.java b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeysPublic.java
+index d287bdd7d5f7..459b98403de4 100644
+--- a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeysPublic.java
++++ b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeysPublic.java
+@@ -227,6 +227,11 @@
+     "ipc.server.tcpnodelay";
+   /** Default value for IPC_SERVER_TCPNODELAY_KEY */
+   public static final boolean IPC_SERVER_TCPNODELAY_DEFAULT = true;
++  /** See <a href="{@docRoot}/../core-default.html">core-default.xml</a> */
++  public static final String  IPC_SERVER_MAX_CONNECTIONS_KEY =
++    "ipc.server.max.connections";
++  /** Default value for IPC_SERVER_MAX_CONNECTIONS_KEY */
++  public static final int     IPC_SERVER_MAX_CONNECTIONS_DEFAULT = 0;
+ 
+   /** See <a href="{@docRoot}/../core-default.html">core-default.xml</a> */
+   public static final String  HADOOP_RPC_SOCKET_FACTORY_CLASS_DEFAULT_KEY =
+diff --git a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Server.java b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Server.java
+index 60e86c231b28..3c710f3f9a41 100644
+--- a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Server.java
++++ b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Server.java
+@@ -746,6 +746,13 @@ void doAccept(SelectionKey key) throws InterruptedException, IOException,  OutOf
+         
+         Reader reader = getReader();
+         Connection c = connectionManager.register(channel);
++        // If the connectionManager can't take it, close the connection.
++        if (c == null) {
++          if (channel.isOpen()) {
++            IOUtils.cleanup(null, channel);
++          }
++          continue;
++        }
+         key.attach(c);  // so closeCurrentConnection can get the object
+         reader.addConnection(c);
+       }
+@@ -2645,6 +2652,7 @@ private static int channelIO(ReadableByteChannel readCh,
+     final private int idleScanInterval;
+     final private int maxIdleTime;
+     final private int maxIdleToClose;
++    final private int maxConnections;
+     
+     ConnectionManager() {
+       this.idleScanTimer = new Timer(
+@@ -2661,6 +2669,9 @@ private static int channelIO(ReadableByteChannel readCh,
+       this.maxIdleToClose = conf.getInt(
+           CommonConfigurationKeysPublic.IPC_CLIENT_KILL_MAX_KEY,
+           CommonConfigurationKeysPublic.IPC_CLIENT_KILL_MAX_DEFAULT);
++      this.maxConnections = conf.getInt(
++          CommonConfigurationKeysPublic.IPC_SERVER_MAX_CONNECTIONS_KEY,
++          CommonConfigurationKeysPublic.IPC_SERVER_MAX_CONNECTIONS_DEFAULT);
+       // create a set with concurrency -and- a thread-safe iterator, add 2
+       // for listener and idle closer threads
+       this.connections = Collections.newSetFromMap(
+@@ -2688,11 +2699,19 @@ int size() {
+       return count.get();
+     }
+ 
++    boolean isFull() {
++      // The check is disabled when maxConnections <= 0.
++      return ((maxConnections > 0) && (size() >= maxConnections));
++    }
++
+     Connection[] toArray() {
+       return connections.toArray(new Connection[0]);
+     }
+ 
+     Connection register(SocketChannel channel) {
++      if (isFull()) {
++        return null;
++      }
+       Connection connection = new Connection(channel, Time.now());
+       add(connection);
+       if (LOG.isDebugEnabled()) {
+diff --git a/hadoop-common-project/hadoop-common/src/main/resources/core-default.xml b/hadoop-common-project/hadoop-common/src/main/resources/core-default.xml
+index 4a9c3da0390a..0a0bdfe4aa45 100644
+--- a/hadoop-common-project/hadoop-common/src/main/resources/core-default.xml
++++ b/hadoop-common-project/hadoop-common/src/main/resources/core-default.xml
+@@ -1670,4 +1670,15 @@ for ldap providers in the same way as above does.
+   </description>
+ </property>
+ 
++ <property>
++  <name>ipc.server.max.connections</name>
++  <value>0</value>
++  <description>The maximum number of concurrent connections a server is allowed
++    to accept. If this limit is exceeded, incoming connections will first fill
++    the listen queue and then may go to an OS-specific listen overflow queue. 
++    The client may fail or timeout, but the server can avoid running out of file
++    descriptors using this feature. 0 means no limit.
++  </description>
++</property>
++
+ </configuration>
+diff --git a/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestIPC.java b/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestIPC.java
+index 02516a183aa6..6712e11aa0e2 100644
+--- a/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestIPC.java
++++ b/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestIPC.java
+@@ -1184,6 +1184,98 @@ public void run() {
+     }
+   }
+ 
++  @Test
++  public void testMaxConnections() throws Exception {
++    int maxConnection = 32;
++    // Make sure this is greater than or equal to system's max fd setting (ulimit -n)
++    int numConnection = 1024;
++    conf.setInt("ipc.server.max.connections", maxConnection);
++    Server server = null;
++    Thread connectors[] = new Thread[numConnection];
++    final Socket sock[]  = new Socket[numConnection];
++    Thread connectionMonitorThread = null;
++
++    try {
++      server = new TestServer(3, false);
++      final InetSocketAddress addr = NetUtils.getConnectAddress(server);
++      server.start();
++      assertEquals(0, server.getNumOpenConnections());
++
++      final Server finalServer = server;
++      connectionMonitorThread = new Thread(new Runnable() {
++        @Override
++        public void run() {
++          int numConnections = 0;
++          try {
++            while (!Thread.currentThread().isInterrupted()) {
++              numConnections = finalServer.getNumOpenConnections();
++              System.out.println("Server open connections=" + numConnections);
++              // Sleep for a while (adjust time as needed)
++              Thread.sleep(10);
++            }
++          } catch (InterruptedException e) {
++            // Thread was interrupted during sleep
++            System.out.println("Server open connections=" + numConnections);
++            Thread.currentThread().interrupt(); // Set the interrupt flag again
++          } catch (Exception e) {
++            System.out.println("Server open connections=" + numConnections);
++          }
++        }
++      });
++      connectionMonitorThread.start();
++
++      final int[] count = {0};
++
++      for (int i = 0; i < numConnection; i++) {
++        final int finalI = i;
++        connectors[i] = new Thread() {
++          @Override
++          public void run() {
++            try {
++              sock[finalI] = NetUtils.getDefaultSocketFactory(conf).createSocket();
++              NetUtils.connect(sock[finalI], addr, 6000);
++            } catch (IOException ioe) {
++              ioe.printStackTrace();
++            } finally {
++              synchronized (count) {
++                count[0]++;
++              }
++            }
++          }
++        };
++        connectors[i].start();
++      }
++
++      while (count[0] != numConnection) {
++        Thread.sleep(1000);
++      }
++
++      for (int i = 0; i < numConnection; ++i) {
++        if (sock[i] != null) {
++          try {
++            sock[i].close();
++          } catch (IOException ioe) {
++            ioe.printStackTrace();
++          }
++        }
++      }
++
++      for (int i = 0; i < 10; i++) {
++        connectors[i].join();
++      }
++    } finally {
++      if (connectionMonitorThread != null) {
++        connectionMonitorThread.interrupt();
++        connectionMonitorThread.join();
++      }
++
++      if (server != null) {
++        server.stop();
++      }
++      conf.setInt("ipc.server.max.connections", 0);
++    }
++  }
++
+   private void assertRetriesOnSocketTimeouts(Configuration conf,
+       int maxTimeoutRetries) throws IOException {
+     SocketFactory mockFactory = Mockito.mock(SocketFactory.class);

@@ -1,0 +1,192 @@
+diff --git a/hadoop-tools/hadoop-distcp/pom.xml b/hadoop-tools/hadoop-distcp/pom.xml
+index d0486a6794c..fd592d2395e 100644
+--- a/hadoop-tools/hadoop-distcp/pom.xml
++++ b/hadoop-tools/hadoop-distcp/pom.xml
+@@ -114,6 +114,12 @@
+       <artifactId>assertj-core</artifactId>
+       <scope>test</scope>
+     </dependency>
++    <dependency>
++      <groupId>org.hamcrest</groupId>
++      <artifactId>hamcrest-library</artifactId>
++      <version>1.3</version>
++      <scope>test</scope>
++    </dependency>
+   </dependencies>
+ 
+   <build>
+diff --git a/hadoop-tools/hadoop-distcp/src/main/java/org/apache/hadoop/tools/util/ThrottledInputStream.java b/hadoop-tools/hadoop-distcp/src/main/java/org/apache/hadoop/tools/util/ThrottledInputStream.java
+index 4d3676a6694..7da38d72652 100644
+--- a/hadoop-tools/hadoop-distcp/src/main/java/org/apache/hadoop/tools/util/ThrottledInputStream.java
++++ b/hadoop-tools/hadoop-distcp/src/main/java/org/apache/hadoop/tools/util/ThrottledInputStream.java
+@@ -128,6 +128,16 @@ public long getBytesPerSec() {
+     }
+   }
+ 
++
++
++  public long getBytesPerSecFixed() {
++    if (bytesRead == 0){
++      return 0;
++    }
++    float elapsed = (System.currentTimeMillis() - startTime) / 1000.0f;
++    return (long) (bytesRead / elapsed);
++  }
++
+   /**
+    * Getter the total time spent in sleep.
+    * @return Number of milliseconds spent in sleep.
+@@ -142,7 +152,7 @@ public String toString() {
+     return "ThrottledInputStream{" +
+         "bytesRead=" + bytesRead +
+         ", maxBytesPerSec=" + maxBytesPerSec +
+-        ", bytesPerSec=" + getBytesPerSec() +
++        ", bytesPerSec=" + getBytesPerSecFixed() +
+         ", totalSleepTime=" + totalSleepTime +
+         '}';
+   }
+diff --git a/hadoop-tools/hadoop-distcp/src/test/java/org/apache/hadoop/tools/util/TestThrottledInputStream.java b/hadoop-tools/hadoop-distcp/src/test/java/org/apache/hadoop/tools/util/TestThrottledInputStream.java
+index 6a572177192..fad66724c0d 100644
+--- a/hadoop-tools/hadoop-distcp/src/test/java/org/apache/hadoop/tools/util/TestThrottledInputStream.java
++++ b/hadoop-tools/hadoop-distcp/src/test/java/org/apache/hadoop/tools/util/TestThrottledInputStream.java
+@@ -22,6 +22,8 @@
+ import org.slf4j.LoggerFactory;
+ import org.apache.hadoop.io.IOUtils;
+ import org.junit.Assert;
++import static org.hamcrest.Matchers.greaterThanOrEqualTo;
++import static org.junit.Assert.assertThat;
+ import org.junit.Test;
+ 
+ import java.io.*;
+@@ -43,7 +45,9 @@ public void testRead() {
+       tmpFile.deleteOnExit();
+       outFile.deleteOnExit();
+ 
+-      long maxBandwidth = copyAndAssert(tmpFile, outFile, 0, 1, -1, CB.BUFFER);
++      // Correction: we should use CB.ONE_C mode to calculate the maxBandwidth,
++      // because CB.ONE_C's speed is the lowest.
++      long maxBandwidth = copyAndAssert(tmpFile, outFile, 0, 1, -1, CB.ONE_C);
+ 
+       copyAndAssert(tmpFile, outFile, maxBandwidth, 20, 0, CB.BUFFER);
+ /*
+@@ -90,10 +94,16 @@ private long copyAndAssert(File tmpFile, File outFile,
+       }
+ 
+       LOG.info("{}", in);
++      /*
++        in.getBytesPerSec() should not be called repeatedly,
++        because each call will return a different value,
++        and because the program execution also takes time,
++        which magnifies the error of getBytesPerSec()
++      */
+       bandwidth = in.getBytesPerSec();
+       Assert.assertEquals(in.getTotalBytesRead(), tmpFile.length());
+-      Assert.assertTrue(in.getBytesPerSec() > maxBandwidth / (factor * 1.2));
+-      Assert.assertTrue(in.getTotalSleepTime() >  sleepTime || in.getBytesPerSec() <= maxBPS);
++      Assert.assertTrue(bandwidth > maxBandwidth / (factor * 1.2));
++      Assert.assertTrue(in.getTotalSleepTime() >  sleepTime || bandwidth <= maxBPS);
+     } finally {
+       IOUtils.closeStream(in);
+       IOUtils.closeStream(out);
+@@ -154,4 +164,69 @@ private void writeToFile(File tmpFile, long sizeInKB) throws IOException {
+       IOUtils.closeStream(out);
+     }
+   }
+-}
++
++  /**
++   * Distcp: When handle the small files,
++   * the bandwidth parameter will be invalid, fix this bug
++   */
++  @Test
++  public void testFixThrottleInvalid() {
++    int testFileCnt = 100;
++    int fileSize = 19;
++    int bandwidth= 20;
++    File[] srcFiles = new File[testFileCnt];
++    File destFile;
++    try {
++      destFile = createFile(testFileCnt * 100 * 1024);
++      destFile.deleteOnExit();
++
++      // create srcFile
++      for (int i = 0; i < srcFiles.length; i++) {
++        srcFiles[i] = createFile(fileSize * 1024);
++        srcFiles[i].deleteOnExit();
++      }
++
++      long begin = System.currentTimeMillis();
++      LOG.info("begin: " + begin);
++
++      // copy srcFiles
++      for (File srcFile : srcFiles) {
++        LOG.info("fileLength: " + srcFiles.length);
++        copyAndAssert(srcFile, destFile, bandwidth * 1024 * 1024);
++      }
++
++      // Check whether the speed limit is successfully limited
++      long end = System.currentTimeMillis();
++      LOG.info("end: " + end);
++
++      int actualTime = (int) (end - begin) / 1000;
++      int expectedTime = testFileCnt * fileSize / bandwidth;
++
++      // Log the actual and expected times
++      LOG.info("Actual time: " + actualTime + " seconds");
++      LOG.info("Expected minimum time: " + expectedTime + " seconds");
++
++      assertThat((int) (end - begin) / 1000,
++          greaterThanOrEqualTo(testFileCnt * fileSize / bandwidth));
++    } catch (IOException e) {
++      LOG.error("Exception encountered ", e);
++    }
++  }
++
++  private void copyAndAssert(File tmpFile, File outFile, long maxBPS)
++      throws IOException {
++    ThrottledInputStream in = new ThrottledInputStream(new FileInputStream(tmpFile), maxBPS);
++    OutputStream out = new FileOutputStream(outFile);
++    try {
++      copyBytes(in, out, BUFF_SIZE);
++      LOG.info("{}", in);
++      Assert.assertEquals(in.getTotalBytesRead(), tmpFile.length());
++
++      long bytesPerSec = in.getBytesPerSec();
++      Assert.assertTrue(bytesPerSec < maxBPS);
++    } finally {
++      IOUtils.closeStream(in);
++      IOUtils.closeStream(out);
++    }
++  }
++}
+\ No newline at end of file
+diff --git a/hadoop-tools/hadoop-distcp/src/test/resources/log4j.properties b/hadoop-tools/hadoop-distcp/src/test/resources/log4j.properties
+index 46fda96d971..dcb0edd1d50 100644
+--- a/hadoop-tools/hadoop-distcp/src/test/resources/log4j.properties
++++ b/hadoop-tools/hadoop-distcp/src/test/resources/log4j.properties
+@@ -16,11 +16,19 @@
+ #
+ # log4j configuration used during build and unit tests
+ 
+-log4j.rootLogger=info,stdout
++log4j.rootLogger=info,stdout,file
++
+ log4j.appender.stdout=org.apache.log4j.ConsoleAppender
+ log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
+ log4j.appender.stdout.layout.ConversionPattern=%d{ISO8601} [%t] %-5p %c{2} (%F:%M(%L)) - %m%n
+ 
++log4j.appender.file=org.apache.log4j.RollingFileAppender
++log4j.appender.file.File=logs/hdfs-distcp.log
++log4j.appender.file.MaxFileSize=10MB
++log4j.appender.file.MaxBackupIndex=10
++log4j.appender.file.layout=org.apache.log4j.PatternLayout
++log4j.appender.file.layout.ConversionPattern=%d{ISO8601} [%t] %-5p %c{2} (%F:%M(%L)) - %m%n
++
+ log4j.logger.org.apache.hadoop.util.NativeCodeLoader=ERROR
+ log4j.logger.org.apache.hadoop.conf.Configuration.deprecation=WARN
+ log4j.logger.org.apache.hadoop.metrics2=ERROR
+@@ -31,3 +39,4 @@ log4j.logger.org.apache.commons.configuration2.AbstractConfiguration=ERROR
+ 
+ # Debug level logging of distcp in test runs.
+ log4j.logger.org.apache.hadoop.tools.mapred=DEBUG
++

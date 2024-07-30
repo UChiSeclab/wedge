@@ -97,134 +97,279 @@ index dc8190135bc5..91dc90799e72 100644
  
      // wait for all dispatcher threads to finish
 diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/balancer/TestBalancer.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/balancer/TestBalancer.java
-index 30a3a327d8c3..e844b7fa0895 100644
+index 30a3a327d8c3..e177da375a22 100644
 --- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/balancer/TestBalancer.java
 +++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/balancer/TestBalancer.java
-@@ -44,12 +44,14 @@
- import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_LAZY_PERSIST_FILE_SCRUB_INTERVAL_SEC;
- import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_WEB_AUTHENTICATION_KERBEROS_PRINCIPAL_KEY;
- import static org.apache.hadoop.test.PlatformAssumptions.assumeNotWindows;
-+import static org.junit.Assert.*;
- 
- import org.apache.hadoop.hdfs.protocol.ErasureCodingPolicy;
-+import org.apache.hadoop.hdfs.server.namenode.NameNodeRpcServer;
-+import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocol;
-+import org.apache.hadoop.ipc.Server;
-+import org.apache.hadoop.ipc.metrics.RpcMetrics;
- import org.junit.AfterClass;
--import static org.junit.Assert.assertEquals;
--import static org.junit.Assert.assertTrue;
--import static org.junit.Assert.fail;
+@@ -50,6 +50,9 @@
+ import static org.junit.Assert.assertEquals;
+ import static org.junit.Assert.assertTrue;
+ import static org.junit.Assert.fail;
++import static org.mockito.Mockito.any;
++import static org.mockito.Mockito.anyLong;
++import static org.mockito.Mockito.doAnswer;
  
  import java.io.File;
  import java.io.IOException;
-@@ -59,15 +61,7 @@
- import java.net.InetSocketAddress;
- import java.net.URI;
- import java.security.PrivilegedExceptionAction;
--import java.util.ArrayList;
--import java.util.Arrays;
--import java.util.Collection;
--import java.util.Collections;
--import java.util.HashSet;
--import java.util.List;
--import java.util.Properties;
--import java.util.Random;
--import java.util.Set;
-+import java.util.*;
- import java.util.concurrent.TimeoutException;
+@@ -105,9 +108,14 @@
+ import org.apache.hadoop.hdfs.server.blockmanagement.BlockPlacementPolicyWithUpgradeDomain;
+ import org.apache.hadoop.hdfs.server.blockmanagement.BlockPlacementStatus;
+ import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeManager;
++import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
+ import org.apache.hadoop.hdfs.server.datanode.DataNode;
+ import org.apache.hadoop.hdfs.server.datanode.SimulatedFSDataset;
+ import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.LazyPersistTestCase;
++import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
++import org.apache.hadoop.hdfs.server.namenode.NameNode;
++import org.apache.hadoop.hdfs.server.namenode.NameNodeAdapter;
++import org.apache.hadoop.hdfs.server.protocol.BlocksWithLocations;
+ import org.apache.hadoop.http.HttpConfig;
+ import org.apache.hadoop.io.IOUtils;
+ import org.apache.hadoop.minikdc.MiniKdc;
+@@ -121,6 +129,8 @@
+ import org.apache.log4j.Level;
+ import org.junit.After;
+ import org.junit.Test;
++import org.mockito.invocation.InvocationOnMock;
++import org.mockito.stubbing.Answer;
  
- import org.apache.commons.lang.StringUtils;
-@@ -793,6 +787,7 @@ private void doTest(Configuration conf, long[] capacities, String[] racks,
+ /**
+  * This class tests if a balancer schedules tasks correctly.
+@@ -130,6 +140,7 @@
+ 
+   static {
+     GenericTestUtils.setLogLevel(Balancer.LOG, Level.ALL);
++    GenericTestUtils.setLogLevel(Dispatcher.LOG, Level.DEBUG);
+   }
+ 
+   final static long CAPACITY = 5000L;
+@@ -776,6 +787,13 @@ private void doTest(Configuration conf, long[] capacities, String[] racks,
+     doTest(conf, capacities, racks, newCapacity, newRack, null, useTool, false);
+   }
+ 
++  private void doTest(Configuration conf, long[] capacities, String[] racks,
++      long newCapacity, String newRack, NewNodeInfo nodes,
++      boolean useTool, boolean useFile) throws Exception {
++    doTest(conf, capacities, racks, newCapacity, newRack, nodes,
++        useTool, useFile, false);
++  }
++
+   /** This test start a cluster with specified number of nodes,
+    * and fills it to be 30% full (with a single file replicated identically
+    * to all datanodes);
+@@ -791,11 +809,13 @@ private void doTest(Configuration conf, long[] capacities, String[] racks,
+    *   parsing, etc.   Otherwise invoke balancer API directly.
+    * @param useFile - if true, the hosts to included or excluded will be stored in a
     *   file and then later read from the file.
++   * @param useNamesystemSpy - spy on FSNamesystem if true
     * @throws Exception
     */
-+
    private void doTest(Configuration conf, long[] capacities,
        String[] racks, long newCapacity, String newRack, NewNodeInfo nodes,
-       boolean useTool, boolean useFile) throws Exception {
-@@ -808,6 +803,12 @@ private void doTest(Configuration conf, long[] capacities,
-                                 .racks(racks)
-                                 .simulatedCapacities(capacities)
-                                 .build();
-+
-+
-+    NameNodeRpcServer rpcServer = (NameNodeRpcServer) cluster.getNameNodeRpc();
-+    NNRPCCallQueueLengthMonitor monitor = new NNRPCCallQueueLengthMonitor(rpcServer.getClientRpcServer());
-+    Thread monitorThread = new Thread(monitor);
+-      boolean useTool, boolean useFile) throws Exception {
++      boolean useTool, boolean useFile,
++      boolean useNamesystemSpy) throws Exception {
+     LOG.info("capacities = " +  long2String(capacities));
+     LOG.info("racks      = " +  Arrays.asList(racks));
+     LOG.info("newCapacity= " +  newCapacity);
+@@ -803,15 +823,25 @@ private void doTest(Configuration conf, long[] capacities,
+     LOG.info("useTool    = " +  useTool);
+     assertEquals(capacities.length, racks.length);
+     int numOfDatanodes = capacities.length;
+-    cluster = new MiniDFSCluster.Builder(conf)
+-                                .numDataNodes(capacities.length)
+-                                .racks(racks)
+-                                .simulatedCapacities(capacities)
+-                                .build();
 +
      try {
++      cluster = new MiniDFSCluster.Builder(conf)
++                                  .numDataNodes(0)
++                                  .build();
++      cluster.getConfiguration(0).setInt(DFSConfigKeys.DFS_REPLICATION_KEY,
++          DFSConfigKeys.DFS_REPLICATION_DEFAULT);
++      conf.setInt(DFSConfigKeys.DFS_REPLICATION_KEY,
++          DFSConfigKeys.DFS_REPLICATION_DEFAULT);
++      if(useNamesystemSpy) {
++        LOG.info("Using Spy Namesystem");
++        spyFSNamesystem(cluster.getNameNode());
++      }
++      cluster.startDataNodes(conf, numOfDatanodes, true,
++          StartupOption.REGULAR, racks, null, capacities, false);
++      cluster.waitClusterUp();
        cluster.waitActive();
-       client = NameNodeProxies.createProxy(conf, cluster.getFileSystem(0).getUri(),
-@@ -884,6 +885,8 @@ private void doTest(Configuration conf, long[] capacities,
-         }
-       }
+-      client = NameNodeProxies.createProxy(conf, cluster.getFileSystem(0).getUri(),
+-          ClientProtocol.class).getProxy();
++      client = NameNodeProxies.createProxy(conf,
++          cluster.getFileSystem(0).getUri(), ClientProtocol.class).getProxy();
  
-+      monitorThread.start();
-+
-       // run balancer and validate results
-       if (useTool) {
-         runBalancerCli(conf, totalUsedSpace, totalCapacity, p, useFile, expectedExcludedNodes);
-@@ -892,9 +895,61 @@ private void doTest(Configuration conf, long[] capacities,
+       long totalCapacity = sum(capacities);
+ 
+@@ -891,7 +921,9 @@ private void doTest(Configuration conf, long[] capacities,
+         runBalancer(conf, totalUsedSpace, totalCapacity, p, expectedExcludedNodes);
        }
      } finally {
-       cluster.shutdown();
-+      monitor.stop();
-+      monitorThread.join();
-+    }
-+  }
-+
-+  @Test
-+  public void testBalancerDispatcherSurge() throws Exception {
-+    HdfsConfiguration conf = new HdfsConfiguration();
-+    initConf(conf);
-+    int numDataNodes = 150;
-+    long[] capacities = new long[numDataNodes];
-+    String[] racks = new String[numDataNodes];
-+    Arrays.fill(capacities, CAPACITY);
-+    Arrays.fill(racks, RACK0);
-+    doTest(conf, capacities, racks, CAPACITY/2,
-+            RACK0, false);
-+  }
-+
-+  public class NNRPCCallQueueLengthMonitor implements Runnable {
-+    Server rpcServer;
-+    boolean isRunning;
-+    List<Integer> nNRPCCallQueueLengths;
-+
-+    public NNRPCCallQueueLengthMonitor(Server rpcServer) {
-+      this.rpcServer = rpcServer;
-+      this.isRunning = false;
-+      this.nNRPCCallQueueLengths = new LinkedList<>();
-+    }
-+
-+    @Override
-+    public void run() {
-+      RpcMetrics metrics = rpcServer.getRpcMetrics();
-+      isRunning = true;
-+      try {
-+        while (isRunning) {
-+          nNRPCCallQueueLengths.add(Integer.valueOf(metrics.callQueueLength()));
-+          Thread.sleep(5);
-+        }
-+      } catch (InterruptedException e) {
-+        e.printStackTrace();
+-      cluster.shutdown();
++      if(cluster != null) {
++        cluster.shutdown();
 +      }
-+    }
-+
-+    public void stop () {
-+      isRunning = false;
-+      StringBuilder sb = new StringBuilder("NameNode RPC call queue length:");
-+      for (int nNRPCCallQueueLength : nNRPCCallQueueLengths) {
-+        sb.append(nNRPCCallQueueLength + " ");
-+      }
-+      sb.append("\n");
-+      System.out.println(sb.toString());
      }
    }
  
+@@ -2004,6 +2036,54 @@ public Void run() throws Exception {
+     }
+   }
+ 
++  private static int numGetBlocksCalls;
++  private static long startGetBlocksTime, endGetBlocksTime;
 +
-   private void runBalancer(Configuration conf, long totalUsedSpace,
-       long totalCapacity) throws Exception {
-     runBalancer(conf, totalUsedSpace, totalCapacity,
-
++  private void spyFSNamesystem(NameNode nn) throws IOException {
++    FSNamesystem fsnSpy = NameNodeAdapter.spyOnNamesystem(nn);
++    numGetBlocksCalls = 0;
++    endGetBlocksTime = startGetBlocksTime = Time.monotonicNow();
++    doAnswer(new Answer<BlocksWithLocations>() {
++      @Override
++      public BlocksWithLocations answer(InvocationOnMock invocation)
++          throws Throwable {
++        BlocksWithLocations blk =
++            (BlocksWithLocations)invocation.callRealMethod();
++        endGetBlocksTime = Time.monotonicNow();
++        numGetBlocksCalls++;
++        return blk;
++      }}).when(fsnSpy).getBlocks(any(DatanodeID.class), anyLong());
++  }
++
++  /**
++   * Test that makes the Balancer to disperse RPCs to the NameNode
++   * in order to avoid NN's RPC queue saturation.
++   */
++  void testBalancerRPCDelay() throws Exception {
++    final Configuration conf = new HdfsConfiguration();
++    initConf(conf);
++    conf.setInt(DFSConfigKeys.DFS_BALANCER_DISPATCHERTHREADS_KEY, 30);
++
++    int numDNs = 40;
++    long[] capacities = new long[numDNs];
++    String[] racks = new String[numDNs];
++    for(int i = 0; i < numDNs; i++) {
++      capacities[i] = CAPACITY;
++      racks[i] = (i < numDNs/2 ? RACK0 : RACK1);
++    }
++    doTest(conf, capacities, racks, CAPACITY, RACK2,
++        new PortNumberBasedNodes(3, 0, 0), false, false, true);
++    assertTrue("Number of getBlocks should be not less than " +
++        Dispatcher.BALANCER_NUM_RPC_PER_SEC,
++        numGetBlocksCalls > Dispatcher.BALANCER_NUM_RPC_PER_SEC);
++    long d = 1 + endGetBlocksTime - startGetBlocksTime;
++    LOG.info("Balancer executed " + numGetBlocksCalls
++        + " getBlocks in " + d + " msec.");
++    assertTrue("Expected BALANCER_NUM_RPC_PER_SEC = " +
++        Dispatcher.BALANCER_NUM_RPC_PER_SEC,
++        (numGetBlocksCalls * 1000 / d) < Dispatcher.BALANCER_NUM_RPC_PER_SEC);
++  }
++
+   /**
+    * @param args
+    */
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/balancer/TestBalancerRPCDelay.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/balancer/TestBalancerRPCDelay.java
+new file mode 100644
+index 000000000000..960ad2576638
+--- /dev/null
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/balancer/TestBalancerRPCDelay.java
+@@ -0,0 +1,32 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.apache.hadoop.hdfs.server.balancer;
++
++import org.junit.Test;
++
++/**
++ * The Balancer ensures that it disperses RPCs to the NameNode
++ * in order to avoid NN's RPC queue saturation.
++ */
++public class TestBalancerRPCDelay {
++
++  @Test(timeout=100000)
++  public void testBalancerRPCDelay() throws Exception {
++    new TestBalancer().testBalancerRPCDelay();
++  }
++}
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManagerTestUtil.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManagerTestUtil.java
+index ee4e2b0e4c3a..77e2ffb1dc39 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManagerTestUtil.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManagerTestUtil.java
+@@ -142,6 +142,11 @@ public static void stopRedundancyThread(final BlockManager blockManager)
+     }
+   }
+ 
++  public static HeartbeatManager getHeartbeatManager(
++      final BlockManager blockManager) {
++    return blockManager.getDatanodeManager().getHeartbeatManager();
++  }
++
+   /**
+    * @return corruptReplicas from block manager
+    */
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/NameNodeAdapter.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/NameNodeAdapter.java
+index 33af59e0c3dc..242e8f5bb5ff 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/NameNodeAdapter.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/NameNodeAdapter.java
+@@ -24,6 +24,7 @@
+ import java.io.IOException;
+ import java.util.concurrent.locks.ReentrantReadWriteLock;
+ 
++import org.apache.commons.lang.reflect.FieldUtils;
+ import org.apache.hadoop.fs.UnresolvedLinkException;
+ import org.apache.hadoop.fs.permission.FsPermission;
+ import org.apache.hadoop.fs.permission.PermissionStatus;
+@@ -189,7 +190,35 @@ public static DatanodeDescriptor getDatanode(final FSNamesystem ns,
+   public static long[] getStats(final FSNamesystem fsn) {
+     return fsn.getStats();
+   }
+-  
++
++  public static FSNamesystem spyOnNamesystem(NameNode nn) {
++    FSNamesystem fsnSpy = Mockito.spy(nn.getNamesystem());
++    FSNamesystem fsnOld = nn.namesystem;
++    fsnOld.writeLock();
++    fsnSpy.writeLock();
++    nn.namesystem = fsnSpy;
++    try {
++      FieldUtils.writeDeclaredField(
++          (NameNodeRpcServer)nn.getRpcServer(), "namesystem", fsnSpy, true);
++      FieldUtils.writeDeclaredField(
++          fsnSpy.getBlockManager(), "namesystem", fsnSpy, true);
++      FieldUtils.writeDeclaredField(
++          fsnSpy.getLeaseManager(), "fsnamesystem", fsnSpy, true);
++      FieldUtils.writeDeclaredField(
++          fsnSpy.getBlockManager().getDatanodeManager(),
++          "namesystem", fsnSpy, true);
++      FieldUtils.writeDeclaredField(
++          BlockManagerTestUtil.getHeartbeatManager(fsnSpy.getBlockManager()),
++          "namesystem", fsnSpy, true);
++    } catch (IllegalAccessException e) {
++      throw new RuntimeException("Cannot set spy FSNamesystem", e);
++    } finally {
++      fsnSpy.writeUnlock();
++      fsnOld.writeUnlock();
++    }
++    return fsnSpy;
++  }
++
+   public static ReentrantReadWriteLock spyOnFsLock(FSNamesystem fsn) {
+     ReentrantReadWriteLock spy = Mockito.spy(fsn.getFsLockForTests());
+     fsn.setFsLockForTests(spy);

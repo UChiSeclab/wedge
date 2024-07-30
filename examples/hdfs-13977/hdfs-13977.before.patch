@@ -1,66 +1,8 @@
-diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumJournalManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumJournalManager.java
-index ce12b4f09137..674ca704bce4 100644
---- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumJournalManager.java
-+++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumJournalManager.java
-@@ -35,6 +35,7 @@
- import org.slf4j.LoggerFactory;
- import org.apache.hadoop.classification.InterfaceAudience;
- import org.apache.hadoop.conf.Configuration;
-+import org.apache.hadoop.fs.CommonConfigurationKeys;
- import org.apache.hadoop.hdfs.DFSConfigKeys;
- import org.apache.hadoop.hdfs.DFSUtil;
- import org.apache.hadoop.hdfs.qjournal.protocol.QJournalProtocolProtos.GetJournaledEditsResponseProto;
-@@ -104,7 +105,8 @@
-   
-   private final AsyncLoggerSet loggers;
- 
--  private int outputBufferCapacity = 512 * 1024;
-+  private static final int OUTPUT_BUFFER_CAPACITY_DEFAULT = 512 * 1024;
-+  private int outputBufferCapacity;
-   private final URLConnectionFactory connectionFactory;
- 
-   /** Limit logging about input stream selection to every 5 seconds max. */
-@@ -189,6 +191,7 @@ public QuorumJournalManager(Configuration conf,
-         DFSConfigKeys.DFS_QJOURNAL_HTTP_READ_TIMEOUT_DEFAULT);
-     this.connectionFactory = URLConnectionFactory
-         .newDefaultURLConnectionFactory(connectTimeoutMs, readTimeoutMs, conf);
-+    setOutputBufferCapacity(OUTPUT_BUFFER_CAPACITY_DEFAULT);
-   }
-   
-   protected List<AsyncLogger> createLoggers(
-@@ -447,6 +450,15 @@ public void finalizeLogSegment(long firstTxId, long lastTxId)
- 
-   @Override
-   public void setOutputBufferCapacity(int size) {
-+    int ipcMaxDataLength = conf.getInt(
-+        CommonConfigurationKeys.IPC_MAXIMUM_DATA_LENGTH,
-+        CommonConfigurationKeys.IPC_MAXIMUM_DATA_LENGTH_DEFAULT);
-+    if (size >= ipcMaxDataLength) {
-+      throw new IllegalArgumentException("Attempted to use QJM output buffer "
-+          + "capacity (" + size + ") greater than the IPC max data length ("
-+          + CommonConfigurationKeys.IPC_MAXIMUM_DATA_LENGTH + " = "
-+          + ipcMaxDataLength + "). This will cause journals to reject edits.");
-+    }
-     outputBufferCapacity = size;
-   }
- 
 diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumOutputStream.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumOutputStream.java
-index 26f978a284e8..9e8eeed3cc61 100644
+index 26f978a284e8..5d634723bfd7 100644
 --- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumOutputStream.java
 +++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumOutputStream.java
-@@ -80,6 +80,11 @@ public void setReadyToFlush() throws IOException {
-     buf.setReadyToFlush();
-   }
- 
-+  @Override
-+  public boolean shouldForceSync() {
-+    return buf.shouldForceSync();
-+  }
-+
-   @Override
-   protected void flushAndSync(boolean durable) throws IOException {
-     int numReadyBytes = buf.countReadyBytes();
-@@ -102,6 +107,7 @@ protected void flushAndSync(boolean durable) throws IOException {
+@@ -102,6 +102,7 @@ protected void flushAndSync(boolean durable) throws IOException {
        byte[] data = bufToSend.getData();
        assert data.length == bufToSend.getLength();
  
@@ -83,7 +25,7 @@ index 71b59fd28e3c..a76f5b462a06 100644
        = getJournalClass(conf, uri.getScheme());
  
 diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/qjournal/client/TestQuorumJournalManagerUnit.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/qjournal/client/TestQuorumJournalManagerUnit.java
-index 0e226de7dfa4..e721c167f7eb 100644
+index 0e226de7dfa4..3129f55d54bf 100644
 --- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/qjournal/client/TestQuorumJournalManagerUnit.java
 +++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/qjournal/client/TestQuorumJournalManagerUnit.java
 @@ -19,6 +19,8 @@
@@ -139,7 +81,7 @@ index 0e226de7dfa4..e721c167f7eb 100644
    }
    
    static <V> Stubber futureReturns(V value) {
-@@ -204,7 +215,53 @@ public void testWriteEdits() throws Exception {
+@@ -204,7 +215,56 @@ public void testWriteEdits() throws Exception {
          anyLong(), eq(3L), eq(1), Mockito.<byte[]>any());
      stm.flush();
    }
@@ -187,6 +129,9 @@ index 0e226de7dfa4..e721c167f7eb 100644
 +
 +    // Wait for all auto-scheduled sync (sendEdits) have be sent out
 +    Thread.sleep(1000 * 5);
++    // Without the patch, the auto-sync is broken, the trigger of logSync has to be explicit.
++    // The possible trigger that the issue reporter has might be endCurrentLogSegment in FSEditLog.java that all files' leases expire simultaneously
++    editLog.logSync();
 +
 +    System.out.println("TestQuorumJournalManagerUnit#testFSEditLogAutoSyncToQuorumStream finished");
 +  }
@@ -228,3 +173,6 @@ index c82d317d88e3..01dc31ba8c22 100644
 +      }
 +    };
 +  }
+ 
+   /**
+    * Create an aborted in-progress log in the given directory, containing

@@ -1,0 +1,181 @@
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManager.java
+index 4d3f1d1a51ed..4e351c021bf7 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManager.java
+@@ -4235,21 +4235,41 @@ void processExtraRedundancyBlocksOnInService(
+     if (!isPopulatingReplQueues()) {
+       return;
+     }
+-    final Iterator<BlockInfo> it = srcNode.getBlockIterator();
++
+     int numExtraRedundancy = 0;
+-    while(it.hasNext()) {
+-      final BlockInfo block = it.next();
+-      if (block.isDeleted()) {
+-        //Orphan block, will be handled eventually, skip
++    for (DatanodeStorageInfo datanodeStorageInfo : srcNode.getStorageInfos()) {
++      // the namesystem lock is released between iterations. Make sure the
++      // storage is not removed before continuing.
++      if (srcNode.getStorageInfo(datanodeStorageInfo.getStorageID()) == null) {
+         continue;
+       }
+-      int expectedReplication = this.getExpectedRedundancyNum(block);
+-      NumberReplicas num = countNodes(block);
+-      if (shouldProcessExtraRedundancy(num, expectedReplication)) {
+-        // extra redundancy block
+-        processExtraRedundancyBlock(block, (short) expectedReplication, null,
+-            null);
+-        numExtraRedundancy++;
++      final Iterator<BlockInfo> it = datanodeStorageInfo.getBlockIterator();
++      while(it.hasNext()) {
++        final BlockInfo block = it.next();
++        if (block.isDeleted()) {
++          //Orphan block, will be handled eventually, skip
++          continue;
++        }
++        int expectedReplication = this.getExpectedRedundancyNum(block);
++        NumberReplicas num = countNodes(block);
++        if (shouldProcessExtraRedundancy(num, expectedReplication)) {
++          // extra redundancy block
++          processExtraRedundancyBlock(block, (short) expectedReplication, null,
++              null);
++          numExtraRedundancy++;
++        }
++      }
++      // When called by tests like TestDefaultBlockPlacementPolicy.
++      // testPlacementWithLocalRackNodesDecommissioned, it is not protected by
++      // lock, only when called by DatanodeManager.refreshNodes have writeLock
++      if (namesystem.hasWriteLock()) {
++        namesystem.writeUnlock();
++        try {
++          Thread.sleep(1);
++        } catch (InterruptedException e) {
++          Thread.currentThread().interrupt();
++        }
++        namesystem.writeLock();
+       }
+     }
+     LOG.info("Invalidated {} extra redundancy blocks on {} after "
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/blockmanagement/TestBlockManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/blockmanagement/TestBlockManager.java
+index de0e1a69cd3e..431cb3088e2a 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/blockmanagement/TestBlockManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/blockmanagement/TestBlockManager.java
+@@ -87,13 +87,7 @@
+ import java.io.IOException;
+ import java.io.InputStreamReader;
+ import java.io.PrintWriter;
+-import java.util.ArrayList;
+-import java.util.Arrays;
+-import java.util.Collections;
+-import java.util.EnumSet;
+-import java.util.Iterator;
+-import java.util.LinkedList;
+-import java.util.List;
++import java.util.*;
+ import java.util.Map.Entry;
+ import java.util.concurrent.BrokenBarrierException;
+ import java.util.concurrent.Callable;
+@@ -230,6 +224,90 @@ private void doBasicTest(int testIndex) {
+         "Was: " + pipeline[1],
+         rackB.contains(pipeline[1].getDatanodeDescriptor()));
+   }
++
++  @Test
++  public void testStopDecommissionWithManyBlocks() throws Exception {
++    DatanodeStorageInfo[] storages;
++    List<DatanodeDescriptor> nodes;
++    List<DatanodeDescriptor> rackA;
++    List<DatanodeDescriptor> rackB;
++
++    Configuration conf = new Configuration();
++    conf.setInt(DFSConfigKeys.DFS_REPLICATION_KEY, 3);
++    conf.set("dfs.blocksize", String.valueOf(32));
++    conf.set("dfs.bytes-per-checksum", String.valueOf(32));
++    int numDataNodes = 3;
++    StorageType[] datanodeStorageTypes = {StorageType.DISK};
++    StorageType[][] clusterStorageTypes = new StorageType[numDataNodes][];
++    for (int i = 0; i < numDataNodes; ++i) {
++      clusterStorageTypes[i] = datanodeStorageTypes;
++    }
++    MiniDFSCluster.Builder builder = new MiniDFSCluster.Builder(conf).numDataNodes(3)
++            .storageTypes(clusterStorageTypes)
++            ;
++    MiniDFSCluster cluster = builder.build();
++    cluster.waitActive();
++
++    BlockManager bm = cluster.getNamesystem().getBlockManager();
++    Set<DatanodeDescriptor> datanodeDescriptors = bm.getDatanodeManager().getDatanodes();
++
++    int index = 0;
++    for (DatanodeDescriptor dnd : datanodeDescriptors) {
++      DatanodeStorageInfo[] storageInfos = dnd.getStorageInfos();
++      System.out.print("DataNode " + index++ + ": number of storage types=" + dnd.getStorageInfos().length + ", ");
++      for (DatanodeStorageInfo dsi : storageInfos) {
++        System.out.print("storageType=" + dsi.getStorageType() + " numBlocks=" + dsi.numBlocks() + ", ");
++      }
++    }
++    System.out.println("");
++
++
++    long iter = 1000;
++
++//    for (int i = 0; i < iter; ++i) {
++//      long inodeId = 0;
++//      long blkId = 0;
++//      int replicationFactor = 3;
++//      final INodeFile bc = TestINodeFile.createINodeFile(inodeId++);
++//
++//      Block block = new Block(blkId++);
++//      BlockInfo blockInfo = new BlockInfoContiguous(block, (short) replicationFactor);
++//
++//      for (DatanodeDescriptor dn : datanodeDescriptors) {
++//        for (DatanodeStorageInfo storage : dn.getStorageInfos()) {
++//          blockInfo.addStorage(storage, blockInfo);
++//        }
++//      }
++//      blockInfo.setReplication((short) 3);
++//      blockInfo.setBlockCollectionId(inodeId);
++//      bm.blocksMap.addBlockCollection(blockInfo, bc);
++//    }
++
++    DistributedFileSystem hdfs = cluster.getFileSystem();
++    ArrayList<DataNode> dataNodes = cluster.getDataNodes();
++    Path root = new Path("/");
++    for (int i = 0; i < 1; ++i) {
++      DataNode dataNode = dataNodes.get(i);
++      hdfs.mkdirs(root);
++      hdfs.mkdirs(new Path(root, "dir1"));
++      final Path dir1Path = new Path(root, "dir1");
++      for (int j = 0; j < iter; ++j) {
++        final Path file = new Path(dir1Path, "file" + j);
++        DFSTestUtil.createFile(hdfs, file, 4096, (short) 1, 0);
++      }
++    }
++    Thread.sleep(1000 * 20);
++
++    index = 0;
++    for (DatanodeDescriptor dnd : datanodeDescriptors) {
++      DatanodeStorageInfo[] storageInfos = dnd.getStorageInfos();
++      System.out.print("DataNode " + index++ + ": number of storage types=" + dnd.getStorageInfos().length + ", ");
++      for (DatanodeStorageInfo dsi : storageInfos) {
++        System.out.print("storageType=" + dsi.getStorageType() + " numBlocks=" + dsi.numBlocks() + ", ");
++      }
++    }
++    System.out.println("");
++  }
+   
+ 
+   /**
+diff --git a/hadoop-project/pom.xml b/hadoop-project/pom.xml
+index 7bd012df7bf8..b1ab0f5191aa 100644
+--- a/hadoop-project/pom.xml
++++ b/hadoop-project/pom.xml
+@@ -1767,7 +1767,7 @@
+         <configuration>
+           <reuseForks>false</reuseForks>
+           <forkedProcessTimeoutInSeconds>${surefire.fork.timeout}</forkedProcessTimeoutInSeconds>
+-          <argLine>${maven-surefire-plugin.argLine}</argLine>
++<!--          <argLine>${maven-surefire-plugin.argLine}</argLine>-->
+           <environmentVariables>
+             <HADOOP_COMMON_HOME>${hadoop.common.build.dir}</HADOOP_COMMON_HOME>
+             <!-- HADOOP_HOME required for tests on Windows to find winutils -->
