@@ -25,19 +25,6 @@ index c271c91800a2..063b4f2cf4e7 100644
          <configuration>
            <skipErrorNoDescriptorsFound>true</skipErrorNoDescriptorsFound>
          </configuration>
-diff --git a/hadoop-tools/hadoop-distcp/src/main/java/org/apache/hadoop/tools/util/ThrottledInputStream.java b/hadoop-tools/hadoop-distcp/src/main/java/org/apache/hadoop/tools/util/ThrottledInputStream.java
-index f6fe11847a25..d08a3012e27a 100644
---- a/hadoop-tools/hadoop-distcp/src/main/java/org/apache/hadoop/tools/util/ThrottledInputStream.java
-+++ b/hadoop-tools/hadoop-distcp/src/main/java/org/apache/hadoop/tools/util/ThrottledInputStream.java
-@@ -115,7 +115,7 @@ public int read(long position, byte[] buffer, int offset, int length)
-   }
- 
-   private void throttle() throws IOException {
--    if (getBytesPerSec() > maxBytesPerSec) {
-+    while (getBytesPerSec() > maxBytesPerSec) {
-       try {
-         Thread.sleep(SLEEP_DURATION_MS);
-         totalSleepTime += SLEEP_DURATION_MS;
 diff --git a/hadoop-tools/hadoop-distcp/src/test/java/org/apache/hadoop/tools/util/TestThrottledInputStream.java b/hadoop-tools/hadoop-distcp/src/test/java/org/apache/hadoop/tools/util/TestThrottledInputStream.java
 index 0ac89980c580..dbb1ad295728 100644
 --- a/hadoop-tools/hadoop-distcp/src/test/java/org/apache/hadoop/tools/util/TestThrottledInputStream.java
@@ -63,7 +50,7 @@ index 0ac89980c580..dbb1ad295728 100644
  
 +  private Integer buffSize;
 +
-+  // Commented out because test functions in Parameterized test class can't be run individually and we don't want to run this test function
++  // Frank: commented out because test functions in Parameterized test class can't be run individually and we don't want to run this test function
 +//  @Test
 +//  public void testRead() {
 +//    File tmpFile;
@@ -99,7 +86,6 @@ index 0ac89980c580..dbb1ad295728 100644
 +//    }
 +//  }
 +
-+  // Bug-triggering test
 +  @Parameterized.Parameters
 +  public static Collection data() {
 +    int buffSizeLow = 256;
@@ -176,3 +162,4 @@ index 0ac89980c580..dbb1ad295728 100644
 +      Thread.sleep(200);
      }
    }
+ 

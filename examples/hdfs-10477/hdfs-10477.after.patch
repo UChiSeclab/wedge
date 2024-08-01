@@ -1,0 +1,197 @@
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManager.java
+index 4d3f1d1a51ed..5c421c11ffd0 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManager.java
+@@ -4235,21 +4235,52 @@ void processExtraRedundancyBlocksOnInService(
+     if (!isPopulatingReplQueues()) {
+       return;
+     }
+-    final Iterator<BlockInfo> it = srcNode.getBlockIterator();
++
+     int numExtraRedundancy = 0;
+-    while(it.hasNext()) {
+-      final BlockInfo block = it.next();
+-      if (block.isDeleted()) {
+-        //Orphan block, will be handled eventually, skip
++
++    for (DatanodeStorageInfo datanodeStorageInfo : srcNode.getStorageInfos()) {
++      // the namesystem lock is released between iterations. Make sure the
++      // storage is not removed before continuing.
++      if (srcNode.getStorageInfo(datanodeStorageInfo.getStorageID()) == null) {
+         continue;
+       }
+-      int expectedReplication = this.getExpectedRedundancyNum(block);
+-      NumberReplicas num = countNodes(block);
+-      if (shouldProcessExtraRedundancy(num, expectedReplication)) {
+-        // extra redundancy block
+-        processExtraRedundancyBlock(block, (short) expectedReplication, null,
+-            null);
+-        numExtraRedundancy++;
++      int count = 0;
++      final Iterator<BlockInfo> it = datanodeStorageInfo.getBlockIterator();
++      while(it.hasNext()) {
++        final BlockInfo block = it.next();
++        if (block.isDeleted()) {
++          //Orphan block, will be handled eventually, skip
++          continue;
++        }
++        int expectedReplication = this.getExpectedRedundancyNum(block);
++        NumberReplicas num = countNodes(block);
++        if (shouldProcessExtraRedundancy(num, expectedReplication)) {
++          // extra redundancy block
++          processExtraRedundancyBlock(block, (short) expectedReplication, null,
++              null);
++          numExtraRedundancy++;
++        }
++        // This is similar to what reporter had in Jira ("~10 seconds to process 285258 blocks")
++        if (count == 30) {
++          try {
++            count = 0;
++            Thread.sleep(1);
++          } catch (Exception e) {
++            e.printStackTrace();
++          }
++        }
++      }
++      // When called by tests like TestDefaultBlockPlacementPolicy.
++      // testPlacementWithLocalRackNodesDecommissioned, it is not protected by
++      // lock, only when called by DatanodeManager.refreshNodes have writeLock
++      if (namesystem.hasWriteLock()) {
++        namesystem.writeUnlock();
++        try {
++          Thread.sleep(1);
++        } catch (InterruptedException e) {
++          Thread.currentThread().interrupt();
++        }
++        namesystem.writeLock();
+       }
+     }
+     LOG.info("Invalidated {} extra redundancy blocks on {} after "
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/blockmanagement/TestDatanodeDescriptor.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/blockmanagement/TestDatanodeDescriptor.java
+index 9580bae3bab5..66b917ec0138 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/blockmanagement/TestDatanodeDescriptor.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/blockmanagement/TestDatanodeDescriptor.java
+@@ -22,11 +22,23 @@
+ import static org.junit.Assert.assertTrue;
+ 
+ import java.util.ArrayList;
++import java.util.List;
++import java.util.Random;
+ 
+-import org.apache.hadoop.hdfs.DFSTestUtil;
++import org.apache.hadoop.conf.Configuration;
++import org.apache.hadoop.fs.Options;
++import org.apache.hadoop.fs.Path;
++import org.apache.hadoop.ha.HAServiceTarget;
++import org.apache.hadoop.ha.HealthMonitor;
++import org.apache.hadoop.hdfs.*;
++import org.apache.hadoop.hdfs.client.HdfsClientConfigKeys;
+ import org.apache.hadoop.hdfs.protocol.Block;
++import org.apache.hadoop.hdfs.protocol.HdfsConstants;
+ import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeStorageInfo.AddBlockResult;
+ import org.apache.hadoop.hdfs.server.common.GenerationStamp;
++import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
++import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
++import org.apache.hadoop.hdfs.tools.DFSZKFailoverController;
+ import org.junit.Test;
+ 
+ /**
+@@ -81,4 +93,98 @@ public void testBlocksCounter() throws Exception {
+     assertTrue(BlocksMap.removeBlock(dd, blk1));
+     assertEquals(0, dd.numBlocks());    
+   }
++
++  @Test
++  public void testStopDecommissionProcessingBlocks() throws Exception {
++    int numDatanodes = 1;
++    // numAddedStorages * numBlocks is similar to what Jira reported: ~280000 (entries) * 45 (records) / 46 (datanodes)
++    int numAddedStorages = 20;
++    int numBlocks = 15000;
++
++    Configuration conf = new HdfsConfiguration();
++    conf.setInt(DFSConfigKeys.DFS_NAMENODE_DECOMMISSION_INTERVAL_KEY, 1);
++    MiniDFSCluster cluster = null;
++    try {
++      cluster = new MiniDFSCluster.Builder(conf)
++              .numDataNodes(numDatanodes)
++              .storagesPerDatanode(numAddedStorages)
++              .build();
++      cluster.waitActive();
++
++      final FSNamesystem namesystem = cluster.getNamesystem(0);
++      BlockManager bm = namesystem.getBlockManager();
++      final DatanodeManager dnm = bm.getDatanodeManager();
++
++      // Add storages
++      List<DatanodeDescriptor> datanodeList = dnm.getDatanodeListForReport(HdfsConstants.DatanodeReportType.ALL);
++      System.out.println("datanodeList size=" + datanodeList.size());
++      DatanodeDescriptor dd = datanodeList.get(0);
++      DatanodeStorageInfo[] storages = dd.getStorageInfos();
++      int numStorages = storages.length;
++      System.out.println("Number of storages=" + numStorages);
++
++      // Init blocks
++      int blockID = 0;
++      for (int j = 0; j < numStorages; j++) {
++        for (int i = 0; i < numBlocks; ++i) {
++          // The last arg is the replication factor
++          BlockInfo blk = new BlockInfoContiguous(new Block((long) blockID++), (short) 1);
++          blk.setBlockCollectionId(0);
++          AddBlockResult result = storages[j].addBlock(blk);
++          assertTrue(result == AddBlockResult.ADDED);
++        }
++      }
++
++      final Path path1 = new Path("/testfile.txt");
++      final Path path2 = new Path("/renamedfile.txt");
++      DistributedFileSystem dfs = cluster.getFileSystem();
++      assertTrue(dfs.createNewFile(path1));
++
++      Thread renameThread = new Thread(new Runnable() {
++        Path oldPath = path1;
++        Path newPath = path2;
++        @Override
++        public void run() {
++          long startRenameTime = System.currentTimeMillis();
++          try {
++            while (true) {
++              startRenameTime = System.currentTimeMillis();
++              assertTrue(dfs.rename(oldPath, newPath));
++              System.out.println("Rename time=" + (System.currentTimeMillis() - startRenameTime));
++              Path tmpPath = oldPath;
++              oldPath = newPath;
++              newPath = tmpPath;
++
++              Thread.sleep(10);
++            }
++          } catch (Exception e) {
++            e.printStackTrace();
++          } finally {
++            System.out.println("Rename time=" + (System.currentTimeMillis() - startRenameTime));
++          }
++        }
++      });
++
++      renameThread.start();
++
++      System.out.println("Datanode #blocks=" + dd.numBlocks());
++      for (int i = 0; i < numStorages; ++i) {
++        System.out.println("Storage " + i + " #blocks=" + storages[i].numBlocks());
++      }
++
++      Thread.sleep(1000 * 2);
++
++      // Refresh the nodes
++      dnm.getDatanodeAdminManager().startDecommission(dd);
++      dnm.refreshNodes(conf);
++
++      Thread.sleep(1000 * 2);
++      renameThread.interrupt();
++      renameThread.join();
++
++      System.out.println("testStopDecommissionProcessingBlocks finished");
++    } finally {
++      cluster.shutdown();
++    }
++  }
+ }

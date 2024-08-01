@@ -1,0 +1,291 @@
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/pom.xml b/hadoop-hdfs-project/hadoop-hdfs/pom.xml
+index baca814eccb..73d91bc2655 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/pom.xml
++++ b/hadoop-hdfs-project/hadoop-hdfs/pom.xml
+@@ -51,6 +51,11 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
+       <scope>test</scope>
+       <type>test-jar</type>
+     </dependency>
++    <dependency>
++      <groupId>ch.qos.logback</groupId>
++      <artifactId>logback-classic</artifactId>
++      <version>1.2.3</version>
++    </dependency>
+     <dependency>
+       <groupId>org.apache.hadoop</groupId>
+       <artifactId>hadoop-hdfs-client</artifactId>
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/DFSConfigKeys.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/DFSConfigKeys.java
+index 262729c3f83..7c6683dfc17 100755
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/DFSConfigKeys.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/DFSConfigKeys.java
+@@ -123,6 +123,10 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
+       "dfs.datanode.data.write.bandwidthPerSec";
+   // A value of zero indicates no limit
+   public static final long DFS_DATANODE_DATA_WRITE_BANDWIDTHPERSEC_DEFAULT = 0;
++  public static final String DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_KEY =
++      "dfs.datanode.data.read.bandwidthPerSec";
++  // A value of zero indicates no limit
++  public static final long DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_DEFAULT = 0;
+   public static final String DFS_DATANODE_EC_RECONSTRUCT_READ_BANDWIDTHPERSEC_KEY =
+       "dfs.datanode.ec.reconstruct.read.bandwidthPerSec";
+   public static final long DFS_DATANODE_EC_RECONSTRUCT_READ_BANDWIDTHPERSEC_DEFAULT =
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataNode.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataNode.java
+index bb61e8037e9..2056beeae5b 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataNode.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataNode.java
+@@ -57,6 +57,8 @@
+ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_MAX_LOCKED_MEMORY_KEY;
+ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_MAX_RECEIVER_THREADS_DEFAULT;
+ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_MAX_RECEIVER_THREADS_KEY;
++import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_KEY;
++import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_DEFAULT;
+ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_MIN_OUTLIER_DETECTION_NODES_DEFAULT;
+ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_MIN_OUTLIER_DETECTION_NODES_KEY;
+ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_MIN_OUTLIER_DETECTION_DISKS_DEFAULT;
+@@ -368,7 +370,8 @@ public class DataNode extends ReconfigurableBase
+               DFS_DISK_BALANCER_ENABLED,
+               DFS_DISK_BALANCER_PLAN_VALID_INTERVAL,
+               DFS_DATANODE_DATA_TRANSFER_BANDWIDTHPERSEC_KEY,
+-              DFS_DATANODE_DATA_WRITE_BANDWIDTHPERSEC_KEY));
++              DFS_DATANODE_DATA_WRITE_BANDWIDTHPERSEC_KEY,
++              DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_KEY));
+ 
+   public static final String METRICS_LOG_NAME = "DataNodeMetricsLog";
+ 
+@@ -702,6 +705,7 @@ public String reconfigurePropertyImpl(String property, String newVal)
+     case DFS_DATANODE_MAX_RECEIVER_THREADS_KEY:
+     case DFS_DATANODE_DATA_TRANSFER_BANDWIDTHPERSEC_KEY:
+     case DFS_DATANODE_DATA_WRITE_BANDWIDTHPERSEC_KEY:
++    case DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_KEY:
+       return reconfDataXceiverParameters(property, newVal);
+     case DFS_CACHEREPORT_INTERVAL_MSEC_KEY:
+       return reconfCacheReportParameters(property, newVal);
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataXceiverServer.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataXceiverServer.java
+index 9b31dd3b218..508587c8474 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataXceiverServer.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataXceiverServer.java
+@@ -172,6 +172,8 @@ void release() {
+ 
+   private volatile DataTransferThrottler writeThrottler;
+ 
++  private volatile DataTransferThrottler readThrottler;
++
+   /**
+    * Stores an estimate for block size to check if the disk partition has enough
+    * space. Newer clients pass the expected block size to the DataNode. For
+@@ -478,6 +480,10 @@ public DataTransferThrottler getWriteThrottler() {
+     return writeThrottler;
+   }
+ 
++  public DataTransferThrottler getReadThrottler() {
++    return readThrottler;
++  }
++
+   /**
+    * Release a peer.
+    *
+@@ -535,4 +541,8 @@ public void setTransferThrottler(DataTransferThrottler transferThrottler) {
+   public void setWriteThrottler(DataTransferThrottler writeThrottler) {
+     this.writeThrottler = writeThrottler;
+   }
++
++  public void setReadThrottler(DataTransferThrottler readThrottler) {
++    this.readThrottler = readThrottler;
++  }
+ }
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/resources/hdfs-default.xml b/hadoop-hdfs-project/hadoop-hdfs/src/main/resources/hdfs-default.xml
+index 9a75ec24d2e..8d85d7cc3c0 100755
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/resources/hdfs-default.xml
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/resources/hdfs-default.xml
+@@ -4721,6 +4721,15 @@
+     </description>
+   </property>
+ 
++  <property>
++    <name>dfs.datanode.data.read.bandwidthPerSec</name>
++    <value>0</value>
++    <description>
++      Specifies the maximum amount of bandwidth that can utilize for reading block.
++      When the bandwidth value is zero, there is no limit.
++    </description>
++  </property>
++
+   <property>
+     <name>dfs.datanode.ec.reconstruct.read.bandwidthPerSec</name>
+     <value>0</value>
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestDataNodeReconfiguration.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestDataNodeReconfiguration.java
+index 0ca5bedff8b..14c1c301b1b 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestDataNodeReconfiguration.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestDataNodeReconfiguration.java
+@@ -31,6 +31,7 @@
+ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CACHEREPORT_INTERVAL_MSEC_KEY;
+ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_BALANCE_MAX_NUM_CONCURRENT_MOVES_KEY;
+ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_BALANCE_MAX_NUM_CONCURRENT_MOVES_DEFAULT;
++import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_KEY;
+ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_DATA_TRANSFER_BANDWIDTHPERSEC_KEY;
+ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_DATA_WRITE_BANDWIDTHPERSEC_KEY;
+ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_MAX_RECEIVER_THREADS_DEFAULT;
+@@ -459,6 +460,13 @@ public void testDataXceiverReconfiguration()
+         assertTrue("expecting NumberFormatException",
+             expected.getCause() instanceof NumberFormatException);
+       }
++      try {
++        dn.reconfigureProperty(DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_KEY, "text");
++        fail("ReconfigurationException expected");
++      } catch (ReconfigurationException expected) {
++        assertTrue("expecting NumberFormatException",
++            expected.getCause() instanceof NumberFormatException);
++      }
+ 
+       // Change properties and verify change.
+       dn.reconfigureProperty(DFS_DATANODE_MAX_RECEIVER_THREADS_KEY, String.valueOf(123));
+@@ -477,6 +485,12 @@ public void testDataXceiverReconfiguration()
+               DFS_DATANODE_DATA_WRITE_BANDWIDTHPERSEC_KEY),
+           1000, dn.getXferServer().getWriteThrottler().getBandwidth());
+ 
++      dn.reconfigureProperty(DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_KEY,
++          String.valueOf(1000));
++      assertEquals(String.format("%s has wrong value",
++              DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_KEY),
++          1000, dn.getXferServer().getReadThrottler().getBandwidth());
++
+       // Revert to default.
+       dn.reconfigureProperty(DFS_DATANODE_MAX_RECEIVER_THREADS_KEY, null);
+       assertEquals(String.format("%s has wrong value", DFS_DATANODE_MAX_RECEIVER_THREADS_KEY),
+@@ -500,6 +514,14 @@ public void testDataXceiverReconfiguration()
+       assertNull(String.format("expect %s is not configured",
+               DFS_DATANODE_DATA_WRITE_BANDWIDTHPERSEC_KEY),
+           dn.getConf().get(DFS_DATANODE_DATA_WRITE_BANDWIDTHPERSEC_KEY));
++
++      dn.reconfigureProperty(DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_KEY, null);
++      assertEquals(String.format("%s has wrong value",
++              DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_KEY),
++          null, dn.getXferServer().getReadThrottler());
++      assertNull(String.format("expect %s is not configured",
++              DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_KEY),
++          dn.getConf().get(DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_KEY));
+     }
+   }
+ 
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestDataTransferThrottler.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestDataTransferThrottler.java
+new file mode 100644
+index 00000000000..10786b895e4
+--- /dev/null
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestDataTransferThrottler.java
+@@ -0,0 +1,84 @@
++import org.apache.hadoop.fs.Path;
++import org.apache.hadoop.hdfs.DFSTestUtil;
++import org.apache.hadoop.hdfs.DistributedFileSystem;
++import org.apache.hadoop.hdfs.HdfsConfiguration;
++import org.apache.hadoop.hdfs.MiniDFSCluster;
++import org.apache.hadoop.hdfs.server.datanode.DataNode;
++import org.junit.Assert;
++import org.junit.Test;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++
++import java.io.InputStream;
++
++import static org.apache.hadoop.util.Time.monotonicNow;
++import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_KEY;
++import static org.junit.Assert.assertTrue;
++
++/**
++ * Tests throttle the data transfers related functions.
++ */
++public class TestDataTransferThrottler {
++  private static final Logger LOG = LoggerFactory.getLogger(TestDataTransferThrottler.class);
++
++  /**
++   * Test read data transfer throttler.
++   */
++  @Test
++  public void testReadDataTransferThrottler() throws Exception {
++    final HdfsConfiguration conf = new HdfsConfiguration();
++    try (MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf).build()) {
++      cluster.waitActive();
++      final DistributedFileSystem fs = cluster.getFileSystem();
++
++      // Create file.
++      Path file = new Path("/test");
++      long fileLength = 1024 * 1024  * 80;
++      DFSTestUtil.createFile(fs, file, fileLength, (short) 1, 0L);
++      DFSTestUtil.waitReplication(fs, file, (short) 1);
++
++      // Set dfs.datanode.data.read.bandwidthPerSec.
++      long bandwidthPerSec = 1024 * 1024 * 8;
++      conf.setLong(DFS_DATANODE_DATA_READ_BANDWIDTHPERSEC_KEY, bandwidthPerSec);
++
++      // Restart the first datanode.
++      cluster.stopDataNode(0);
++      cluster.startDataNodes(conf, 1, true, null, null);
++      DataNode dataNode = cluster.getDataNodes().get(0);
++
++      // Read file with throttler
++      long throttleElapsedTime = readAndLogRate(fs, file, "No Throttle");
++
++      // Validate throttling
++      long expectedElapsedTime = fileLength / bandwidthPerSec * 1000; // in milliseconds
++      long acceptableError = 1000; // 1 second, allowing for a small margin of error
++      LOG.info("Throttle test - Expected elapsed time: {} ms, Actual elapsed time: {} ms, Acceptable error: {} ms",
++              expectedElapsedTime, throttleElapsedTime, acceptableError);
++      assertTrue(throttleElapsedTime >= expectedElapsedTime - acceptableError);
++    }
++  }
++
++  private long readAndLogRate(DistributedFileSystem fs, Path file, String label) throws Exception {
++    final long start = monotonicNow();
++    long bytesRead = 0;
++    byte[] buffer = new byte[1024 * 1024]; // 1MB buffer
++
++    try (InputStream in = fs.open(file)) {
++      int bytes;
++      int count = 0;
++      while ((bytes = in.read(buffer)) != -1) {
++        count++;
++        bytesRead += bytes;
++        if (count % 16 == 0) {
++          long currentTime = monotonicNow();
++          long elapsedTime = currentTime - start;
++
++          // Log after each buffer read
++          double rate = (bytesRead / 1024.0 / 1024.0) / (elapsedTime / 1000.0); // MB/s
++          LOG.info("{} - Time elapsed: {} ms, Bytes read: {} MB, Instantaneous rate: {} MB/s", label, elapsedTime, bytesRead/1024.0/1024.0, rate);
++        }
++      }
++    }
++    return monotonicNow() - start;
++  }
++}
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/tools/TestDFSAdmin.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/tools/TestDFSAdmin.java
+index d7fee5f1f80..682e033bf29 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/tools/TestDFSAdmin.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/tools/TestDFSAdmin.java
+@@ -346,7 +346,7 @@ public void testDataNodeGetReconfigurableProperties() throws IOException, Interr
+     final List<String> outs = Lists.newArrayList();
+     final List<String> errs = Lists.newArrayList();
+     getReconfigurableProperties("datanode", address, outs, errs);
+-    assertEquals(24, outs.size());
++    assertEquals(25, outs.size());
+     assertEquals(DFSConfigKeys.DFS_DATANODE_DATA_DIR_KEY, outs.get(1));
+   }
+ 
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/resources/logback.xml b/hadoop-hdfs-project/hadoop-hdfs/src/test/resources/logback.xml
+new file mode 100644
+index 00000000000..b7bb4fffcec
+--- /dev/null
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/resources/logback.xml
+@@ -0,0 +1,13 @@
++<configuration>
++    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
++        <file>target/test-log.log</file>
++        <append>true</append>
++        <encoder>
++            <pattern>%date [%thread] %-5level %logger{36} - %msg%n</pattern>
++        </encoder>
++    </appender>
++
++    <root level="debug">
++        <appender-ref ref="FILE" />
++    </root>
++</configuration>

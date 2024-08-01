@@ -285,10 +285,19 @@ index 8c9abc3b0e12..c59d17f71920 100644
 +  }
  }
 diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-hs/src/test/java/org/apache/hadoop/mapreduce/v2/hs/TestJobHistory.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-hs/src/test/java/org/apache/hadoop/mapreduce/v2/hs/TestJobHistory.java
-index de0de7dfdacb..936c77221bbc 100644
+index de0de7dfdacb..36afbf22dac9 100644
 --- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-hs/src/test/java/org/apache/hadoop/mapreduce/v2/hs/TestJobHistory.java
 +++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-hs/src/test/java/org/apache/hadoop/mapreduce/v2/hs/TestJobHistory.java
-@@ -24,6 +24,7 @@
+@@ -18,16 +18,21 @@
+ 
+ package org.apache.hadoop.mapreduce.v2.hs;
+ 
++import java.lang.management.ManagementFactory;
++import java.lang.management.MemoryMXBean;
++import java.lang.management.MemoryUsage;
+ import java.util.Map;
+ 
+ import java.io.IOException;
  import java.util.LinkedList;
  import java.util.List;
  
@@ -296,7 +305,12 @@ index de0de7dfdacb..936c77221bbc 100644
  import org.apache.hadoop.conf.Configuration;
  import org.apache.hadoop.fs.FileContext;
  import org.apache.hadoop.fs.FileStatus;
-@@ -35,16 +36,27 @@
+ import org.apache.hadoop.fs.Path;
++import org.apache.hadoop.mapred.JobACLsManager;
+ import org.apache.hadoop.mapreduce.v2.api.records.JobId;
+ import org.apache.hadoop.mapreduce.v2.api.records.JobState;
+ import org.apache.hadoop.mapreduce.v2.hs.HistoryFileManager.HistoryFileInfo;
+@@ -35,16 +40,30 @@
  import org.apache.hadoop.mapreduce.v2.hs.webapp.dao.JobsInfo;
  import org.apache.hadoop.mapreduce.v2.jobhistory.JHAdminConfig;
  import org.apache.hadoop.mapreduce.v2.jobhistory.JobHistoryUtils;
@@ -323,12 +337,15 @@ index de0de7dfdacb..936c77221bbc 100644
 +import static org.mockito.Mockito.timeout;
 +import static org.mockito.Mockito.verify;
 +import static org.mockito.Mockito.when;
++import org.mockito.stubbing.Answer;
 +
 +import org.apache.hadoop.mapreduce.v2.app.job.Job;
++import org.mockito.invocation.InvocationOnMock;
++import org.mockito.stubbing.OngoingStubbing;
  
  public class TestJobHistory {
  
-@@ -58,13 +70,15 @@ public void testRefreshLoadedJobCache() throws Exception {
+@@ -58,13 +77,15 @@ public void testRefreshLoadedJobCache() throws Exception {
  
      Configuration conf = new Configuration();
      // Set the cache size to 2
@@ -345,7 +362,7 @@ index de0de7dfdacb..936c77221bbc 100644
      Job[] jobs = new Job[3];
      JobId[] jobIds = new JobId[3];
  
-@@ -84,14 +98,13 @@ public void testRefreshLoadedJobCache() throws Exception {
+@@ -84,14 +105,13 @@ public void testRefreshLoadedJobCache() throws Exception {
        storage.getFullJob(jobs[i].getID());
      }
  
@@ -365,7 +382,7 @@ index de0de7dfdacb..936c77221bbc 100644
      doReturn(conf).when(storage).createConf();
  
      when(fileInfo.loadJob()).thenReturn(jobs[0]).thenReturn(jobs[1])
-@@ -105,9 +118,223 @@ public void testRefreshLoadedJobCache() throws Exception {
+@@ -105,9 +125,383 @@ public void testRefreshLoadedJobCache() throws Exception {
  
      jobCache = storage.getLoadedJobCache();
  
@@ -438,6 +455,166 @@ index de0de7dfdacb..936c77221bbc 100644
 +      storage.getFullJob(lgJobs[i].getID());
 +    }
 +    assertTrue(jobCache.size() < prevSize);
++  }
++
++
++  // To mimic a big job
++  class LargeJob extends CompletedJob {
++    // The size of a Job (the max size of a task is 12000 according to Jira).
++    // So here we assume it can be as big as to have 5k tasks (according to Jira it can have up to 250k which is too large for a job)
++    private byte[] largeMemoryBlock = new byte[1024 * 12 * 1024 * 5];
++
++    public LargeJob(Configuration conf, JobId jobId, Path historyFile, boolean loadTasks, String userName, HistoryFileInfo info, JobACLsManager aclsMgr) throws IOException {
++      super(conf, jobId, historyFile, loadTasks, userName, info, aclsMgr);
++    }
++
++    public void allocateMemory() {
++      System.out.println("Job ID=" + getID() + ", largeMemoryBlock has been allocated");
++    }
++  }
++
++  @Test
++  public void testTasksCacheReal() throws Exception {
++    HistoryFileManager historyManager = mock(HistoryFileManager.class);
++    jobHistory = spy(new JobHistory());
++    doReturn(historyManager).when(jobHistory)
++            .createHistoryFileManager();
++
++    Configuration conf = new Configuration();
++    // Set the cache threshold to 50 tasks
++    conf.setInt(JHAdminConfig.MR_HISTORY_LOADED_TASKS_CACHE_SIZE, 50);
++    jobHistory.init(conf);
++    jobHistory.start();
++
++    CachedHistoryStorage storage = spy((CachedHistoryStorage) jobHistory
++            .getHistoryStorage());
++
++    assertTrue(storage.getUseLoadedTasksCache());
++    assertEquals(storage.getLoadedTasksCacheSize(), 50);
++
++    // Create a bunch of smaller jobs (<< 50 tasks)
++    final Job[] jobs = new Job[50];
++    final JobId[] jobIds = new JobId[50];
++    for (int i = 0; i < jobs.length; i++) {
++      jobIds[i] = mock(JobId.class);
++    }
++
++    HistoryFileInfo fileInfo = mock(HistoryFileInfo.class);
++    when(historyManager.getFileInfo(any(JobId.class))).thenReturn(fileInfo);
++//    when(fileInfo.loadJob()).thenReturn(jobs[0]).thenReturn(jobs[1])
++//            .thenReturn(jobs[2]).thenReturn(jobs[3]).thenReturn(jobs[4])
++//            .thenReturn(jobs[5]).thenReturn(jobs[6]).thenReturn(jobs[7])
++//            .thenReturn(jobs[8]).thenReturn(jobs[9]);
++
++// Assuming fileInfo is your mock and jobs is an array of Job objects
++    Answer<Job> answer = new Answer<Job>() {
++      private int count = 0;
++
++      @Override
++      public Job answer(InvocationOnMock invocation) throws Throwable {
++        System.out.println("answer has been called, count=" + count);
++        jobs[count] = mock(LargeJob.class);
++        when(jobs[count].getID()).thenReturn(jobIds[count]);
++        when(jobs[count].getTotalMaps()).thenReturn(25);
++        when(jobs[count].getTotalReduces()).thenReturn(25);
++        Job result = jobs[count];
++        count = Math.min(count + 1, jobs.length - 1); // Prevent ArrayIndexOutOfBoundsException
++        return result;
++      }
++    };
++    when(fileInfo.loadJob()).thenAnswer(answer);
++
++    long monitorInterval = 5;
++    MemoryMonitor monitor = new jvmMetricsMemoryMonitor(monitorInterval);
++    Thread monitorThread = new Thread(monitor);
++    monitorThread.start();
++
++    Thread.sleep(monitorInterval * 10);
++
++    // getFullJob will put the job in the cache if it isn't there
++    Cache<JobId, Job> jobCache = storage.getLoadedJobCache();
++    for (int i = 0; i < jobs.length; i++) {
++//      storage.getFullJob(jobs[i].getID());
++      storage.getFullJob(jobIds[i]);
++    }
++
++    Thread.sleep(monitorInterval * 10);
++    monitor.stop();
++    monitorThread.join();
++
++    System.out.println("testTasksCacheReal finished");
++  }
++
++  abstract class MemoryMonitor implements Runnable {
++    protected boolean isRunning;
++    protected long interval;
++
++    public MemoryMonitor (long interval) {
++      this.interval = interval;
++      isRunning = false;
++    }
++
++    @Override
++    public void run() {
++      isRunning = true;
++
++      try {
++        while (isRunning) {
++          printMemoryUsage();
++          Thread.sleep(interval);
++        }
++      } catch (InterruptedException e) {
++        e.printStackTrace();
++      }
++    }
++
++    public void stop() {
++      isRunning = false;
++    }
++
++    abstract public void printMemoryUsage();
++  }
++
++  class systemMemoryMonitor extends MemoryMonitor {
++    Runtime runtime;
++    long maxMemory;
++    long totalMemory;
++
++    public systemMemoryMonitor(long interval) {
++      super(interval);
++      runtime = Runtime.getRuntime();
++      maxMemory = runtime.maxMemory(); // Max memory the JVM can use
++      totalMemory = runtime.totalMemory(); // Total memory currently available to the JVM
++      System.out.println("Max memory the JVM will attempt to use (bytes): " + maxMemory);
++      System.out.println("Total memory available to JVM (bytes): " + totalMemory);
++    }
++
++    @Override
++    public void printMemoryUsage() {
++      long usedMemory = totalMemory - runtime.freeMemory();
++      System.out.println("Used memory (MB): " + usedMemory / 1000000);
++    }
++  }
++
++
++  class jvmMetricsMemoryMonitor extends MemoryMonitor {
++    MemoryMXBean memoryMXBean;
++
++    public jvmMetricsMemoryMonitor(long interval) {
++      super(interval);
++      memoryMXBean = ManagementFactory.getMemoryMXBean();
++      MemoryUsage heapMemoryUsage = memoryMXBean.getHeapMemoryUsage();
++      MemoryUsage nonHeapMemoryUsage = memoryMXBean.getNonHeapMemoryUsage();
++      System.out.println("Heap memory (MB): " + heapMemoryUsage + "\tNon-heap memory (MB): " + nonHeapMemoryUsage);
++    }
++
++    @Override
++    public void printMemoryUsage() {
++      MemoryUsage heapMemoryUsage = memoryMXBean.getHeapMemoryUsage();
++      MemoryUsage nonHeapMemoryUsage = memoryMXBean.getNonHeapMemoryUsage();
++      System.out.println("Used heap memory (MB): " + memoryMXBean.getHeapMemoryUsage().getUsed() / (1024 * 1024) +
++              "\tUsed non-heap memory (MB): " + memoryMXBean.getNonHeapMemoryUsage().getUsed() / (1024 * 1024));
++    }
 +  }
 +
 +  @Test

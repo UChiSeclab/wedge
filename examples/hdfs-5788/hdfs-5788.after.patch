@@ -1,0 +1,380 @@
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/CHANGES.txt b/hadoop-hdfs-project/hadoop-hdfs/CHANGES.txt
+index 99487004cfa2..77252a54c900 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/CHANGES.txt
++++ b/hadoop-hdfs-project/hadoop-hdfs/CHANGES.txt
+@@ -212,6 +212,9 @@ Release 2.4.0 - UNRELEASED
+     HDFS-5434. Change block placement policy constructors from package private
+     to protected. (Buddy Taylor via Arpit Agarwal)
+ 
++    HDFS-5788. listLocatedStatus response can be very large. (Nathan Roberts
++    via kihwal)
++
+   OPTIMIZATIONS
+ 
+     HDFS-5239.  Allow FSNamesystem lock fairness to be configurable (daryn)
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSDirectory.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSDirectory.java
+index 04edeab79774..8b9fad1a5489 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSDirectory.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSDirectory.java
+@@ -171,7 +171,6 @@ public int getWriteHoldCount() {
+         DFSConfigKeys.DFS_LIST_LIMIT, DFSConfigKeys.DFS_LIST_LIMIT_DEFAULT);
+     this.lsLimit = configuredLimit>0 ?
+         configuredLimit : DFSConfigKeys.DFS_LIST_LIMIT_DEFAULT;
+-
+     this.contentCountLimit = conf.getInt(
+         DFSConfigKeys.DFS_CONTENT_SUMMARY_LIMIT_KEY,
+         DFSConfigKeys.DFS_CONTENT_SUMMARY_LIMIT_DEFAULT);
+@@ -1532,6 +1531,11 @@ void unprotectedReplaceINodeFile(final String path, final INodeFile oldnode,
+   /**
+    * Get a partial listing of the indicated directory
+    *
++   * We will stop when any of the following conditions is met:
++   * 1) this.lsLimit files have been added
++   * 2) needLocation is true AND enough files have been added such
++   * that at least this.lsLimit block locations are in the response
++   *
+    * @param src the directory name
+    * @param startAfter the name to start listing after
+    * @param needLocation if block locations are returned
+@@ -1563,14 +1567,30 @@ DirectoryListing getListing(String src, byte[] startAfter,
+       int startChild = INodeDirectory.nextChild(contents, startAfter);
+       int totalNumChildren = contents.size();
+       int numOfListing = Math.min(totalNumChildren-startChild, this.lsLimit);
++      int locationBudget = this.lsLimit;
++      int listingCnt = 0;
+       HdfsFileStatus listing[] = new HdfsFileStatus[numOfListing];
+-      for (int i=0; i<numOfListing; i++) {
++      for (int i=0; i<numOfListing && locationBudget>0; i++) {
+         INode cur = contents.get(startChild+i);
+         listing[i] = createFileStatus(cur.getLocalNameBytes(), cur,
+             needLocation, snapshot);
++        listingCnt++;
++        if (needLocation) {
++            // Once we  hit lsLimit locations, stop.
++            // This helps to prevent excessively large response payloads.
++            // Approximate #locations with locatedBlockCount() * repl_factor
++            LocatedBlocks blks = 
++                ((HdfsLocatedFileStatus)listing[i]).getBlockLocations();
++            locationBudget -= (blks == null) ? 0 :
++               blks.locatedBlockCount() * listing[i].getReplication();
++        }
++      }
++      // truncate return array if necessary
++      if (listingCnt < numOfListing) {
++          listing = Arrays.copyOf(listing, listingCnt);
+       }
+       return new DirectoryListing(
+-          listing, totalNumChildren-startChild-numOfListing);
++          listing, totalNumChildren-startChild-listingCnt);
+     } finally {
+       readUnlock();
+     }
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestINodeFile.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestINodeFile.java
+index 565963412442..fdf300cafa31 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestINodeFile.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestINodeFile.java
+@@ -25,7 +25,12 @@
+ 
+ import java.io.FileNotFoundException;
+ import java.io.IOException;
++import java.lang.management.ManagementFactory;
++import java.lang.management.MemoryMXBean;
++import java.lang.management.MemoryUsage;
++import java.util.ArrayList;
+ import java.util.Arrays;
++import java.util.LinkedList;
+ import java.util.List;
+ 
+ import org.apache.commons.logging.Log;
+@@ -931,7 +936,76 @@ public void testDotdotInodePath() throws Exception {
+       }
+     }
+   }
+-  
++  @Test
++  public void testLocationLimitInListingOps() throws Exception {
++    final Configuration conf = new Configuration();
++    conf.setInt(DFSConfigKeys.DFS_LIST_LIMIT, 9); // 3 blocks * 3 replicas
++    MiniDFSCluster cluster = null;
++    try {
++      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(3).build();
++      cluster.waitActive();
++      final DistributedFileSystem hdfs = cluster.getFileSystem();
++      ArrayList<String> source = new ArrayList<String>();
++
++      // tmp1 holds files with 3 blocks, 3 replicas
++      // tmp2 holds files with 3 blocks, 1 replica
++      hdfs.mkdirs(new Path("/tmp1"));
++      hdfs.mkdirs(new Path("/tmp2"));
++
++      source.add("f1");
++      source.add("f2");
++
++      int numEntries = source.size();
++      for (int j=0;j<numEntries;j++) {
++          DFSTestUtil.createFile(hdfs, new Path("/tmp1/"+source.get(j)), 4096,
++          3*1024-100, 1024, (short) 3, 0);
++      }
++
++      byte[] start = HdfsFileStatus.EMPTY_NAME;
++      for (int j=0;j<numEntries;j++) {
++          DirectoryListing dl = cluster.getNameNodeRpc().getListing("/tmp1",
++              start, true);
++          assertTrue(dl.getPartialListing().length == 1);
++          for (int i=0;i<dl.getPartialListing().length; i++) {
++              source.remove(dl.getPartialListing()[i].getLocalName());
++          }
++          start = dl.getLastName();
++      }
++      // Verify we have listed all entries in the directory.
++      assertTrue(source.size() == 0);
++
++      // Now create 6 files, each with 3 locations. Should take 2 iterations of 3
++      source.add("f1");
++      source.add("f2");
++      source.add("f3");
++      source.add("f4");
++      source.add("f5");
++      source.add("f6");
++      numEntries = source.size();
++      for (int j=0;j<numEntries;j++) {
++          DFSTestUtil.createFile(hdfs, new Path("/tmp2/"+source.get(j)), 4096,
++          3*1024-100, 1024, (short) 1, 0);
++      }
++
++      start = HdfsFileStatus.EMPTY_NAME;
++      for (int j=0;j<numEntries/3;j++) {
++          DirectoryListing dl = cluster.getNameNodeRpc().getListing("/tmp2",
++              start, true);
++          assertTrue(dl.getPartialListing().length == 3);
++          for (int i=0;i<dl.getPartialListing().length; i++) {
++              source.remove(dl.getPartialListing()[i].getLocalName());
++          }
++          start = dl.getLastName();
++      }
++      // Verify we have listed all entries in tmp2.
++      assertTrue(source.size() == 0);
++  } finally {
++      if (cluster != null) {
++        cluster.shutdown();
++      }
++    }
++  }
++
+   @Test
+   public void testFilesInGetListingOps() throws Exception {
+     final Configuration conf = new Configuration();
+@@ -977,4 +1051,195 @@ public void testFilesInGetListingOps() throws Exception {
+       }
+     }
+   }
++
++  @Test
++  public void testListLocatedStatusTooBig() throws Exception {
++    final Configuration conf = new Configuration();
++    // To speed up the createFile procedure since the sizes of listStatus or listLocatedStatus is neither relevant to the file (block) size
++    final int blockSize = 1;
++    // Total entries = 300 (numFiles) * 300 (numBlocksPerFile) * 1 (replicationFactor) is similar to the workload described in Jira (7000 * 4 * 3)
++    // Having numFiles = numBlocksPerFile can magnify the OOM effect
++    final int numFiles = 300;
++    final int numLocatedFiles = 1;
++    final int numBlocksPerFile = 300;
++    final int replicationFactor = 1;
++    final int numDataNodes = replicationFactor;
++    final int dfsListLimit = numLocatedFiles * numBlocksPerFile * replicationFactor;
++
++    // Make sure it's divisible by numFiles (r320 has 16 threads)
++    int numWriteThreads = 20;
++
++    // It's necessary if block size is 1
++    conf.setInt("io.bytes.per.checksum", 1);
++    conf.setInt(DFSConfigKeys.DFS_LIST_LIMIT, dfsListLimit); // 10 files * 100 blocks * 3 replicas
++
++    MiniDFSCluster cluster = null;
++    try {
++      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(numDataNodes).build();
++      cluster.waitActive();
++      final DistributedFileSystem hdfs = cluster.getFileSystem();
++      hdfs.mkdirs(new Path("/tmp1"));
++
++      final int numFilesPerThread = numFiles / numWriteThreads;
++      Thread writeThreads[] = new Thread[numWriteThreads];
++      final int writtenFiles[] = new int[numWriteThreads];
++
++      long startWriteTime = System.currentTimeMillis();
++
++      // Multiple write threads speed up the process
++      for (int i = 0; i < numWriteThreads; ++i) {
++        final int threadNum = i;
++        writeThreads[threadNum] = new Thread(new Runnable() {
++          @Override
++          public void run() {
++            int startNum = threadNum * numFilesPerThread;
++            int endNum = startNum + numFilesPerThread;
++
++            try {
++              for (int j = startNum; j < endNum; j++) {
++                DFSTestUtil.createFile(hdfs, new Path("/tmp1/" + "file" + j),
++                        numBlocksPerFile * blockSize,
++                        numBlocksPerFile * blockSize,
++                        blockSize,
++                        (short) replicationFactor, 0);
++                System.out.println("Thread " + threadNum + " created " + (j + 1 - startNum) + " files");
++                writtenFiles[threadNum]++;
++              }
++            } catch (IOException e) {
++              e.printStackTrace();
++            }
++          }
++        });
++        writeThreads[threadNum].start();
++      }
++
++      for (int i = 0; i < numWriteThreads; ++i) {
++        writeThreads[i].join();
++        assertEquals(numFilesPerThread, writtenFiles[i]);
++      }
++      System.out.println(" Finish createFile, time=" + ((System.currentTimeMillis() - startWriteTime) / 1000));
++
++      int monitorIntervalMs = 5;
++      MemoryMonitor monitor = new jvmMetricsMemoryMonitor(monitorIntervalMs);
++      Thread monitorThread = new Thread(monitor);
++      monitorThread.start();
++      Thread.sleep(100);
++
++      final int numListingThreads = 20;
++      Thread listingThreads[] = new Thread[numListingThreads];
++      final MiniDFSCluster finalCluster = cluster;
++      for (int i = 0; i < numListingThreads; i++) {
++        final int threadNum = i;
++        listingThreads[i] = new Thread(new Runnable() {
++          @Override
++          public void run() {
++              try {
++                byte[] start = HdfsFileStatus.EMPTY_NAME;
++                while (true) {
++                  DirectoryListing dl = finalCluster.getNameNodeRpc().getListing("/tmp1", start, true);
++
++                  if (dl == null) {
++                    break;
++                  }
++                  start = dl.getLastName();
++                  System.out.println("Thread " + threadNum + ", listing size=" + dl.getPartialListing().length);
++                }
++              } catch (Exception e) {
++                e.printStackTrace();
++              }
++          }
++        });
++
++        listingThreads[i].start();
++      }
++
++      for (int i = 0; i < numListingThreads; i++) {
++        listingThreads[i].join();
++      }
++
++      Thread.sleep(100);
++
++      monitor.stop();
++      monitorThread.join();
++
++      System.out.println("testListLocatedStatusTooBig finished");
++    } finally {
++      if (cluster != null) {
++        cluster.shutdown();
++      }
++    }
++  }
++
++  abstract class MemoryMonitor implements Runnable {
++    protected boolean isRunning;
++    protected long interval;
++
++    public MemoryMonitor (long interval) {
++      this.interval = interval;
++      isRunning = false;
++    }
++
++    @Override
++    public void run() {
++      isRunning = true;
++
++      try {
++        while (isRunning) {
++          printMemoryUsage();
++          Thread.sleep(interval);
++        }
++      } catch (InterruptedException e) {
++        e.printStackTrace();
++      }
++    }
++
++    public void stop() {
++      isRunning = false;
++    }
++
++    abstract public void printMemoryUsage();
++  }
++
++  class systemMemoryMonitor extends MemoryMonitor {
++    Runtime runtime;
++    long maxMemory;
++    long totalMemory;
++
++    public systemMemoryMonitor(long interval) {
++      super(interval);
++      runtime = Runtime.getRuntime();
++      maxMemory = runtime.maxMemory(); // Max memory the JVM can use
++      totalMemory = runtime.totalMemory(); // Total memory currently available to the JVM
++      System.out.println("Max memory the JVM will attempt to use (bytes): " + maxMemory);
++      System.out.println("Total memory available to JVM (bytes): " + totalMemory);
++    }
++
++    @Override
++    public void printMemoryUsage() {
++      long usedMemory = totalMemory - runtime.freeMemory();
++      System.out.println("Used memory (MB): " + usedMemory / 1000000);
++    }
++  }
++
++
++  class jvmMetricsMemoryMonitor extends MemoryMonitor {
++    MemoryMXBean memoryMXBean;
++
++    public jvmMetricsMemoryMonitor(long interval) {
++      super(interval);
++      memoryMXBean = ManagementFactory.getMemoryMXBean();
++      MemoryUsage heapMemoryUsage = memoryMXBean.getHeapMemoryUsage();
++      MemoryUsage nonHeapMemoryUsage = memoryMXBean.getNonHeapMemoryUsage();
++      System.out.println("Heap memory (MB): " + heapMemoryUsage + "\tNon-heap memory (MB): " + nonHeapMemoryUsage);
++    }
++
++    @Override
++    public void printMemoryUsage() {
++      MemoryUsage heapMemoryUsage = memoryMXBean.getHeapMemoryUsage();
++      MemoryUsage nonHeapMemoryUsage = memoryMXBean.getNonHeapMemoryUsage();
++      System.out.println("Used heap memory (MB): " + memoryMXBean.getHeapMemoryUsage().getUsed() / (1024 * 1024) +
++              "\tUsed non-heap memory (MB): " + memoryMXBean.getNonHeapMemoryUsage().getUsed() / (1024 * 1024));
++    }
++  }
++
+ }
+diff --git a/hadoop-project/pom.xml b/hadoop-project/pom.xml
+index 22cd5fe5d2bb..17b4142816d8 100644
+--- a/hadoop-project/pom.xml
++++ b/hadoop-project/pom.xml
+@@ -967,9 +967,10 @@
+         <artifactId>maven-surefire-plugin</artifactId>
+         <configuration>
+           <reuseForks>false</reuseForks>
+-          <forkedProcessTimeoutInSeconds>900</forkedProcessTimeoutInSeconds>
+-          <argLine>-Xmx1024m -XX:+HeapDumpOnOutOfMemoryError</argLine>
+-          <environmentVariables>
++<!--          <forkedProcessTimeoutInSeconds>900</forkedProcessTimeoutInSeconds>-->
++<!--          <argLine>-Xmx1024m -XX:+HeapDumpOnOutOfMemoryError</argLine>-->
++            <argLine>-Xmx128m -Xms64m</argLine>
++            <environmentVariables>
+             <!-- HADOOP_HOME required for tests on Windows to find winutils -->
+             <HADOOP_HOME>${hadoop.common.build.dir}</HADOOP_HOME>
+             <LD_LIBRARY_PATH>${env.LD_LIBRARY_PATH}:${project.build.directory}/native/target/usr/local/lib:${hadoop.common.build.dir}/native/target/usr/local/lib</LD_LIBRARY_PATH>
