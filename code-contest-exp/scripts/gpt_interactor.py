@@ -2,6 +2,7 @@ import os
 import json
 import requests
 import random
+import subprocess
 
 import tiktoken
 
@@ -40,10 +41,20 @@ def cut_string(input_string, begin_token='```python', end_token='```'):
   result = input_string[start_index:end_index]
   return result
 
-def write_test_generator(problem_dir, exp_type, problem_description, solution_codes):
+def write_test_generator(problem_dir, exp_type, problem_description, solution_codes, ill_tests:str=None, error:subprocess.CalledProcessError=None):
     prompt = "Problem Statement\n" + problem_description + "\n------------------------------\n"
     prompt += "\n------------------------------\n".join(solution_codes) + "\n------------------------------\n"
-    prompt += "\n\nWrite a python script that can generate test cases for a programming problem with the provided problem statement and solution codes. The test case should be focus on exhausting the code to get time limit exceeded and should follow the input format. The python script should be able to read an argument which specify a directory and write all the testcases as 'test_01.in', 'test_02.in', ... into the directory."
+    prompt += "\n\nWrite a python script that can generate test cases for a programming problem with the provided problem statement and solution codes. Notice that something like \"10^5\" will be written as \"105\" in most of the time, in this case, you should regard the maxmimum constraint as 100000 instead of 105. The test case should be focus on exhausting the code to get time limit exceeded and should follow the input format. Note that you need to extract the input constraints from the problem statement and encode the constraints into the test case generator. The python script should be able to read an argument (the only argument) which specifies a directory and write all the testcases as 'test_01.in', 'test_02.in', ... into the directory. Please generate 10 test cases. "
+    
+    if ill_tests:
+        prompt += "\n------------------------------\n"
+        prompt += "The following previously test generation script is problematic. Please avoid generating problematic tests.\n"
+        prompt += ill_tests
+        assert error is not None
+        prompt += "\n------------------------------\n"
+        prompt += "The following error occurred during the execution of the above tests.\n"
+        # append the error message and traceback
+        prompt += error.stderr
 
     res = request(prompt)
     cost = num_tokens_from_string(prompt) * 5 / 1000000 + num_tokens_from_string(res) * 15 / 1000000
