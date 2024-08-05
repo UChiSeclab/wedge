@@ -5,7 +5,7 @@ import re
 import time
 from queue import Queue
 import threading
-from init import *
+from scripts import *
 from tqdm import tqdm
 
 def run_test(java_solution_dir, class_name, idir, odir, time_limit=1):
