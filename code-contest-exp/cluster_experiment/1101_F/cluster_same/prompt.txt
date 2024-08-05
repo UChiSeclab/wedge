@@ -1,0 +1,486 @@
+Problem Statement
+There are n cities along the road, which can be represented as a straight line. The i-th city is situated at the distance of a_i kilometers from the origin. All cities are situated in the same direction from the origin. There are m trucks travelling from one city to another. 
+
+Each truck can be described by 4 integers: starting city s_i, finishing city f_i, fuel consumption c_i and number of possible refuelings r_i. The i-th truck will spend c_i litres of fuel per one kilometer. 
+
+When a truck arrives in some city, it can be refueled (but refueling is impossible in the middle of nowhere). The i-th truck can be refueled at most r_i times. Each refueling makes truck's gas-tank full. All trucks start with full gas-tank.
+
+All trucks will have gas-tanks of the same size V litres. You should find minimum possible V such that all trucks can reach their destinations without refueling more times than allowed.
+
+Input
+
+First line contains two integers n and m (2 ≤ n ≤ 400, 1 ≤ m ≤ 250000) — the number of cities and trucks.
+
+The second line contains n integers a_1, a_2, ..., a_n (1 ≤ a_i ≤ 10^9, a_i < a_{i+1}) — positions of cities in the ascending order.
+
+Next m lines contains 4 integers each. The i-th line contains integers s_i, f_i, c_i, r_i (1 ≤ s_i < f_i ≤ n, 1 ≤ c_i ≤ 10^9, 0 ≤ r_i ≤ n) — the description of the i-th truck.
+
+Output
+
+Print the only integer — minimum possible size of gas-tanks V such that all trucks can reach their destinations.
+
+Example
+
+Input
+
+
+7 6
+2 5 7 10 14 15 17
+1 3 10 0
+1 7 12 7
+4 5 13 3
+4 7 10 1
+4 7 10 1
+1 5 11 2
+
+
+Output
+
+
+55
+
+Note
+
+Let's look at queries in details: 
+
+  1. the 1-st truck must arrive at position 7 from 2 without refuelling, so it needs gas-tank of volume at least 50. 
+  2. the 2-nd truck must arrive at position 17 from 2 and can be refueled at any city (if it is on the path between starting point and ending point), so it needs gas-tank of volume at least 48. 
+  3. the 3-rd truck must arrive at position 14 from 10, there is no city between, so it needs gas-tank of volume at least 52. 
+  4. the 4-th truck must arrive at position 17 from 10 and can be refueled only one time: it's optimal to refuel at 5-th city (position 14) so it needs gas-tank of volume at least 40. 
+  5. the 5-th truck has the same description, so it also needs gas-tank of volume at least 40. 
+  6. the 6-th truck must arrive at position 14 from 2 and can be refueled two times: first time in city 2 or 3 and second time in city 4 so it needs gas-tank of volume at least 55. 
+------------------------------
+import java.io.*;
+import java.util.*;
+
+public class B{
+
+	static long INF=(long)1e18;
+	public static void main(String[] args) throws IOException {
+		Scanner sc=new Scanner();
+		PrintWriter out=new PrintWriter(System.out);
+		int n=sc.nextInt(),m=sc.nextInt();
+		int []a=new int [n];
+		for(int i=0;i<n;i++)
+			a[i]=sc.nextInt();
+		long ans=1;
+		int []indices=new int [m],S=new int [m],F=new int [m],C=new int [m],R=new int [m];
+		for(int i=0;i<m;i++) {
+			indices[i]=i;
+			S[i]=sc.nextInt()-1;
+			F[i]=sc.nextInt()-1;
+			C[i]=sc.nextInt();
+			R[i]=sc.nextInt();
+		}
+		Random rand =new Random();
+		for(int i=0;i<m;i++) {
+			int r=rand.nextInt(m);
+			
+//			System.out.println(r);
+			int tmp=indices[r];
+			indices[r]=indices[i];
+			indices[i]=tmp;
+		}
+				for(int j=0;j<m;j++) {
+//			int s=sc.nextInt()-1,f=sc.nextInt()-1,c=sc.nextInt(),r=sc.nextInt();
+			int idx=indices[j];
+			int s=S[idx],f=F[idx],c=C[idx],r=R[idx];
+			long start=ans;
+				boolean ok=true;
+				long fuel=start;
+				int refuel=r;
+				for(int i=s+1;i<=f && ok;i++) {
+					long needed=(a[i]-a[i-1])*1l*c;
+					fuel-=needed;
+					if(fuel<0) {
+						fuel=start-needed;
+						if(refuel--==0 || fuel<0)
+							ok=false;
+					}
+				}
+				if(ok) {
+					continue;
+				}
+				
+				
+			
+			long lo=ans,hi=INF,curr=INF;
+			while(lo<=hi) {
+				 start=lo+hi>>1;
+				 ok=true;
+				 fuel=start;
+				 refuel=r;
+				for(int i=s+1;i<=f && ok;i++) {
+					long needed=(a[i]-a[i-1])*1l*c;
+					fuel-=needed;
+					if(fuel<0) {
+						fuel=start-needed;
+						if(refuel--==0 || fuel<0)
+							ok=false;
+					}
+				}
+				if(ok) {
+					curr=start;
+					hi=start-1;
+				}
+				else
+					lo=start+1;
+				
+			}
+			ans=Math.max(ans, curr);
+		
+		}
+		out.println(ans);
+		out.close();
+
+	}
+	static class pair{
+		int l,r,idx;
+		pair(int a,int b,int c){
+			l=a;
+			r=b;
+			idx=c;
+		}
+	}
+	static class Scanner
+	{
+		BufferedReader br;
+		StringTokenizer st;
+		Scanner(){
+			br=new BufferedReader(new InputStreamReader(System.in));
+		}
+		Scanner(String fileName) throws FileNotFoundException{
+			br=new BufferedReader(new FileReader(fileName));
+		}
+		String next() throws IOException {
+			while(st==null || !st.hasMoreTokens())
+				st=new StringTokenizer(br.readLine());
+			return st.nextToken();
+		}
+		String nextLine() throws IOException {
+			return br.readLine();
+		}
+		int nextInt() throws IOException{
+			return Integer.parseInt(next());
+		}
+		long nextLong()  throws NumberFormatException, IOException {
+			return Long.parseLong(next());
+		}
+		double nextDouble() throws NumberFormatException, IOException {
+			return Double.parseDouble(next());
+		}
+	}
+}
+------------------------------
+import java.io.*;
+import java.util.*;
+public class cf1101f {
+
+	public static void main(String[] args)throws IOException {
+		BufferedReader bf=new BufferedReader(new InputStreamReader(System.in));
+		PrintWriter out=new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.out)));
+		StringTokenizer st=new StringTokenizer(bf.readLine());
+		int n=Integer.parseInt(st.nextToken());
+		int m=Integer.parseInt(st.nextToken());
+		st=new StringTokenizer(bf.readLine());
+		int[] a=new int[n];
+		for(int i=0;i<n;i++) {
+			a[i]=Integer.parseInt(st.nextToken());
+		}
+		int[] s=new int[m];
+		int[] f=new int[m];
+		int[] c=new int[m];
+		pair[] r=new pair[m];
+		for(int i=0;i<m;i++) {
+			st=new StringTokenizer(bf.readLine());
+			s[i]=Integer.parseInt(st.nextToken())-1;
+			f[i]=Integer.parseInt(st.nextToken())-1;
+			c[i]=Integer.parseInt(st.nextToken());
+			r[i]=new pair(Integer.parseInt(st.nextToken()),i);
+		}
+		Arrays.sort(r);
+		int[][] dp=new int[n][n];
+		int[][] dp2=new int[n][n];
+		long v=0;
+		for(int i=0;i<n;i++) {
+			for(int j=i+1;j<n;j++) {
+				dp[i][j]=a[j]-a[i];
+			}
+		}
+		int cur=0;
+		for(int i=0;i<=n;i++) {
+			while(cur<m&&r[cur].a==i) {
+				int x=r[cur].b;
+				v=Math.max(v, (long)dp[s[x]][f[x]]*c[x]);
+				cur++;
+			}
+			for(int j=0;j<n;j++) {
+				int l=j;
+				for(int k=j+1;k<n;k++) {
+					while(l<k&&dp[j][l]<a[k]-a[l]) {
+						l++;
+					}
+					dp2[j][k]=Math.min(dp[j][l], a[k]-a[l-1]);
+				}
+			}
+			int[][] swap=dp;
+			dp=dp2;
+			dp2=swap;
+		}
+		out.println(v);
+		out.close();
+	}
+	static class pair implements Comparable<pair>{
+		int a;int b;
+		public pair(int x, int y) {
+			a=x;b=y;
+		}
+		public int compareTo(pair p) {
+			return a-p.a;
+		}
+	}
+}
+
+------------------------------
+import java.util.*;
+public class Main {
+	public static void main(String[] args) {
+		Scanner in=new Scanner(System.in);
+		int n=in.nextInt();
+		int m=in.nextInt();
+		int[] a=new int[n];
+		int[] s=new int[m];
+		int[] f=new int[m];
+		int[] c=new int[m];
+		int[] r=new int[m];
+		for (int i=0;i<n;++i) a[i]=in.nextInt();
+		for (int i=0;i<m;++i) {
+			s[i]=in.nextInt();
+			f[i]=in.nextInt();
+			c[i]=in.nextInt();
+			r[i]=in.nextInt();
+			--s[i];
+			--f[i];
+		}
+		// dp[i][j][k]=max(dp[i][l][k-1]+a[j]-a[l]);
+		int[][][] dp=new int[n][n][n];
+		int inf=0x3f3f3f3f;
+		for (int i=0;i<n;++i) {
+			for (int j=i;j<n;++j) dp[i][j][0]=a[j]-a[i];
+			for (int k=1;k<n;++k) {
+				int l=i;
+				for (int j=i+k+1;j<n;++j) {
+					while (l+1<j&&Math.max(dp[i][l][k-1],a[j]-a[l])>Math.max(dp[i][l+1][k-1],a[j]-a[l+1]))
+						++l;
+					dp[i][j][k]=Math.max(dp[i][l][k-1],a[j]-a[l]);
+				}
+			}
+		}
+		long res=0;
+		for (int i=0;i<m;++i) res=Math.max(res,(long)c[i]*dp[s[i]][f[i]][Math.min(r[i],f[i]-s[i]-1)]);
+		System.out.println(res);
+	}
+}
+------------------------------
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.StringTokenizer;
+
+public class F {
+	
+	static class FastReader 
+    { 
+        BufferedReader br; 
+        StringTokenizer st; 
+  
+        public FastReader() 
+        { 
+            br = new BufferedReader(new
+                     InputStreamReader(System.in)); 
+        } 
+  
+        String next() 
+        { 
+            while (st == null || !st.hasMoreElements()) 
+            { 
+                try
+                { 
+                    st = new StringTokenizer(br.readLine()); 
+                } 
+                catch (IOException  e) 
+                { 
+                    e.printStackTrace(); 
+                } 
+            } 
+            return st.nextToken(); 
+        } 
+  
+        int nextInt() 
+        { 
+            return Integer.parseInt(next()); 
+        } 
+  
+        long nextLong() 
+        { 
+            return Long.parseLong(next()); 
+        } 
+  
+        double nextDouble() 
+        { 
+            return Double.parseDouble(next()); 
+        } 
+  
+        String nextLine() 
+        { 
+            String str = ""; 
+            try
+            { 
+                str = br.readLine(); 
+            } 
+            catch (IOException e) 
+            { 
+                e.printStackTrace(); 
+            } 
+            return str; 
+        } 
+    }
+	static class Node
+	{
+		int s;
+		int f;
+		int c;
+		int r;
+		Node(int s,int f,int c,int r)
+		{
+			this.s = s;
+			this.f = f;
+			this.c = c;
+			this.r = r;
+		}
+	}
+	static int a[];
+	static boolean check(long ans,Node p)
+	{	
+		long f= ans;
+        int c=0;
+        for(int j=p.s+1;j<=p.f;j++){
+            if(f-(long)(a[j]-a[j-1])*p.c<0){
+                return false;
+            }
+            f-=(long)(a[j]-a[j-1])*p.c;
+            if(j<p.f && f-(long)(a[j+1]-a[j])*p.c<0){
+                f= ans;
+                c++;
+                if(c>p.r){
+                    return false;
+                }
+            }
+        }
+        return true;
+	}
+	static long search(Node p){
+        long l=1,r=1000000000;
+        r*=r;
+        long ans= 0;
+        while(l<=r){
+            long m=(l+r)>>1;
+            if(check(m,p)){
+                ans=m;
+                r=m-1;
+            }else l=m+1;
+        }
+        return ans;
+    }
+	public static void main(String[] args) 
+	{
+		OutputStream outputStream = System.out;
+        FastReader sc = new FastReader();
+        PrintWriter out = new PrintWriter(outputStream);
+        int n = sc.nextInt();
+        int m = sc.nextInt();
+        a = new int[n+1];
+        for(int i = 1; i <= n; i++)
+        	a[i] = sc.nextInt();
+        
+        ArrayList<Node> ar = new ArrayList<>();
+        for(int i = 0; i < m; i++)
+        	ar.add(new Node(sc.nextInt(),sc.nextInt(),sc.nextInt(),sc.nextInt()));
+        
+        Collections.shuffle(ar);
+        long ans = 0;
+        for(Node p: ar)
+        {
+        	if(!check(ans,p))
+        	{
+        		ans = search(p);
+        	}
+        }
+        out.println(ans);
+        out.close();
+	}
+	
+}
+
+------------------------------
+// upsolve with rainboy
+import java.io.*;
+import java.util.*;
+
+public class CF1101F {
+	public static void main(String[] args) throws IOException {
+		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+		StringTokenizer st = new StringTokenizer(br.readLine());
+		int n = Integer.parseInt(st.nextToken());
+		int m = Integer.parseInt(st.nextToken());
+		st = new StringTokenizer(br.readLine());
+		int[] aa = new int[n];
+		for (int i = 0; i < n; i++)
+			aa[i] = Integer.parseInt(st.nextToken());
+		int[] ss = new int[m];
+		int[] ff = new int[m];
+		int[] cc = new int[m];
+		int[] rr = new int[m];
+		Integer[] ii = new Integer[m];
+		for (int h = 0; h < m; h++) {
+			st = new StringTokenizer(br.readLine());
+			ss[h] = Integer.parseInt(st.nextToken()) - 1;
+			ff[h] = Integer.parseInt(st.nextToken()) - 1;
+			cc[h] = Integer.parseInt(st.nextToken());
+			rr[h] = Integer.parseInt(st.nextToken());
+			ii[h] = h;
+		}
+		Arrays.sort(ii, (i, j) -> { return rr[i] - rr[j]; });
+		int[][] dp = new int[n][n];
+		int[][] dq = new int[n][n];
+		long v = 0;
+		for (int s = 0; s < n; s++)
+			for (int f = s + 1; f < n; f++)
+				dp[s][f] = aa[f] - aa[s];
+		for (int r = 0, h_ = 0, h; r <= n; r++) {
+			while (h_ < m && rr[h = ii[h_]] == r) {
+				v = Math.max(v, (long) dp[ss[h]][ff[h]] * cc[h]);
+				h_++;
+			}
+			for (int s = 0; s < n; s++) {
+				int i = s;
+				for (int f = s + 1; f < n; f++) {
+					while (i < f && dp[s][i] < aa[f] - aa[i])
+						i++;
+					dq[s][f] = Math.min(dp[s][i], aa[f] - aa[i - 1]);
+				}
+			}
+			int[][] tmp = dp; dp = dq; dq = tmp;
+		}
+		System.out.println(v);
+	}
+}
+
+------------------------------
+
+
+Write a python script that can generate test cases for a programming problem with the provided problem statement and solution codes. The test case should be focus on exhausting the code to get time limit exceeded and should follow the input format. The python script should be able to read an argument which specify a directory and write all the testcases as 'test_01.in', 'test_02.in', ... into the directory.

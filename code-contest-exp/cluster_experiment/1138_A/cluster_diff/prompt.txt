@@ -1,0 +1,522 @@
+Problem Statement
+Arkady invited Anna for a dinner to a sushi restaurant. The restaurant is a bit unusual: it offers n pieces of sushi aligned in a row, and a customer has to choose a continuous subsegment of these sushi to buy.
+
+The pieces of sushi are of two types: either with tuna or with eel. Let's denote the type of the i-th from the left sushi as t_i, where t_i = 1 means it is with tuna, and t_i = 2 means it is with eel.
+
+Arkady does not like tuna, Anna does not like eel. Arkady wants to choose such a continuous subsegment of sushi that it has equal number of sushi of each type and each half of the subsegment has only sushi of one type. For example, subsegment [2, 2, 2, 1, 1, 1] is valid, but subsegment [1, 2, 1, 2, 1, 2] is not, because both halves contain both types of sushi.
+
+Find the length of the longest continuous subsegment of sushi Arkady can buy.
+
+Input
+
+The first line contains a single integer n (2 ≤ n ≤ 100 000) — the number of pieces of sushi.
+
+The second line contains n integers t_1, t_2, ..., t_n (t_i = 1, denoting a sushi with tuna or t_i = 2, denoting a sushi with eel), representing the types of sushi from left to right.
+
+It is guaranteed that there is at least one piece of sushi of each type. Note that it means that there is at least one valid continuous segment.
+
+Output
+
+Print a single integer — the maximum length of a valid continuous segment.
+
+Examples
+
+Input
+
+
+7
+2 2 2 1 1 2 2
+
+
+Output
+
+
+4
+
+
+Input
+
+
+6
+1 2 1 2 1 2
+
+
+Output
+
+
+2
+
+
+Input
+
+
+9
+2 2 1 1 1 2 2 2 2
+
+
+Output
+
+
+6
+
+Note
+
+In the first example Arkady can choose the subsegment [2, 2, 1, 1] or the subsegment [1, 1, 2, 2] with length 4.
+
+In the second example there is no way but to choose one of the subsegments [2, 1] or [1, 2] with length 2.
+
+In the third example Arkady's best choice is the subsegment [1, 1, 1, 2, 2, 2].
+------------------------------
+import java.io.OutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.util.List;
+import java.util.InputMismatchException;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.io.InputStream;
+
+/**
+ * Built using CHelper plug-in
+ * Actual solution is at the top
+ *
+ * @author Allen Li
+ */
+public class Main {
+    public static void main(String[] args) {
+        InputStream inputStream = System.in;
+        OutputStream outputStream = System.out;
+        FastReader in = new FastReader(inputStream);
+        PrintWriter out = new PrintWriter(outputStream);
+        Task1 solver = new Task1();
+        solver.solve(1, in, out);
+        out.close();
+    }
+
+    static class Task1 {
+        public void solve(int testNumber, FastReader in, PrintWriter out) {
+            int n = in.nextInt();
+            int[] arr = in.nextIntArray(n);
+            List<Integer> tmp = new ArrayList<>();
+            int cC = 0, cN = -1;
+            for (int i = 0; i < n; i++) {
+                if (arr[i] != cN) {
+                    if (cC != 0)
+                        tmp.add(cC);
+                    cC = 0;
+                    cN = arr[i];
+                }
+                cC++;
+            }
+            if (cC != 0)
+                tmp.add(cC);
+            int ans = 0;
+//        System.out.println(tmp);
+            for (int i = 0; i < tmp.size() - 1; i++) {
+                ans = Math.max(ans, Math.min(tmp.get(i), tmp.get(i + 1)) * 2);
+            }
+            out.println(ans);
+        }
+
+    }
+
+    static class FastReader {
+        private InputStream stream;
+        private byte[] buf = new byte[1024];
+        private int curChar;
+        private int numChars;
+        private FastReader.SpaceCharFilter filter;
+
+        public FastReader(InputStream stream) {
+            this.stream = stream;
+        }
+
+        public int read() {
+            if (numChars == -1) {
+                throw new InputMismatchException();
+            }
+            if (curChar >= numChars) {
+                curChar = 0;
+                try {
+                    numChars = stream.read(buf);
+                } catch (IOException e) {
+                    throw new InputMismatchException();
+                }
+                if (numChars <= 0) {
+                    return -1;
+                }
+            }
+            return buf[curChar++];
+        }
+
+        public int nextInt() {
+            int c = read();
+            while (isSpaceChar(c)) {
+                c = read();
+            }
+            int sgn = 1;
+            if (c == '-') {
+                sgn = -1;
+                c = read();
+            }
+            int res = 0;
+            do {
+                if (c < '0' || c > '9') {
+                    throw new InputMismatchException();
+                }
+                res *= 10;
+                res += c - '0';
+                c = read();
+            } while (!isSpaceChar(c));
+            return res * sgn;
+        }
+
+        public boolean isSpaceChar(int c) {
+            if (filter != null) {
+                return filter.isSpaceChar(c);
+            }
+            return isWhitespace(c);
+        }
+
+        public static boolean isWhitespace(int c) {
+            return c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == -1;
+        }
+
+        public int[] nextIntArray(int n) {
+            int[] array = new int[n];
+            for (int i = 0; i < n; ++i) array[i] = nextInt();
+            return array;
+        }
+
+        public interface SpaceCharFilter {
+            public boolean isSpaceChar(int ch);
+
+        }
+
+    }
+}
+
+
+------------------------------
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
+public class A_SushiForTwo {
+
+	public static void main(String[] args) throws IOException{
+		// TODO Auto-generated method stub
+		BufferedReader br=new BufferedReader(new InputStreamReader(System.in));
+		String line[]=br.readLine().split(" ");
+		int n=Integer.parseInt(line[0]);
+		
+		line=br.readLine().split(" ");
+		int maxCount=0;
+		int count[]=new int[2];
+		int before=Integer.parseInt(line[0])-1;
+		count[before]++;
+		for(int i=1;i<n;i++) {
+			int cur=Integer.parseInt(line[i])-1;
+			if(cur==before) {
+				count[cur]++;
+			}else {
+				count[cur]=1;
+				before=cur;
+			}
+			maxCount=Math.max(maxCount, Math.min(count[0], count[1]));
+		}
+		System.out.println(maxCount*2);
+		br.close();
+	}
+
+}
+
+------------------------------
+/* package whatever; // don't place package name! */
+
+import java.util.*;
+import java.lang.*;
+import java.io.*;
+
+/* Name of the class has to be "Main" only if the class is public. */
+public class Solution
+{
+	public static void main (String[] args) throws java.lang.Exception
+	{
+		Scanner s=new Scanner(System.in);
+		int n=s.nextInt();
+		int[]arr=new int[n];
+		
+		for(int i=0;i<n;i++)
+		{
+			arr[i]=s.nextInt();
+		}
+		
+		int twocount=0,onecount=0;
+		int ans=0,sol=0;
+		boolean flag=false;
+		for(int i=0;i<n;i++)
+		{
+			
+			if(arr[i]==1)
+			{
+				int pos=i;
+				if(onecount>0 && twocount>0)
+				onecount=0;
+				while(pos<n && arr[pos]==1)
+				{
+					onecount++;
+					if(pos+1<n && arr[pos+1]==1)
+					pos++;
+					else
+						break;
+				}
+				
+				i=pos;
+			}
+			else if(arr[i]==2)
+			{
+				int pos=i;
+				if(onecount>0 && twocount>0)
+				twocount=0;
+				while(pos<n && arr[pos]==2)
+				{
+					twocount++;
+					if(pos+1<n && arr[pos+1]==2)
+					pos++;
+					else
+						break;
+					
+			
+				}
+				
+
+				i=pos;
+			}
+			
+			ans=2*Math.min(twocount,onecount);
+			sol=Math.max(sol, ans);
+		}
+		System.out.println(sol);
+	}
+}
+------------------------------
+import java.io.*;
+import java.util.*;
+
+public class A {
+    static class FastReader {
+        BufferedReader br;
+        StringTokenizer st;
+
+        public FastReader() {
+            br = new BufferedReader(new
+                    InputStreamReader(System.in));
+        }
+
+        String next() {
+            while (st == null || !st.hasMoreElements()) {
+                try {
+                    st = new StringTokenizer(br.readLine());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            return st.nextToken();
+        }
+
+        int nextInt() {
+            return Integer.parseInt(next());
+        }
+
+        long nextLong() {
+            return Long.parseLong(next());
+        }
+
+        double nextDouble() {
+            return Double.parseDouble(next());
+        }
+
+        String nextLine() {
+            String str = "";
+            try {
+                str = br.readLine();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return str;
+        }
+    }
+
+    static FastReader s = new FastReader();
+    static PrintWriter out = new PrintWriter(System.out);
+
+    private static int[] rai(int n) {
+        int[] arr = new int[n];
+        for (int i = 0; i < n; i++) {
+            arr[i] = s.nextInt();
+        }
+        return arr;
+    }
+
+    private static int[][] rai(int n, int m) {
+        int[][] arr = new int[n][m];
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < m; j++) {
+                arr[i][j] = s.nextInt();
+            }
+        }
+        return arr;
+    }
+
+    private static long[] ral(int n) {
+        long[] arr = new long[n];
+        for (int i = 0; i < n; i++) {
+            arr[i] = s.nextLong();
+        }
+        return arr;
+    }
+
+    private static long[][] ral(int n, int m) {
+        long[][] arr = new long[n][m];
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < m; j++) {
+                arr[i][j] = s.nextLong();
+            }
+        }
+        return arr;
+    }
+
+    private static int ri() {
+        return s.nextInt();
+    }
+
+    private static long rl() {
+        return s.nextLong();
+    }
+
+    private static String rs() {
+        return s.next();
+    }
+    static int gcd(int a,int b)
+    {
+        if(b==0)
+        {
+            return a;
+        }
+        return gcd(b,a%b);
+    }
+
+
+    public static void main(String[] args) {
+        StringBuilder ans = new StringBuilder();
+//        int t = ri();
+        int t=1;
+        while (t-- > 0)
+        {
+            int n=ri();
+            int[] arr=rai(n);
+
+            int curr=-1;
+            int c1=0;
+            int c2=0;
+            int res=0;
+            for(int i=0;i<n;i++)
+            {
+                if(curr==-1)
+                {
+                    if(arr[i]==1)
+                    {
+                        curr=1;
+                        c1++;
+                    }
+                    else {
+                        curr=2;
+                        c2++;
+                    }
+                }
+                else {
+                    if(curr==2)
+                    {
+                        if(arr[i]==1)
+                        {
+                            res=Math.max(res,Math.min(c2,c1)*2);
+                            c1=0;
+                            c1++;
+                            curr=1;
+                        }
+                        else
+                        {
+                            c2++;
+                        }
+                    }
+                    else if(curr==1)
+                    {
+                        if(arr[i]==1)
+                        {
+                            c1++;
+
+                        }
+                        else
+                        {
+                            curr=2;
+                            res=Math.max(res,Math.min(c2,c1)*2);
+                            c2=0;
+                            c2++;
+                        }
+                    }
+                }
+
+//                System.out.println(i+" "+c1+" "+c2);
+//                System.out.println("res= "+res);
+            }
+            res=Math.max(res,Math.min(c2,c1)*2);
+            ans.append(res).append("\n");
+        }
+
+        out.print(ans.toString());
+        out.flush();
+
+    }
+
+}
+
+------------------------------
+import java.io.*;
+import java.util.*;
+import java.lang.*;
+
+public final class cf1138A3 {
+    public static void main(String[] args) {
+        Scanner in = new Scanner(System.in);
+        int n = in.nextInt();
+        int x[] = new int[(int) n + 1];
+        int f = 0, g = 0;
+
+        int re = 0;
+        x[n] = 3;
+        for (int i = 0; i < n + 1; i++) {
+            if (i < n) x[i] = in.nextInt();
+            if (i == 0) {
+                f = 1;
+                g = 0;
+                continue;
+            }
+            if (i > 0 && x[i] == x[i - 1]) {
+                f++;
+            } else {
+                re = Math.max(re, Math.min(g, f) * 2);
+                g = f;
+                f = 1;
+            }
+        }
+        System.out.println(re);
+    }
+}
+
+------------------------------
+
+
+Write a python script that can generate test cases for a programming problem with the provided problem statement and solution codes. The test case should be focus on exhausting the code to get time limit exceeded and should follow the input format. The python script should be able to read an argument which specify a directory and write all the testcases as 'test_01.in', 'test_02.in', ... into the directory.

@@ -1,0 +1,728 @@
+Problem Statement
+There are n boxers, the weight of the i-th boxer is a_i. Each of them can change the weight by no more than 1 before the competition (the weight cannot become equal to zero, that is, it must remain positive). Weight is always an integer number.
+
+It is necessary to choose the largest boxing team in terms of the number of people, that all the boxers' weights in the team are different (i.e. unique).
+
+Write a program that for given current values ​a_i will find the maximum possible number of boxers in a team.
+
+It is possible that after some change the weight of some boxer is 150001 (but no more).
+
+Input
+
+The first line contains an integer n (1 ≤ n ≤ 150000) — the number of boxers. The next line contains n integers a_1, a_2, ..., a_n, where a_i (1 ≤ a_i ≤ 150000) is the weight of the i-th boxer.
+
+Output
+
+Print a single integer — the maximum possible number of people in a team.
+
+Examples
+
+Input
+
+4
+3 2 4 1
+
+
+Output
+
+4
+
+
+Input
+
+6
+1 1 1 4 4 4
+
+
+Output
+
+5
+
+Note
+
+In the first example, boxers should not change their weights — you can just make a team out of all of them.
+
+In the second example, one boxer with a weight of 1 can be increased by one (get the weight of 2), one boxer with a weight of 4 can be reduced by one, and the other can be increased by one (resulting the boxers with a weight of 3 and 5, respectively). Thus, you can get a team consisting of boxers with weights of 5, 4, 3, 2, 1.
+------------------------------
+import java.util.*;
+import java.io.*;
+import java.text.*;
+import java.math.*;
+import static java.lang.Integer.*;
+import static java.lang.Double.*;
+import java.lang.Math.*;
+
+public class E {
+
+	public static void main(String[] args) throws Exception {
+		new E().run();
+	}
+
+	public void run() throws Exception {
+		FastIO file = new FastIO();
+		int n = file.nextInt();
+		ArrayList<Integer> a = new ArrayList<>();
+		for (int i = 0; i < n; i++) a.add(file.nextInt());
+		Collections.sort(a);
+		HashSet<Integer> hs = new HashSet<>();
+		for (int i = 0; i < n; i++) {
+			if (!hs.contains(a.get(i) - 1) && a.get(i) != 1) {
+				hs.add(a.get(i) - 1);
+			}
+			else if (hs.contains(a.get(i))) {
+				hs.add(a.get(i) + 1);
+			}
+			else {
+				hs.add(a.get(i));
+			}
+		}
+		System.out.println(hs.size());
+	}
+
+	public static class FastIO {
+		BufferedReader br;
+		StringTokenizer st;
+
+		public FastIO() {
+			br = new BufferedReader(new InputStreamReader(System.in));
+		}
+
+		String next() {
+			while (st == null || !st.hasMoreElements()) {
+				try {
+					st = new StringTokenizer(br.readLine());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			return st.nextToken();
+		}
+
+		int nextInt() {
+			return Integer.parseInt(next());
+		}
+
+		long nextLong() {
+			return Long.parseLong(next());
+		}
+
+		double nextDouble() {
+			return Double.parseDouble(next());
+		}
+
+		String nextLine() {
+			String str = "";
+			try {
+				str = br.readLine();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			return str;
+		}
+	}
+
+	public static long pow(long n, long p, long mod) {
+		if (p == 0)
+			return 1;
+		if (p == 1)
+			return n % mod;
+		if (p % 2 == 0) {
+			long temp = pow(n, p / 2, mod);
+			return (temp * temp) % mod;
+		} else {
+			long temp = pow(n, (p - 1) / 2, mod);
+			temp = (temp * temp) % mod;
+			return (temp * n) % mod;
+
+		}
+	}
+
+	public static long pow(long n, long p) {
+		if (p == 0)
+			return 1;
+		if (p == 1)
+			return n;
+		if (p % 2 == 0) {
+			long temp = pow(n, p / 2);
+			return (temp * temp);
+		} else {
+			long temp = pow(n, (p - 1) / 2);
+			temp = (temp * temp);
+			return (temp * n);
+
+		}
+	}
+
+	public static long gcd(long x, long y) {
+		if (x == 0)
+			return y;
+		else
+			return gcd(y % x, x);
+	}
+
+	public static boolean isPrime(int n) {
+		if (n <= 1)
+			return false;
+		if (n <= 3)
+			return true;
+
+		if (n % 2 == 0 || n % 3 == 0)
+			return false;
+
+		for (int i = 5; i * i <= n; i = i + 6)
+			if (n % i == 0 || n % (i + 2) == 0)
+				return false;
+
+		return true;
+	}
+}
+
+------------------------------
+import java.io.*;
+import java.util.*;
+public class MyClass {
+    
+    public static void main(String args[]) {
+      FastReader sc = new FastReader();     //For Fast IO
+      func f = new func();                  //Call func for swap , permute and for sort.
+      int n = sc.nextInt();
+      int max[] = new int[n];
+      HashSet<Integer> hs = new HashSet<>();
+      for(int i=0;i<n;i++){
+          int x =sc.nextInt();
+          max[i]=x;
+      }
+      f.sort(max);
+      if(max[0]!=1){
+          max[0]--;
+      }
+      max[n-1]++;
+      for(int i=1;i<n-1;i++){
+          if((max[i]-max[i-1])==1){continue;}
+          else if((max[i]-max[i-1]>1)){max[i]--;}
+          else{max[i]++;}
+      }
+      for(int i=0;i<n;i++){
+          hs.add(max[i]);
+      }
+      int m1 = hs.size();
+      System.out.println(m1);
+    }
+}
+class FastReader 
+	{ 
+		BufferedReader br; 
+		StringTokenizer st; 
+ 
+		public FastReader() 
+		{ 
+			br = new BufferedReader(new
+					InputStreamReader(System.in)); 
+		} 
+ 
+		String next() 
+		{ 
+			while (st == null || !st.hasMoreElements()) 
+			{ 
+				try
+				{ 
+					st = new StringTokenizer(br.readLine()); 
+				} 
+				catch (IOException e) 
+				{ 
+					e.printStackTrace(); 
+				} 
+			} 
+			return st.nextToken(); 
+		} 
+ 
+		int nextInt() 
+		{ 
+			return Integer.parseInt(next()); 
+		} 
+ 
+		long nextLong() 
+		{ 
+			return Long.parseLong(next()); 
+		} 
+ 
+		double nextDouble() 
+		{ 
+			return Double.parseDouble(next()); 
+		} 
+ 
+		String nextLine() 
+		{ 
+			String str = ""; 
+			try
+			{ 
+				str = br.readLine(); 
+			} 
+			catch (IOException e) 
+			{ 
+				e.printStackTrace(); 
+			} 
+			return str; 
+		} 
+	}
+class func{
+    static ArrayList<String> al = new ArrayList<>();
+        public static void sort(int[] arr) {
+            int n = arr.length, mid, h, s, l, i, j, k;
+            int[] res = new int[n];
+            for (s = 1; s < n; s <<= 1) {
+                for (l = 0; l < n - 1; l += (s << 1)) {
+                    h = Math.min(l + (s << 1) - 1, n - 1);
+                    mid = Math.min(l + s - 1, n - 1);
+                    i = l;
+                    j = mid + 1;
+                    k = l;
+                    while (i <= mid && j <= h) res[k++] = (arr[i] <= arr[j] ? arr[i++] : arr[j++]);
+                    while (i <= mid) res[k++] = arr[i++];
+                    while (j <= h) res[k++] = arr[j++];
+                    for (k = l; k <= h; k++) arr[k] = res[k];
+                }
+            }
+        }
+        public static void permute(char a[] , int i , int n){
+            if(i==n-1){
+                String s = new String(a);
+                al.add(s);                      // al stores all permutations of string. 
+                return;
+            }
+            for(int j=i;j<n;j++){
+                swap(a,i,j);
+                permute(a,i+1,n);
+                swap(a,i,j);
+            }
+        }
+        public static void swap(char a[],int i, int j){
+            char temp = a[i];
+            a[i] = a[j];
+            a[j] = temp;
+        }
+        public static void swap(int a[],int i, int j){
+            int temp = a[i];
+            a[i] = a[j];
+            a[j] = temp;
+        }
+        
+ 
+}
+
+
+
+	 	 
+
+------------------------------
+import java.io.*;
+import java.util.*;
+
+public class E implements Runnable {
+	public static void main (String[] args) {new Thread(null, new E(), "_cf", 1 << 28).start();}
+
+	public void run() {
+		FastScanner fs = new FastScanner();
+		PrintWriter out = new PrintWriter(System.out);
+		System.err.println("");
+
+		int n = fs.nextInt();
+		int[] a = fs.nextIntArray(n);
+		sort(a);
+		boolean[] seen = new boolean[200200];
+		int res = 0;
+		for(int i = 0; i < n; i++) {
+			if(a[i]-1 > 0 && !seen[a[i]-1]) {
+				seen[a[i]-1] = true;
+				res++;
+			}
+			else if(!seen[a[i]]) {
+				seen[a[i]] = true;
+				res++;
+			}
+			else if(!seen[a[i]+1]) {
+				seen[a[i]+1] = true;
+				res++;
+			}
+		}
+		out.println(res);
+		
+		out.close();
+	}
+	
+	void sort(int[] a) {
+		Random rand = new Random();
+		int n = a.length;
+		for(int i = 0; i < n; i++) {
+			int x = rand.nextInt(n);
+			int y = rand.nextInt(n);
+			int t = a[x]; a[x] = a[y]; a[y] = t;
+		}
+		Arrays.sort(a);
+	}
+
+	class FastScanner {
+		public int BS = 1<<16;
+		public char NC = (char)0;
+		byte[] buf = new byte[BS];
+		int bId = 0, size = 0;
+		char c = NC;
+		double num = 1;
+		BufferedInputStream in;
+
+		public FastScanner() {
+			in = new BufferedInputStream(System.in, BS);
+		}
+
+		public FastScanner(String s) {
+			try {
+				in = new BufferedInputStream(new FileInputStream(new File(s)), BS);
+			}
+			catch (Exception e) {
+				in = new BufferedInputStream(System.in, BS);
+			}
+		}
+
+		public char nextChar(){
+			while(bId==size) {
+				try {
+					size = in.read(buf);
+				}catch(Exception e) {
+					return NC;
+				}                
+				if(size==-1)return NC;
+				bId=0;
+			}
+			return (char)buf[bId++];
+		}
+
+		public int nextInt() {
+			return (int)nextLong();
+		}
+
+		public long nextLong() {
+			num=1;
+			boolean neg = false;
+			if(c==NC)c=nextChar();
+			for(;(c<'0' || c>'9'); c = nextChar()) {
+				if(c=='-')neg=true;
+			}
+			long res = 0;
+			for(; c>='0' && c <='9'; c=nextChar()) {
+				res = (res<<3)+(res<<1)+c-'0';
+				num*=10;
+			}
+			return neg?-res:res;
+		}
+
+		public double nextDouble() {
+			double cur = nextLong();
+			return c!='.' ? cur:cur+nextLong()/num;
+		}
+
+		public String next() {
+			StringBuilder res = new StringBuilder();
+			while(c<=32)c=nextChar();
+			while(c>32) {
+				res.append(c);
+				c=nextChar();
+			}
+			return res.toString();
+		}
+
+		public String nextLine() {
+			StringBuilder res = new StringBuilder();
+			while(c<=32)c=nextChar();
+			while(c!='\n') {
+				res.append(c);
+				c=nextChar();
+			}
+			return res.toString();
+		}
+
+		public boolean hasNext() {
+			if(c>32)return true;
+			while(true) {
+				c=nextChar();
+				if(c==NC)return false;
+				else if(c>32)return true;
+			}
+		}
+		
+		public int[] nextIntArray(int n) {
+			int[] res = new int[n];
+			for(int i = 0; i < n; i++) res[i] = nextInt();
+			return res;
+		}
+		
+	}
+
+}
+------------------------------
+
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.math.BigInteger;
+import java.util.*;
+
+
+public class Main {
+	
+	public static class FastReader {
+		BufferedReader br;
+		StringTokenizer st;
+	
+
+		public FastReader() {
+			br = new BufferedReader(new InputStreamReader(System.in));
+		}
+
+		String next() {
+			while (st == null || !st.hasMoreTokens()) {
+				try {
+					st = new StringTokenizer(br.readLine());
+				} catch (Exception r) {
+					r.printStackTrace();
+				}
+			}
+			return st.nextToken();
+		}
+
+		int nextInt() {
+			return Integer.parseInt(next());//converts string to integer
+		}
+
+		double nextDouble() {
+			return Double.parseDouble(next());
+		}
+
+		long nextLong() {
+			return Long.parseLong(next());
+		}
+
+		String nextLine() {
+			String str = "";
+			try {
+				str = br.readLine();
+			} catch (Exception r) {
+				r.printStackTrace();
+			}
+			return str;
+		}
+	}
+	
+	public static PrintWriter out = new PrintWriter (new BufferedOutputStream(System.out));
+    public static long mod = (long) (1e9+7);
+    public final static int MAX = (int)1e5;
+  // static Scanner sc = new Scanner(System.in);
+   static List<Integer>[] edge;
+	public static void main(String[] args) {
+	   
+	 FastReader sc = new FastReader();
+	 int n = sc.nextInt();
+	 Integer[] a = new Integer[n];
+	 for(int i=0;i<n;++i) a[i] = new Integer(sc.nextInt());
+	 Arrays.sort(a);
+	Set<Integer> set = new HashSet<>();
+	for(int i=0;i<n;++i) {
+		if(a[i].intValue() == 1) {
+			if(!set.contains(1)) set.add(1);
+			else if(!set.contains(2)) set.add(2);
+		}else {
+			if(!set.contains(a[i]-1)) set.add(a[i]-1);
+			else if(!set.contains(a[i])) set.add(a[i]);
+			else if(!set.contains(a[i]+1)) set.add(a[i]+1);
+		}
+		
+	}
+	out.print(set.size());
+	out.close();
+	}
+}
+------------------------------
+
+import java.util.*;
+import java.io.*;
+
+public class E {
+
+	static final boolean stdin = true;
+	static final String filename = "";
+	static FastScanner br;
+	static PrintWriter pw;
+
+	public static void main(String[] args) throws IOException {
+
+		if (stdin) {
+			br = new FastScanner();
+			pw = new PrintWriter(new OutputStreamWriter(System.out));
+		} else {
+			br = new FastScanner(filename + ".in");
+			pw = new PrintWriter(new FileWriter(filename + ".out"));
+		}
+
+		Solver solver = new Solver();
+		solver.solve(br, pw);
+	}
+
+	static class Solver {
+		static long mod = (long) (1e9);
+
+		public void solve(FastScanner br, PrintWriter pw) throws IOException {
+			int n = br.ni();
+			Integer[] in = br.nIa(n);
+			Arrays.sort(in);
+			HashSet<Integer> hs = new HashSet<Integer>();
+			for(int i = 0; i < n; i++){
+				if(!hs.contains(in[i]-1) && in[i]>1){
+					hs.add(in[i]-1);
+				}else if(!hs.contains(in[i])){
+					hs.add(in[i]);
+				}else if(!hs.contains(in[i]+1)){
+					hs.add(in[i]+1);
+				}
+			}
+			pw.println(hs.size());
+			pw.close();
+		}
+
+		static long gcd(long a, long b) {
+			if (a > b)
+				return gcd(b, a);
+			if (a == 0)
+				return b;
+			return gcd(b % a, a);
+		}
+		
+		static long lcm(long a, long b) {
+			return a * (b / gcd(a, b));
+		}
+		
+		static long pow(long a, long b) {
+			if (b == 0)
+				return 1L;
+			long val = pow(a, b / 2);
+			if (b % 2 == 0)
+				return val * val % mod;
+			else
+				return val * val % mod * a % mod;
+		}
+
+	}
+
+	static class Point implements Comparable<Point> {
+		int a;
+		int b;
+
+		Point(int a, int b) {
+			this.a = a;
+			this.b = b;
+		}
+
+		@Override
+		public int compareTo(Point o) {
+			return this.a - o.a;
+		}
+
+	}
+
+	public static class FastScanner {
+		BufferedReader br;
+		StringTokenizer st;
+		
+		public FastScanner(String s) {
+			try {
+				br = new BufferedReader(new FileReader(s));
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			}
+		}
+
+		public FastScanner() {
+			br = new BufferedReader(new InputStreamReader(System.in));
+		}
+		ArrayList<Integer>[] ng(int n, int e) {
+			ArrayList<Integer>[] adj = new ArrayList[n];
+			for (int i = 0; i < n; i++) {
+				adj[i] = new ArrayList<Integer>();
+			}
+			for (int i = 0; i < e; i++) {
+				int a = ni() - 1;
+				int b = ni() - 1;
+				adj[a].add(b);
+				adj[b].add(a);
+			}
+			return adj;
+		}
+
+		Integer[] nIa(int n) {
+			Integer[] arr = new Integer[n];
+			for (int i = 0; i < n; i++) {
+				arr[i] = ni();
+			}
+			return arr;
+		}
+
+		int[] nia(int n) {
+			int[] arr = new int[n];
+			for (int i = 0; i < n; i++) {
+				arr[i] = ni();
+			}
+			return arr;
+		}
+
+		Long[] nLa(int n) {
+			Long[] arr = new Long[n];
+			for (int i = 0; i < n; i++) {
+				arr[i] = nl();
+			}
+			return arr;
+		}
+
+		long[] nla(int n) {
+			long[] arr = new long[n];
+			for (int i = 0; i < n; i++) {
+				arr[i] = nl();
+			}
+			return arr;
+		}
+
+		String[] nsa(int n) {
+			String[] arr = new String[n];
+			for (int i = 0; i < n; i++) {
+				arr[i] = nt();
+			}
+			return arr;
+		}
+
+		String nt() {
+			while (st == null || !st.hasMoreElements()) {
+				try {
+					st = new StringTokenizer(br.readLine());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			return st.nextToken();
+		}
+
+		int ni() {
+			return Integer.parseInt(nt());
+		}
+
+		long nl() {
+			return Long.parseLong(nt());
+		}
+
+		double nd() {
+			return Double.parseDouble(nt());
+		}
+
+	}
+}
+------------------------------
+
+
+Write a python script that can generate test cases for a programming problem with the provided problem statement and solution codes. The test case should be focus on exhausting the code to get time limit exceeded and should follow the input format. The python script should be able to read an argument which specify a directory and write all the testcases as 'test_01.in', 'test_02.in', ... into the directory.

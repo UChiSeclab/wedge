@@ -1,0 +1,52 @@
+Sure! Here's a Python script that generates test cases for the provided problem. The script focuses on creating large test cases to push the solutions towards their performance limits, ultimately trying to reach time limit exceeded (TLE). The script reads a directory argument to store the generated test cases in the specified directory as 'test_01.in', 'test_02.in', and so on.
+
+```python
+import os
+import random
+import argparse
+
+def generate_test_cases(directory, num_cases=10, max_n=200000, max_x=100000000, max_speed=100000000):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    for i in range(1, num_cases + 1):
+        filename = f"test_{i:02d}.in"
+        filepath = os.path.join(directory, filename)
+
+        n = max_n
+        coordinates = random.sample(range(1, max_x + 1), n)
+        speeds = [random.randint(-max_speed, max_speed) for _ in range(n)]
+
+        with open(filepath, "w") as f:
+            f.write(f"{n}\n")
+            f.write(" ".join(map(str, coordinates)) + "\n")
+            f.write(" ".join(map(str, speeds)) + "\n")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate test cases for the problem.")
+    parser.add_argument("directory", type=str, help="Directory to store the generated test cases.")
+    parser.add_argument("--num_cases", type=int, default=10, help="Number of test cases to generate.")
+    parser.add_argument("--max_n", type=int, default=200000, help="Maximum number of points (n).")
+    parser.add_argument("--max_x", type=int, default=100000000, help="Maximum coordinate value (x_i).")
+    parser.add_argument("--max_speed", type=int, default=100000000, help="Maximum speed value (v_i).")
+
+    args = parser.parse_args()
+
+    generate_test_cases(args.directory, args.num_cases, args.max_n, args.max_x, args.max_speed)
+```
+
+### Instructions to Use the Script:
+
+1. **Save the Script**: Save the script to a file named `generate_test_cases.py`.
+2. **Run the Script**: You can run the script from the command line with the following command:
+   ```sh
+   python generate_test_cases.py /path/to/directory
+   ```
+   Replace `/path/to/directory` with the actual path where you want to store the generated test cases.
+
+   You can also specify optional arguments like the number of test cases, maximum `n`, `x_i`, and `v_i` values. For example:
+   ```sh
+   python generate_test_cases.py /path/to/directory --num_cases 5 --max_n 100000 --max_x 50000000 --max_speed 50000000
+   ```
+
+This script will generate the test cases and store them in the specified directory, facilitating the testing of the provided problem solutions.

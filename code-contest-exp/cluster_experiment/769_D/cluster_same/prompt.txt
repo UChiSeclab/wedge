@@ -1,0 +1,590 @@
+Problem Statement
+Vasya has the sequence consisting of n integers. Vasya consider the pair of integers x and y k-interesting, if their binary representation differs from each other exactly in k bits. For example, if k = 2, the pair of integers x = 5 and y = 3 is k-interesting, because their binary representation x=101 and y=011 differs exactly in two bits.
+
+Vasya wants to know how many pairs of indexes (i, j) are in his sequence so that i < j and the pair of integers ai and aj is k-interesting. Your task is to help Vasya and determine this number.
+
+Input
+
+The first line contains two integers n and k (2 ≤ n ≤ 105, 0 ≤ k ≤ 14) — the number of integers in Vasya's sequence and the number of bits in which integers in k-interesting pair should differ.
+
+The second line contains the sequence a1, a2, ..., an (0 ≤ ai ≤ 104), which Vasya has.
+
+Output
+
+Print the number of pairs (i, j) so that i < j and the pair of integers ai and aj is k-interesting.
+
+Examples
+
+Input
+
+4 1
+0 3 2 1
+
+
+Output
+
+4
+
+
+Input
+
+6 0
+200 100 100 100 200 200
+
+
+Output
+
+6
+
+Note
+
+In the first test there are 4 k-interesting pairs:
+
+  * (1, 3), 
+  * (1, 4), 
+  * (2, 3), 
+  * (2, 4). 
+
+
+
+In the second test k = 0. Consequently, integers in any k-interesting pair should be equal to themselves. Thus, for the second test there are 6 k-interesting pairs:
+
+  * (1, 5), 
+  * (1, 6), 
+  * (2, 3), 
+  * (2, 4), 
+  * (3, 4), 
+  * (5, 6). 
+------------------------------
+import java.io.*;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.*;
+ 
+public class D implements Runnable {
+ 
+    private static final boolean ONLINE_JUDGE = System.getProperty("ONLINE_JUDGE") != null;
+ 
+    private BufferedReader in;
+    private PrintWriter out;
+    private StringTokenizer tok = new StringTokenizer("");
+ 
+    private void init() throws FileNotFoundException {
+        Locale.setDefault(Locale.US);
+        String fileName = "";
+        if (ONLINE_JUDGE && fileName.isEmpty()) {
+            in = new BufferedReader(new InputStreamReader(System.in));
+            out = new PrintWriter(System.out);
+        } else {
+            if (fileName.isEmpty()) {
+                in = new BufferedReader(new FileReader("input.txt"));
+                out = new PrintWriter("output.txt");
+            } else {
+                in = new BufferedReader(new FileReader(fileName + ".in"));
+                out = new PrintWriter(fileName + ".out");
+            }
+        }
+    }
+ 
+    String readString() {
+        while (!tok.hasMoreTokens()) {
+            try {
+                tok = new StringTokenizer(in.readLine());
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        return tok.nextToken();
+    }
+ 
+    int readInt() {
+        return Integer.parseInt(readString());
+    }
+ 
+    long readLong() {
+        return Long.parseLong(readString());
+    }
+ 
+    double readDouble() {
+        return Double.parseDouble(readString());
+    }
+ 
+    int[] readIntArray(int size) {
+        int[] a = new int[size];
+        for (int i = 0; i < size; i++) {
+            a[i] = readInt();
+        }
+        return a;
+    }
+ 
+    public static void main(String[] args) {
+        //new Thread(null, new _Solution(), "", 128 * (1L << 20)).start();
+        new D().run();
+    }
+ 
+    long timeBegin, timeEnd;
+ 
+    void time() {
+        timeEnd = System.currentTimeMillis();
+        System.err.println("Time = " + (timeEnd - timeBegin));
+    }
+ 
+    @Override
+    public void run() {
+        try {
+            timeBegin = System.currentTimeMillis();
+            init();
+            solve();
+            out.close();
+            time();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+    }
+ 
+    private int aiverson(boolean good) {
+        return good ? 1 : 0;
+    }
+ 
+    private final int MAX_VALUE = 10000;
+ 
+    private boolean isInterestingPair(int k, int x, int y) {
+        return Integer.bitCount(x ^ y) == k;
+    }
+ 
+    private void solve() {
+        int n = readInt();
+        int k = readInt();
+        int[] a = readIntArray(n);
+        int[] count = new int[MAX_VALUE + 1];
+        for (int i = 0; i < n; i++) {
+            count[a[i]]++;
+        }
+        long answer = 0;
+        for (int i = 0; i <= MAX_VALUE; i++) {
+            if (count[i] > 0) {
+                if (k == 0) {
+                    answer += 1l * count[i] * (count[i] - 1) / 2;
+                } else {
+                    for (int j = i + 1; j <= MAX_VALUE; j++) {
+                        if (count[j] > 0 && isInterestingPair(k, i, j)) {
+                            answer += 1l * count[i] * count[j];
+                        }
+                    }
+                }
+            }
+        }
+        out.println(answer);
+    }
+}
+------------------------------
+import java.io.*;
+import java.util.StringTokenizer;
+
+/**
+ * Created by hapsidra on 22.10.2016.
+ */
+public class Main {
+    public static void main(String args[]) {
+        int n,k;
+        long count[]=new long[10005];
+        FastScanner scanner=new FastScanner();
+        n=scanner.nextInt();
+        k=scanner.nextInt();
+        for(int i=0;i<n;i++){
+            count[scanner.nextInt()]++;
+        }
+        long ans = 0;
+        if (k == 0) {
+            for (int i = 0; i < 10001; i++) {
+                ans += count[i] * (count[i] - 1) / 2;
+            }
+        } else {
+            for (int i = 0; i < 10001; i++) {
+                for (int j = i + 1; j < 10001; j++) {
+                    if (NumberOfSetBits(i ^ j) == k) {
+                        ans += count[i] * count[j];
+                    }
+                }
+            }
+        }
+        System.out.println(ans);
+    }
+    static int NumberOfSetBits(int i)
+    {
+        i = i - ((i >>> 1) & 0x55555555);
+        i = (i & 0x33333333) + ((i >>> 2) & 0x33333333);
+        return (((i + (i >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24;
+    }
+    static boolean check(int a,int b,int k){
+        if(k==0){
+            return a==b;
+        }
+
+        if(a<b){
+            int t=a;
+            a=b;
+            b=t;
+        }
+        int s=0;
+        while(b>0){
+            if(b%2!=a%2){
+                s++;
+                if(s>k){
+                    return false;
+                }
+            }
+            b/=2;
+            a/=2;
+        }
+        while(a>0){
+            s+=a%2;
+            if(s>k)
+                return false;
+            a/=2;
+        }
+        return s==k;
+    }
+    private static class FastScanner {
+        BufferedReader br;
+        StringTokenizer st;
+
+        public FastScanner(String fileName) {
+            try {
+                br = new BufferedReader(new FileReader(fileName));
+            } catch (FileNotFoundException e) {
+            }
+        }
+
+        public FastScanner() {
+            br = new BufferedReader(new InputStreamReader(System.in));
+        }
+
+        String nextToken() {
+            while (st == null || !st.hasMoreElements()) {
+                try {
+                    st = new StringTokenizer(br.readLine());
+                } catch (IOException e) {
+                }
+            }
+            return st.nextToken();
+        }
+
+        int nextInt() {
+            return Integer.parseInt(nextToken());
+        }
+
+        long nextLong() {
+            return Long.parseLong(nextToken());
+        }
+
+        double nextDouble() {
+            return Double.parseDouble(nextToken());
+        }
+    }
+}
+------------------------------
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.util.*;
+
+import static java.lang.Long.bitCount;
+
+public class Main {
+
+    public static void main(String[] args) {
+        FastScanner in = new FastScanner();
+        int n; n = in.nextInt();
+        int k; k = in.nextInt();
+        Integer []ar = new Integer[n];
+        Integer []occur = new Integer[200100];
+        Arrays.fill(occur, 0);
+        for(int i=0; i<n; ++i){
+            ar[i] = in.nextInt();
+            occur[ar[i]]++;
+        }
+        if(k == 0){
+            long ans = 0;
+            for(int i=0; i<200100; ++i){
+                long t = occur[i];
+                ans += ((t-1) * t)/(long)2;
+            }
+            System.out.println(ans);
+            System.exit(0);
+        }
+        Integer []dp = new Integer[(int)1e6];
+        Arrays.fill(dp, 0);
+        Integer []sb = new Integer[200100];
+        for(int i=0; i<200100; ++i){
+            sb[i] = bitCount(i);
+        }
+        HashSet<Integer> st = new HashSet<Integer>(Arrays.asList(ar).subList(0, n));
+        ArrayList<Integer> a = new ArrayList<Integer>(st);
+
+        n = a.size();
+        long ans = 0;
+        for(int i=0; i<n; ++i){
+            for(int j=i+1; j<a.size(); ++j){
+                int xor = a.get(i)^a.get(j);
+                if(sb[xor] != k) continue;
+                ans += occur[a.get(i)]*(long)occur[a.get(j)];
+            }
+        }
+
+        System.out.println(ans);
+    }
+
+    static void sort(int[] a) {
+        ArrayList<Integer> l=new ArrayList<>();
+        for (int i:a) l.add(i);
+        Collections.sort(l);
+        for (int i=0; i<a.length; i++) a[i]=l.get(i);
+    }
+
+    static class FastScanner {
+        BufferedReader br=new BufferedReader(new InputStreamReader(System.in));
+        StringTokenizer st=new StringTokenizer("");
+        String next() {
+            while (!st.hasMoreTokens())
+                try {
+                    st=new StringTokenizer(br.readLine());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            return st.nextToken();
+        }
+
+        int nextInt() {
+            return Integer.parseInt(next());
+        }
+        int[] readArray(int n) {
+            int[] a=new int[n];
+            for (int i=0; i<n; i++) a[i]=nextInt();
+            return a;
+        }
+        long nextLong() {
+            return Long.parseLong(next());
+        }
+
+        double nextDouble() {
+            return Double.parseDouble(next());
+        }
+    }
+}
+
+------------------------------
+import java.io.*;
+import java.util.*;
+
+public class CF769D
+{
+	static final boolean _DEBUG = true;
+
+	static class MyScanner {
+		BufferedReader br;
+		StringTokenizer st;
+
+		public MyScanner(BufferedReader _br) {
+			br = _br;
+		}
+
+		String next() {
+			while (st == null || !st.hasMoreElements()) {
+				try {
+					st = new StringTokenizer(br.readLine());
+				} catch (Exception e) {
+					e.printStackTrace();
+					return "";
+				}
+			}
+			return st.nextToken();
+		}
+
+		int nextInt() {
+			return Integer.parseInt(next());
+		}
+
+		long nextLong() {
+			return Long.parseLong(next());
+		}
+
+		double nextDouble() {
+			return Double.parseDouble(next());
+		}
+
+		String nextLine() {
+			String str = "";
+			try {
+				str = br.readLine();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			return str;
+		}
+
+	}
+
+	static MyScanner   scan;
+	static PrintWriter out;
+
+	static int debugCount = 0;
+	static void debug(String msg) {
+		if (_DEBUG && debugCount < 200) {
+			out.println(msg);
+			out.flush();
+			debugCount++;
+		}
+	}
+	
+    public static void main (String args[]) throws IOException {
+//    	scan = new MyScanner(new BufferedReader(new FileReader("test.in")));
+    	scan = new MyScanner(new BufferedReader(new InputStreamReader(System.in)));
+    	out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.out)));
+        CF769D inst = new CF769D();
+        inst.execute();
+        out.close();
+    }
+    
+    void execute() throws IOException {
+    	int n = scan.nextInt();
+    	int k = scan.nextInt();
+    	int[] a = new int[10001];
+    	for (int i = 0 ; i < n; i++) {
+    		a[scan.nextInt()]++;
+    	}
+    	
+    	long ans = 0;
+    	
+    	int[] table = new int[1<<14];
+    	for (int i = 1; i < table.length; i++) {
+    		for (int j = 0; j < 14; j++) {
+    			if ((i & (1<<j)) != 0) {
+    				table[i]++;
+    			}
+    		}
+    	}
+    	if (k == 0) {
+        	for (int i = 0; i < 10001; i++) {
+        		if (a[i] > 1) ans += ((long)a[i] * (a[i]-1)) >> 1;
+        	}
+    	} else {
+        	for (int i = 0; i < 10001; i++) {
+        		if (a[i] == 0) continue;
+        		for (int j = i + 1; j < 10001; j++) {
+        			if (a[j] == 0) continue;
+        			if (table[i ^ j] == k) {
+        				ans += (long)a[i] * a[j];
+        			}
+        		}
+        	}  		
+    	}
+    	out.println(ans);
+    }
+}
+------------------------------
+import java.io.*;
+import java.util.StringTokenizer;
+
+public class D {
+    private static final int MAX_MASK = 1 << 14;
+    private static final int MAX_NUM = 10001;
+
+    private void run(FastReader in, PrintWriter out) {
+        int n = in.nextInt();
+        int k = in.nextInt();
+
+        int[] a = new int[n];
+        int[] b = new int[MAX_MASK];
+        for (int i = 0; i < n; ++i) {
+            a[i] = in.nextInt();
+            b[a[i]]++;
+        }
+
+        if (k == 0) {
+            long res = 0;
+            for (int i = 0; i < MAX_NUM; i++) {
+                res += (long) b[i] * (b[i] - 1) / 2;
+            }
+            out.println(res);
+        } else {
+            int[] masks = new int[MAX_MASK];
+            int cnt = 0;
+            for (int mask = 0; mask < MAX_MASK; mask++) {
+                if (Integer.bitCount(mask) == k)
+                    masks[cnt++] = mask;
+            }
+
+            long res = 0;
+            for (int first = 0; first < MAX_NUM; first++) {
+                if (b[first] == 0) continue;
+                for (int i = 0; i < cnt; i++) {
+                    int mask = masks[i];
+                    int second = first ^ mask;
+                    res += (long) b[first] * b[second];
+                }
+            }
+
+            out.println(res / 2);
+        }
+//        out.println(naive(a, k));
+    }
+
+    private int naive(int[] a, int k) {
+        int res = 0;
+        for (int i = 0; i < a.length; i++) {
+            for (int j = 0; j < i; j++) {
+                if (k == Integer.bitCount(a[i] ^ a[j]))
+                    res += 1;
+            }
+        }
+        return res;
+    }
+
+    public static void main(String[] args) throws IOException {
+        try (FastReader in = new FastReader(new BufferedReader(new InputStreamReader(System.in)));
+             PrintWriter out = new PrintWriter(System.out)) {
+            new D().run(in, out);
+        }
+    }
+
+    private static class FastReader implements Closeable {
+        private final BufferedReader reader;
+        private StringTokenizer tokenizer = null;
+
+        private FastReader(BufferedReader reader) {
+            this.reader = reader;
+        }
+
+        public String nextLine() {
+            try {
+                return reader.readLine();
+            } catch (IOException e) {
+                return null;
+            }
+        }
+
+        public String next() {
+            while (tokenizer == null || !tokenizer.hasMoreTokens()) {
+                tokenizer = new StringTokenizer(nextLine());
+            }
+            return tokenizer.nextToken();
+        }
+
+        public int nextInt() {
+            return Integer.parseInt(next());
+        }
+
+        @Override
+        public void close() throws IOException {
+            reader.close();
+        }
+    }
+}
+
+------------------------------
+
+
+Write a python script that can generate test cases for a programming problem with the provided problem statement and solution codes. The test case should be focus on exhausting the code to get time limit exceeded and should follow the input format. The python script should be able to read an argument which specify a directory and write all the testcases as 'test_01.in', 'test_02.in', ... into the directory.

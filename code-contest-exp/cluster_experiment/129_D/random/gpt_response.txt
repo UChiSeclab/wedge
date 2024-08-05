@@ -1,0 +1,77 @@
+Here's a Python script to generate test cases for the given problem statement. The script focuses on creating large test cases that can potentially lead to time limit exceeded (TLE). It reads an argument specifying the directory where the test cases should be saved.
+
+Make sure to have Python installed, and run this script from your terminal or a Python script handler.
+
+```python
+import os
+import sys
+import random
+import string
+
+def generate_test_case(directory, test_number, max_n):
+    """
+    Generates a single test case with length n and saves it as 'test_{test_number}.in' in the specified directory.
+    The string consists of random lowercase letters and ensures to exploit the maximum complexity that the code can handle.
+    :param directory: The directory to save the test case files
+    :param test_number: The index of the test case file
+    :param max_n: The maximum length of the string
+    """
+    filename = f"test_{test_number:02d}.in"
+    filepath = os.path.join(directory, filename)
+    k = 100000  # To exhaust the k value
+
+    # Generate a random string of length max_n
+    s = ''.join(random.choices(string.ascii_lowercase, k=max_n))
+
+    with open(filepath, 'w') as file:
+        file.write(f"{s}\n")
+        file.write(f"{k}\n")
+
+
+def generate_test_cases(directory, num_cases, max_n):
+    """
+    Generates multiple test cases and saves them.
+    :param directory: The target directory for test cases
+    :param num_cases: The number of test cases to generate
+    :param max_n: The maximum length of the string
+    """
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    for i in range(num_cases):
+        generate_test_case(directory, i + 1, max_n)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python generate_test_cases.py <directory>")
+        sys.exit(1)
+
+    output_directory = sys.argv[1]
+    num_test_cases = 10  # Number of test cases to generate
+    max_length = 100000  # Maximum length of the string
+
+    generate_test_cases(output_directory, num_test_cases, max_length)
+    print(f"Generated {num_test_cases} test cases in directory '{output_directory}'")
+```
+
+### Instructions to run the script:
+
+1. Save the script in a file named `generate_test_cases.py`.
+2. Open your terminal or command prompt.
+3. Navigate to the directory where the script is located.
+4. Run the script with the desired output directory as an argument:
+   ```
+   python generate_test_cases.py /path/to/output/directory
+   ```
+
+### Explanation:
+
+- The script defines two functions: `generate_test_case` and `generate_test_cases`.
+- `generate_test_case` creates a single test case with a large random string and writes it to a specified file.
+- `generate_test_cases` generates multiple test cases by calling `generate_test_case` multiple times.
+- The output directory is created if it does not exist.
+- The script expects one argument that specifies the directory to save the test cases into.
+- The script generates 10 test cases (`num_test_cases`) by default, each with the maximum string length (`max_length`) of 100,000 characters to test the efficiency of the provided solution code.
+
+This approach generates large enough test cases to potentially lead to TLE for inefficient algorithms.

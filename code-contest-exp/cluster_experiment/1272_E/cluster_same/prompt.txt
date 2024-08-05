@@ -1,0 +1,628 @@
+Problem Statement
+You are given an array a consisting of n integers. In one move, you can jump from the position i to the position i - a_i (if 1 ≤ i - a_i) or to the position i + a_i (if i + a_i ≤ n).
+
+For each position i from 1 to n you want to know the minimum the number of moves required to reach any position j such that a_j has the opposite parity from a_i (i.e. if a_i is odd then a_j has to be even and vice versa).
+
+Input
+
+The first line of the input contains one integer n (1 ≤ n ≤ 2 ⋅ 10^5) — the number of elements in a.
+
+The second line of the input contains n integers a_1, a_2, ..., a_n (1 ≤ a_i ≤ n), where a_i is the i-th element of a.
+
+Output
+
+Print n integers d_1, d_2, ..., d_n, where d_i is the minimum the number of moves required to reach any position j such that a_j has the opposite parity from a_i (i.e. if a_i is odd then a_j has to be even and vice versa) or -1 if it is impossible to reach such a position.
+
+Example
+
+Input
+
+
+10
+4 5 7 6 7 5 4 4 6 4
+
+
+Output
+
+
+1 1 1 2 -1 1 1 3 1 1 
+------------------------------
+// javac e.java && java _
+
+import java.io.*;
+import java.util.*;
+
+public class e {
+	public static void main(String[] args) { new e(); }
+	FS in = new FS();
+	PrintWriter out = new PrintWriter(System.out);
+	
+	int n, trash = 1 << 20;
+	int[] pd, d;
+	ArrayList<Integer>[] adj;
+	ArrayDeque<Integer> q;
+	
+	e() {
+		n = in.nextInt();
+		pd = new int[n];
+		adj = new ArrayList[n];
+		for (int i = 0; i < n; i++)
+			adj[i] = new ArrayList<>();
+		for (int i = 0; i < n; i++) {
+			int a = in.nextInt();
+			int j = i - a;
+			if (j >= 0)
+				adj[j].add(i);
+			j = i + a;
+			if (j < n)
+				adj[j].add(i);
+			pd[i] = (a & 1);
+		}
+
+		d = new int[n];
+		Arrays.fill(d, -1);
+
+		q = new ArrayDeque<>();
+		for (int i = 0; i < n; i++)
+			if (pd[i] == 0) {
+				q.add(i);
+				q.add(0);
+			}
+		while (q.size() > 0) {
+			ArrayDeque<Integer> nxt = new ArrayDeque<>();
+			while (q.size() > 0) {
+				int node = q.poll();
+				int dist = q.poll();
+				
+				for (int nbr : adj[node])
+					if (pd[nbr] == 1 && d[nbr] == -1) {
+						d[nbr] = 1 + dist;
+						q.add(nbr);
+						q.add(1 + dist);
+					}
+			}
+			q = nxt;
+		}
+
+		for (int i = 0; i < n; i++)
+			if (pd[i] == 1) {
+				q.add(i);
+				q.add(0);
+			}
+		while (q.size() > 0) {
+			ArrayDeque<Integer> nxt = new ArrayDeque<>();
+			while (q.size() > 0) {
+				int node = q.poll();
+				int dist = q.poll();
+				
+				for (int nbr : adj[node])
+					if (pd[nbr] == 0 && d[nbr] == -1) {
+						d[nbr] = 1 + dist;
+						q.add(nbr);
+						q.add(1 + dist);
+					}
+			}
+			q = nxt;
+		}
+
+		for (int i = 0; i < n; i++)
+			out.print(d[i] + " ");
+		out.println();
+		out.close();
+	}
+	
+
+	int min(int a, int b) { if (a < b) return a; return b; }	
+	int max(int a, int b) { if (a > b) return a; return b; }	
+	long min(long a, long b) { if (a < b) return a; return b; }	
+	long max(long a, long b) { if (a > b) return a; return b; }	
+
+	boolean z(int x) { if (x == 0) return true; return false; }
+	boolean z(long x) { if (x == 0) return true; return false; }
+	
+	class FS {
+		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+		StringTokenizer st = new StringTokenizer("");
+		String next() {
+			while (!st.hasMoreTokens()) {
+				try { st = new StringTokenizer(br.readLine()); }
+				catch (Exception e) {}
+			} return st.nextToken();
+		}
+		int nextInt() { return Integer.parseInt(next()); }
+		long nextLong() { return Long.parseLong(next()); }
+		double nextDouble() { return Double.parseDouble(next()); }
+	}
+}
+
+
+------------------------------
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.Scanner;
+
+public class Main {
+	
+	public static void main(String[] args)
+	{
+		Scanner s=new Scanner(System.in);
+		
+		int n=s.nextInt();
+		
+		int[] arr=new int[n];
+		
+		for(int i=0;i<n;i++) 
+		{
+			arr[i]=s.nextInt();
+		}
+		
+		ArrayList<Integer>[] brr=new ArrayList[n];
+		
+		for(int i=0;i<n;i++)
+		{
+			ArrayList<Integer> list=new ArrayList<>();
+			
+			brr[i]=list;
+			
+		}
+		
+		for(int i=0;i<n;i++)
+		{
+			int index1=i+arr[i];
+			int index2=i-arr[i];
+			
+			if(index1<n)
+			{
+				brr[index1].add(i);
+			}
+			if(index2>=0)
+			{
+				brr[index2].add(i);
+			}
+		}
+		
+		int[] dist=new int[n];
+		
+		Arrays.fill(dist,-1);
+		
+		int[] visited=new int[n];
+		bfs1(brr,visited,arr,n,dist);
+		
+		visited=new int[n];
+		bfs2(brr,visited,arr,n,dist);
+		
+		for(int i=0;i<n;i++)
+		{
+			System.out.print(dist[i]+" ");
+		}
+		
+	}
+	
+	public static void bfs1(ArrayList<Integer>[] arr,int[] visited,int[] brr,int n,int[] dist)
+	{
+		Queue<pair> q=new LinkedList<>();
+		
+		for(int i=0;i<n;i++)
+		{
+			if(brr[i]%2==0)
+			{
+				pair p=new pair(i,0);
+				q.add(p);
+				visited[i]=1;
+			}
+		}
+		
+		while(!q.isEmpty())
+		{
+			pair curr=q.poll();
+			
+			if(brr[curr.node]%2!=0)
+			dist[curr.node]=curr.d;
+			
+			for(int i=0;i<arr[curr.node].size();i++)
+			{
+				int now=arr[curr.node].get(i);
+				
+				if(visited[now]==0)
+				{
+					pair p=new pair(now,curr.d+1);
+					q.add(p);
+					visited[now]=1;
+				}
+			}
+			
+		}
+		
+	}
+	
+	public static void bfs2(ArrayList<Integer>[] arr,int[] visited,int[] brr,int n,int[] dist)
+	{
+		Queue<pair> q=new LinkedList<>();
+		
+		for(int i=0;i<n;i++)
+		{
+			if(brr[i]%2!=0)
+			{
+				pair p=new pair(i,0);
+				q.add(p);
+				visited[i]=1;
+			}
+		}
+		
+		while(!q.isEmpty())
+		{
+			pair curr=q.poll();
+			
+			if(brr[curr.node]%2==0)
+			dist[curr.node]=curr.d;
+			
+			for(int i=0;i<arr[curr.node].size();i++)
+			{
+				int now=arr[curr.node].get(i);
+				
+				if(visited[now]==0)
+				{
+					pair p=new pair(now,curr.d+1);
+					q.add(p);
+					visited[now]=1;
+				}
+			}
+			
+		}
+		
+	}
+	
+}
+
+class pair
+{
+	int node;
+	int d;
+	
+	public pair(int node,int d)
+	{
+		this.node=node;
+		this.d=d;
+	}
+}
+------------------------------
+import java.io.*;
+import java.util.*;  
+public class Main {
+	
+	public static void main(String[] args) throws IOException {
+		BufferedReader br  =new BufferedReader(new InputStreamReader(System.in));
+		PrintWriter pw = new PrintWriter(System.out);
+		int n = Integer.parseInt(br.readLine());
+		int[] a = new int[n];
+		StringTokenizer st = new StringTokenizer(br.readLine());
+		for (int i = 0; i < a.length; i++) {
+			a[i]= Integer.parseInt(st.nextToken());
+		}
+		ArrayList<Integer>[] adj = new ArrayList[n];
+		for (int i = 0; i < adj.length; i++) {
+			adj[i]= new ArrayList<Integer>();
+		}
+
+		for (int i = 0; i < adj.length; i++) {
+			int left=i-a[i];
+			if(left>-1)
+			{
+				adj[left].add(i);
+			}
+			int right=i+a[i];
+			if(right<a.length)
+			{
+				adj[right].add(i);
+			}
+		}
+	
+		int[] ans = new int[n];
+		Arrays.fill(ans, -1);
+		
+		boolean[] visited = new boolean[n];
+		Queue<Node> even = new LinkedList<Node>();
+		for (int i = 0; i < a.length; i++) {
+			if(a[i]%2==0)
+			{
+				even.add(new Node(i, 0));
+				visited[i]=true;
+			}
+		}
+		while(!even.isEmpty())
+		{
+			Node u= even.poll();
+			for(int v: adj[u.node])
+			{
+				if(!visited[v])
+				{
+					visited[v]=true;
+					even.add(new Node(v, u.level+1));
+					if(a[v]%2==1)ans[v]=u.level+1;
+				}
+			}
+			
+		}
+		
+		visited = new boolean[n];
+		Queue<Node> odd = new LinkedList<Node>();
+		for (int i = 0; i < a.length; i++) {
+			if(a[i]%2==1)
+			{
+				odd.add(new Node(i, 0));
+				visited[i]=true;
+			}
+		}
+		while(!odd.isEmpty())
+		{
+			Node u= odd.poll();
+			for(int v: adj[u.node])
+			{
+				if(!visited[v])
+				{
+					visited[v]=true;
+					odd.add(new Node(v, u.level+1));
+					if(a[v]%2==0)ans[v]=u.level+1;
+				}
+			}
+			
+		}
+		for (int i = 0; i < ans.length; i++) {
+			pw.print(ans[i] + " ");
+		}
+		pw.println();
+		pw.close();
+	}	
+	static class Node
+	{
+		int node;
+		int level;
+		public Node(int node, int level)
+		{
+			this.node=node;
+			this.level=level;
+		}
+		public String toString()
+		{
+			return "(" + node + "," + level + ")"; 
+		}
+	}
+}
+------------------------------
+import java.util.*;
+import java.io.*;
+
+public class R605E {
+
+	public static void main(String[] args) {
+		JS scan = new JS();
+		PrintWriter out = new PrintWriter(System.out);
+		int n = scan.nextInt();
+		ArrayList<Integer>[] graph = new ArrayList[n];
+		ArrayList<Integer>[] rev = new ArrayList[n];
+		for(int i = 0; i < n; i++) {
+			graph[i] = new ArrayList<Integer>();
+			rev[i] = new ArrayList<Integer>();
+		}
+		int[] arr = new int[n];
+		for(int i = 0; i < n; i++) arr[i] = scan.nextInt();
+		for(int i = 0; i < n; i++) {
+			int right = i+arr[i];
+			int left = i-arr[i];
+			if(right < n) {
+				graph[i].add(right);
+				rev[right].add(i);
+			}
+			if(left >= 0) {
+				graph[i].add(left);
+				rev[left].add(i);
+			}
+		}
+		int[] ans = new int[n];
+		Arrays.fill(ans, -1);
+		ArrayDeque<Integer> q = new ArrayDeque<Integer>();
+		for(int i = 0; i < n; i++) {
+			for(int j = 0; j < graph[i].size(); j++) {
+				int to = graph[i].get(j);
+				if(arr[i] % 2 != arr[to] % 2) {
+					ans[i] = 1;
+					q.add(i);
+				}
+			}
+		}
+		while(!q.isEmpty()) {
+			int p = q.poll();
+			for(int i = 0; i < rev[p].size(); i++) {
+				int to = rev[p].get(i);
+				if(arr[p] % 2 == arr[to] % 2) {
+					if(ans[to] == -1) {
+						ans[to] = ans[p]+1;
+						q.add(to);
+					}
+				}
+			}
+			
+		}
+		for(int i = 0; i < n; i++) out.print(ans[i]+" ");
+		out.println();
+		out.flush();
+	}
+
+	static class JS{
+		public int BS = 1<<16;
+		public char NC = (char)0;
+		byte[] buf = new byte[BS];
+		int bId = 0, size = 0;
+		char c = NC;
+		double num = 1;
+		BufferedInputStream in;
+
+		public JS() {
+			in = new BufferedInputStream(System.in, BS);
+		}
+
+		public JS(String s) throws FileNotFoundException {
+			in = new BufferedInputStream(new FileInputStream(new File(s)), BS);
+		}
+
+		public char nextChar(){
+			while(bId==size) {
+				try {
+					size = in.read(buf);
+				}catch(Exception e) {
+					return NC;
+				}				
+				if(size==-1)return NC;
+				bId=0;
+			}
+			return (char)buf[bId++];
+		}
+
+		public int nextInt() {
+			return (int)nextLong();
+		}
+
+		public long nextLong() {
+			num=1;
+			boolean neg = false;
+			if(c==NC)c=nextChar();
+			for(;(c<'0' || c>'9'); c = nextChar()) {
+				if(c=='-')neg=true;
+			}
+			long res = 0;
+			for(; c>='0' && c <='9'; c=nextChar()) {
+				res = (res<<3)+(res<<1)+c-'0';
+				num*=10;
+			}
+			return neg?-res:res;
+		}
+
+		public double nextDouble() {
+			double cur = nextLong();
+			return c!='.' ? cur:cur+nextLong()/num;
+		}
+
+		public String next() {
+			StringBuilder res = new StringBuilder();
+			while(c<=32)c=nextChar();
+			while(c>32) {
+				res.append(c);
+				c=nextChar();
+			}
+			return res.toString();
+		}
+
+		public String nextLine() {
+			StringBuilder res = new StringBuilder();
+			while(c<=32)c=nextChar();
+			while(c!='\n') {
+				res.append(c);
+				c=nextChar();
+			}
+			return res.toString();
+		}
+
+		public boolean hasNext() {
+			if(c>32)return true;
+			while(true) {
+				c=nextChar();
+				if(c==NC)return false;
+				else if(c>32)return true;
+			}
+		}
+	}
+}
+
+------------------------------
+import java.io.*;
+import java.util.*;
+
+public class E {
+
+	public static void main(String[] args) {
+		FastScanner sc = new FastScanner();
+		int n = sc.nextInt();
+		int[] arr = new int[n];
+		for(int i = 0; i < n; i++) {
+			arr[i] = sc.nextInt();
+		}
+		ArrayList<Integer>[] g = new ArrayList[n];
+		for(int i = 0; i < n; i++) g[i] = new ArrayList<>();
+		for(int i = 0; i < n; i++) {
+			if(i + arr[i] < n) {
+				g[i + arr[i]].add(i);
+			}
+			if(i - arr[i] >= 0) {
+				g[i - arr[i]].add(i);
+			}
+		}
+		int[] dist = new int[n];
+		Arrays.fill(dist, -1);
+		LinkedList<Integer> q = new LinkedList<Integer>();
+		for(int i = 0; i < n; i++) {
+			if(i+arr[i] < n && (arr[i] + arr[i+arr[i]]) % 2 == 1) {
+				dist[i] = 1;
+				q.add(i);
+			}
+			else if(i-arr[i] >= 0 && (arr[i] + arr[i-arr[i]]) % 2 == 1) {
+				dist[i] = 1;
+				q.add(i);
+			}
+		}
+		while(!q.isEmpty()) {
+			int u = q.removeFirst();
+			for(int v: g[u]) {
+				if(dist[v] < 0) {
+					dist[v] = dist[u]+1;
+					q.add(v);
+				}
+			}
+		}
+		StringBuilder sb = new StringBuilder();
+		for(int k: dist) sb.append(k+" ");
+		System.out.println(sb.toString()+"\n");
+	}
+	static class FastScanner {
+		public BufferedReader reader;
+		public StringTokenizer tokenizer;
+		public FastScanner() {
+			reader = new BufferedReader(new InputStreamReader(System.in), 32768);
+			tokenizer = null;
+		}
+		public String next() {
+			while (tokenizer == null || !tokenizer.hasMoreTokens()) {
+				try {
+					tokenizer = new StringTokenizer(reader.readLine());
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+			}
+			return tokenizer.nextToken();
+		}
+		public int nextInt() {
+			return Integer.parseInt(next());
+		}
+		public long nextLong() {
+			return Long.parseLong(next());
+		}
+		public double nextDouble() {
+			return Double.parseDouble(next());
+		}
+		public String nextLine() {
+			try {
+				return reader.readLine();
+			} catch(IOException e) {
+				throw new RuntimeException(e);
+			}
+		}
+	}
+
+
+}
+
+------------------------------
+
+
+Write a python script that can generate test cases for a programming problem with the provided problem statement and solution codes. The test case should be focus on exhausting the code to get time limit exceeded and should follow the input format. The python script should be able to read an argument which specify a directory and write all the testcases as 'test_01.in', 'test_02.in', ... into the directory.

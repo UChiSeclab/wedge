@@ -1,0 +1,84 @@
+To generate test cases for the provided problem, we need to create a Python script that can produce large random sequences of integers within the constraints described in the problem statement. These test cases should aim to stress the provided solutions to test their performance under edge conditions and potentially cause time limits to be exceeded.
+
+Here's a Python script to generate such test cases:
+
+```python
+import os
+import random
+import sys
+
+def generate_test_case(n, k):
+    """Generates a single test case with n elements and a specified k"""
+    max_value = 10**4
+    sequence = [random.randint(0, max_value) for _ in range(n)]
+    return n, k, sequence
+
+def write_test_case(directory, test_case_number, n, k, sequence):
+    """Writes a test case to a file in the specified directory"""
+    filename = os.path.join(directory, f'test_{test_case_number:02d}.in')
+    with open(filename, 'w') as file:
+        file.write(f'{n} {k}\n')
+        file.write(' '.join(map(str, sequence)) + '\n')
+
+def main(output_directory):
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    test_cases = [
+        (10, 1),
+        (100, 2),
+        (1000, 3),
+        (10000, 4),
+        (100000, 5),
+        (100000, 0),
+        (100000, 14),
+    ]
+
+    test_case_number = 1
+    for count, (n, k) in enumerate(test_cases, 1):
+        n, k, sequence = generate_test_case(n, k)
+        write_test_case(output_directory, test_case_number, n, k, sequence)
+        test_case_number += 1
+
+    # Add some edge cases with maximum limits
+    for i in range(5):
+        n, k, sequence = generate_test_case(100000, random.randint(0, 14))
+        write_test_case(output_directory, test_case_number, n, k, sequence)
+        test_case_number += 1
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python generate_test_cases.py <output_directory>")
+        sys.exit(1)
+    
+    output_directory = sys.argv[1]
+    main(output_directory)
+```
+
+### How to Run the Script
+
+1. Save the above Python script to a file named `generate_test_cases.py`.
+2. Make sure you have Python installed on your system.
+3. Open a terminal (or command prompt) and navigate to the directory where you saved the `generate_test_cases.py`.
+4. Run the script with the desired output directory as an argument:
+   ```
+   python generate_test_cases.py <output_directory>
+   ```
+
+   Replace `<output_directory>` with the path to the directory where you want to save the generated test case files.
+
+### What This Script Does
+
+1. **Function Definitions**:
+   - `generate_test_case(n, k)`: Generates a random test case with `n` integers and a given `k`.
+   - `write_test_case(directory, test_case_number, n, k, sequence)`: Writes the generated test case to a file in the specified directory.
+   
+2. **Main Function**:
+   - It checks if the output directory exists and creates it if it doesn't.
+   - It defines a set of predefined test cases with increasing sizes to test the performance and edge limits of the solutions.
+   - It generates these test cases, writes them to the specified directory, and names them sequentially (`test_01.in`, `test_02.in`, ...).
+
+3. **Special Edge Cases**:
+   - The script also generates a few additional large test cases with maximum values to further stress the solution.
+
+By running this script, you will create a comprehensive set of test cases designed to challenge the solutions and check their performance under extreme conditions.

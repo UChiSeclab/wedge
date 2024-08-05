@@ -1,0 +1,61 @@
+To create a Python script that generates test cases for your programming problem, we will utilize the problem statement and its constraints to stress test the provided solutions. The script will generate inputs that aim to maximize the problem size and complexity within the given constraints to try and cause a time limit exceeded (TLE) situation.
+
+Here is the full Python script that will generate these test cases:
+
+```python
+import os
+import random
+import argparse
+
+def generate_test_case(max_n, test_case_id, directory):
+    n = max_n
+    array = list(range(1, n + 1))  # generate a permutation of length n
+    
+    # for TLE, shuffle array to avoid best case scenarios
+    random.shuffle(array)
+
+    # Prepare the content to write
+    content = f"1\n{n}\n{' '.join(map(str, array))}\n"
+    
+    # Write to file
+    file_path = os.path.join(directory, f"test_{test_case_id:02d}.in")
+    with open(file_path, 'w') as file:
+        file.write(content)
+
+def main(directory):
+    max_cases = 20  # You can specify the number of test files
+    max_n = 3 * 10**5  # Max input size n
+    
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    for i in range(1, max_cases + 1):
+        generate_test_case(max_n, i, directory)
+        print(f"Generated test case test_{i:02d}.in")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate test cases for TLE")
+    parser.add_argument('directory', type=str, help='Directory to store test cases')
+    
+    args = parser.parse_args()
+    main(args.directory)
+```
+
+### Explanation:
+1. **Argument Parsing**: Uses `argparse` to handle the directory argument where the test cases should be saved.
+2. **Generate Test Case**:
+    - Maximize `n` to `3 * 10^5` as per the problem constraints.
+    - Generates a permutation of length `n`.
+    - Shuffles the array to avoid any best-case scenarios.
+3. **Directory and File Handling**:
+    - Checks if the directory exists; if not, it creates it.
+    - Writes `1` test case per file in the expected format.
+  
+### Usage:
+1. Save the script to a file, e.g., `generate_test_cases.py`.
+2. Run the script from the command line, providing the desired directory for the test cases:
+   ```sh
+   python generate_test_cases.py /path/to/test/cases
+   ```
+
+This script will generate `20` test case files named `test_01.in` to `test_20.in` in the specified directory, maximizing the input size to exhaust time limits and test efficiency. You can adjust `max_cases` to change how many test cases are generated and other parameters to fit specific needs.

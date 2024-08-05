@@ -1,0 +1,83 @@
+To create a Python script that generates test cases for exhausting the code provided to get time limit exceeded (TLE), we need to adhere to the input format and ensure our test cases push the program to its limits. The test cases should maximize the number of cities and trucks, and use large values for distance and fuel consumption to stress the solution.
+
+Here is a Python script that generates such test cases and writes them into specified directory with filenames like 'test_01.in', 'test_02.in', etc. 
+
+```python
+import os
+import sys
+import random
+
+def generate_test_case(n, m, max_distance, max_fuel_consumption, directory, index):
+    # Create the directory if it does not exist
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    filename = f"test_{index:02d}.in"
+
+    with open(os.path.join(directory, filename), 'w') as f:
+        # Write n and m
+        f.write(f"{n} {m}\n")
+        
+        # Generate city positions in strictly increasing order
+        positions = []
+        current_position = 0
+        for _ in range(n):
+            current_position += random.randint(1, max_distance // n)
+            positions.append(current_position)
+        
+        # Write city positions
+        f.write(" ".join(map(str, positions)) + "\n")
+        
+        # Generate trucks
+        for _ in range(m):
+            start_city = random.randint(1, n-1)
+            end_city = random.randint(start_city+1, n)
+            fuel_consumption = random.randint(1, max_fuel_consumption)
+            max_refuels = random.randint(0, n-1)
+            
+            # Write truck details
+            f.write(f"{start_city} {end_city} {fuel_consumption} {max_refuels}\n")
+
+def main():
+    if len(sys.argv) < 2:
+        print("Please specify the directory to write test cases.")
+        return
+    
+    directory = sys.argv[1]
+    
+    # Parameters for the test case
+    num_cases = 10  # Number of test cases
+    n = 400  # maximum number of cities
+    m = 250000  # maximum number of trucks
+    max_distance = int(1e9)  # maximum distance value
+    max_fuel_consumption = int(1e9)  # maximum fuel consumption value
+
+    for i in range(1, num_cases + 1):
+        generate_test_case(n, m, max_distance, max_fuel_consumption, directory, i)
+
+if __name__ == "__main__":
+    main()
+```
+
+### Explanation:
+
+1. **generate_test_case**:
+    - This function generates a single test case.
+    - It writes the test case to a file named `test_index.in` in the provided directory.
+    - It ensures city positions are in strictly increasing order.
+    - Randomly generates starting city, ending city, fuel consumption, and maximum refuels for each truck.
+
+2. **main**:
+    - Ensures a directory argument is provided.
+    - Defines the parameters for the largest test cases.
+    - Iterates to generate the specified number of test cases, using `generate_test_case`.
+
+### Usage:
+
+Save the script to a file, e.g., `generate_test_cases.py`, and run it from the command line, specifying the directory where you want the test cases to be saved:
+
+```sh
+python generate_test_cases.py path_to_output_directory
+```
+
+This will create 10 test case files (`test_01.in` to `test_10.in`) in the specified directory, each designed to stress the solution to its limits based on the given problem statement and parameter constraints.

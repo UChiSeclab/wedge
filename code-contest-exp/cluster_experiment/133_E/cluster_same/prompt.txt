@@ -1,0 +1,581 @@
+Problem Statement
+A lot of people associate Logo programming language with turtle graphics. In this case the turtle moves along the straight line and accepts commands "T" ("turn around") and "F" ("move 1 unit forward").
+
+You are given a list of commands that will be given to the turtle. You have to change exactly n commands from the list (one command can be changed several times). How far from the starting point can the turtle move after it follows all the commands of the modified list?
+
+Input
+
+The first line of input contains a string commands — the original list of commands. The string commands contains between 1 and 100 characters, inclusive, and contains only characters "T" and "F".
+
+The second line contains an integer n (1 ≤ n ≤ 50) — the number of commands you have to change in the list.
+
+Output
+
+Output the maximum distance from the starting point to the ending point of the turtle's path. The ending point of the turtle's path is turtle's coordinate after it follows all the commands of the modified list.
+
+Examples
+
+Input
+
+FT
+1
+
+
+Output
+
+2
+
+
+Input
+
+FFFTFFF
+2
+
+
+Output
+
+6
+
+Note
+
+In the first example the best option is to change the second command ("T") to "F" — this way the turtle will cover a distance of 2 units.
+
+In the second example you have to change two commands. One of the ways to cover maximal distance of 6 units is to change the fourth command and first or last one.
+------------------------------
+import java.util.Scanner;
+
+public class E {
+
+    static int L;
+    static String s;
+    static boolean[][][][]calculated;
+    static int ans = 0;
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        s = sc.next();
+        L = s.length();
+        int n = sc.nextInt();
+        calculated = new boolean[205][L+1][n+1][2];
+        calc(100, 0, n, 1);
+        System.out.println(ans);
+    }
+
+    private static void calc(int pos, int ind, int change, int orient) {
+        if (L==ind) {
+            if (change%2==0)
+                ans = Math.max(ans, Math.abs(pos-100));
+            return;
+        }
+        if (change < 0)
+            return;
+        if (calculated[pos][ind][change][orient])
+            return;
+        calculated[pos][ind][change][orient] = true;
+        int dx = -1;
+        if (orient==1)
+            dx = 1;
+        if (s.charAt(ind)=='F') {
+            calc(pos+dx, ind+1, change, orient);
+            calc(pos, ind+1, change-1, 1-orient);
+        }
+        else {
+            calc(pos, ind+1, change, 1-orient);
+            calc(pos+dx, ind+1, change-1, orient);
+        }
+    }
+}
+
+------------------------------
+import java.io.*;
+import java.util.StringTokenizer;
+
+/**
+ * Built using CHelper plug-in
+ * Actual solution is at the top
+ *
+ * @author Artem Gilmudinov
+ */
+public class Main {
+    public static void main(String[] args) {
+        InputStream inputStream;
+        inputStream = System.in;
+        OutputStream outputStream = System.out;
+        Reader in = new Reader(inputStream);
+        PrintWriter out = new PrintWriter(outputStream);
+        TaskE solver = new TaskE();
+        solver.solve(1, in, out);
+        out.close();
+    }
+
+    static class TaskE {
+        public void solve(int testNumber, Reader in, PrintWriter out) {
+            String s = in.rl();
+            int n = s.length();
+            int m = in.ni();
+            int mid = n + 1;
+            int cnt = 2 * n + 4;
+            boolean[][][] dp = new boolean[cnt][m + 1][2]; //0-left, 1-right
+            boolean[][][] prev = new boolean[cnt][m + 1][2];
+            prev[mid][0][1] = true;
+            int temp = 0;
+            int dir = 0;
+            for (int i = 0; i < n; i++) {
+                for (int j = -n; j <= n; j++) {
+                    temp = j + mid;
+                    for (int z = 0; z <= m; z++) {
+                        for (int d = 0; d < 2; d++) {
+                            if (d == 0) {
+                                dir = 1;
+                            } else {
+                                dir = -1;
+                            }
+                            if (s.charAt(i) == 'F') {
+                                for (int k = 0; k <= z; k++) {
+                                    if (k % 2 == 0) {
+                                        dp[temp][z][d] |= prev[temp + dir][z - k][d];
+                                    } else {
+                                        dp[temp][z][d] |= prev[temp][z - k][1 - d];
+                                    }
+                                }
+                            } else {
+                                for (int k = 0; k <= z; k++) {
+                                    if (k % 2 == 0) {
+                                        dp[temp][z][d] |= prev[temp][z - k][1 - d];
+                                    } else {
+                                        dp[temp][z][d] |= prev[temp + dir][z - k][d];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                for (int j = 0; j < cnt; j++) {
+                    for (int z = 0; z <= m; z++) {
+                        for (int k = 0; k < 2; k++) {
+                            prev[j][z][k] = dp[j][z][k];
+                            dp[j][z][k] = false;
+                        }
+                    }
+                }
+            }
+            int ans = 0;
+            for (int i = -n; i <= n; i++) {
+                for (int j = 0; j < 2; j++) {
+                    if (prev[i + mid][m][j]) {
+                        ans = Math.max(Math.abs(i), ans);
+                    }
+                }
+            }
+            out.println(ans);
+        }
+
+    }
+
+    static class Reader {
+        private BufferedReader in;
+        private StringTokenizer st = new StringTokenizer("");
+        private String delim = " ";
+
+        public Reader(InputStream in) {
+            this.in = new BufferedReader(new InputStreamReader(in));
+        }
+
+        public String next() {
+            if (!st.hasMoreTokens()) {
+                st = new StringTokenizer(rl());
+            }
+            return st.nextToken(delim);
+        }
+
+        public String rl() {
+            try {
+                return in.readLine();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        public int ni() {
+            return Integer.parseInt(next());
+        }
+
+    }
+}
+
+
+------------------------------
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Scanner;
+import java.util.StringTokenizer;
+
+public class E133 {
+	BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
+	StringTokenizer st = null;
+
+	private void solution() throws IOException {
+		String s = nextToken();
+		int n = nextInt();
+		int nap[] = new int[2];
+		nap[0] = -1;
+		nap[1] = 1;
+		int dp[][][] = new int[s.length() + 1][n + 1][2];
+		for (int i = 0; i <= s.length(); i++) {
+			for (int j = 0; j <= n; j++) {
+				for (int k = 0; k < 2; k++) {
+					dp[i][j][k] = -100;
+				}
+			}
+		}
+		dp[0][0][0] = dp[0][0][1] = 0;
+		for (int i = 1; i <= s.length(); i++) {
+			for (int j = 0; j <= n; j++) {
+				for (int k = 0; k < 2; k++) {
+					if (s.charAt(i - 1) == 'F') {
+						dp[i][j][k] = Math.max(dp[i][j][k], dp[i - 1][j][k]
+								+ nap[k]);
+						if (j > 0) {
+							dp[i][j][k] = Math.max(dp[i][j][k],
+									dp[i - 1][j - 1][1 - k]);
+						}
+					} else {
+						if (j > 0) {
+							dp[i][j][k] = Math.max(dp[i][j][k],
+									dp[i - 1][j - 1][k] + nap[k]);
+						}
+						dp[i][j][k] = Math
+								.max(dp[i][j][k], dp[i - 1][j][1 - k]);
+					}
+				}
+			}
+		}
+		int ans = 0;
+		for (int j = 0; j <= n; j++) {
+			if (j % 2 != n % 2)
+				continue;
+			for (int k = 0; k < 2; k++) {
+				ans = Math.max(ans, dp[s.length()][j][k]);
+			}
+		}
+		System.out.println(ans);
+	}
+
+	String nextToken() throws IOException {
+		if (st == null || !st.hasMoreTokens()) {
+			st = new StringTokenizer(bf.readLine());
+		}
+		return st.nextToken();
+	}
+
+	int nextInt() throws IOException {
+		return Integer.parseInt(nextToken());
+	}
+
+	long nextLong() throws IOException {
+		return Long.parseLong(nextToken());
+	}
+
+	double nextDouble() throws IOException {
+		return Double.parseDouble(nextToken());
+	}
+
+	public void print(int a[]) {
+		for (int i = 0; i < a.length; i++) {
+			System.out.print(a[i] + " ");
+		}
+	}
+
+	public static void main(String args[]) throws IOException {
+		new E133().solution();
+	}
+}
+------------------------------
+import java.awt.Point;
+import java.io.*;
+import java.math.BigInteger;
+import java.util.*;
+
+import static java.lang.Math.*;
+
+public class AC {
+    
+    //solve by Fdg (it's good solve)
+    
+    int [][][][] d;
+    int l;
+    char [] c ;
+    public void solve() throws IOException {
+        
+        c = in.readLine().toCharArray();
+        int n  = readInt();
+        l = c.length;
+        d = new int [202][l+2][n+2][2]; 
+        for (int i =0; i<202;i++){
+            for (int j =0; j<l+2;j++){
+                for(int k = 0; k<n+2; k++){
+                    for (int q = 0; q<2; q++){
+                        d[i][j][k][q] = -1;
+                    }
+                }
+            }
+        }
+        out.print(rec(100,0,n,0));
+    }
+    
+    int rec (int pos,int step,int left,int cource ){
+    
+        if(d[pos][step][left][cource]!=-1) {
+            return d[pos][step][left][cource];
+        }
+        if (step==l){
+            if ((left&1)>0){
+                return 0;
+            }
+            return abs(pos-100);
+        }
+        int way=0;
+        if (cource==0){
+            way++;
+        }
+        else way--; 
+        int ans = 0;
+        if (c[step]=='F'){
+            ans = max(ans,rec(pos+way,step+1,left,cource));
+        }
+        if (c[step] == 'T'){
+            ans = max(ans,rec(pos,step+1,left,cource^1));
+        }
+        if (left>0){
+            if (c[step]=='F'){
+                ans = max(ans,rec(pos,step+1,left-1,cource^1));
+            }
+            if (c[step]=='T'){
+                ans = max(ans,rec(pos+way,step+1,left-1,cource));
+            }
+        }
+        return d[pos][step][left][cource] = ans;
+        
+        
+    }
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    // ===========================================================================
+    final boolean ONLINE_JUDGE = System.getProperty("ONLINE_JUDGE") != null;
+    BufferedReader in;
+    PrintWriter out;
+    StringTokenizer tok = new StringTokenizer("");
+
+    void init() throws FileNotFoundException {
+        if (ONLINE_JUDGE) {
+            in = new BufferedReader(new InputStreamReader(System.in));
+            out = new PrintWriter(System.out);
+        } else {
+            in = new BufferedReader(new FileReader("input.txt"));
+            out = new PrintWriter("output.txt");
+        }
+    }
+
+    String readString() throws IOException {
+        while (!tok.hasMoreTokens()) {
+            tok = new StringTokenizer(in.readLine());
+        }
+        return tok.nextToken();
+    }
+
+    int readInt() throws IOException {
+        return Integer.parseInt(readString());
+    }
+
+    long readLong() throws IOException {
+        return Long.parseLong(readString());
+    }
+
+    double readDouble() throws IOException {
+        return Double.parseDouble(readString());
+    }
+
+    public static void main(String[] args) {
+        new AC().run();
+    }
+
+    public void run() {
+        try {
+            long t1 = System.currentTimeMillis();
+            init();
+            solve();
+            out.close();
+            long t2 = System.currentTimeMillis();
+            System.err.println("Time = " + (t2 - t1));
+        } catch (Exception e) {
+            e.printStackTrace(System.err);
+            System.exit(-1);
+        }
+    }
+
+}
+
+------------------------------
+import java.util.Scanner;
+import java.io.OutputStream;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.InputStream;
+
+/**
+ * Built using CHelper plug-in
+ * Actual solution is at the top
+ * @author Fantast
+ */
+public class Main {
+	public static void main(String[] args) {
+		InputStream inputStream = System.in;
+		OutputStream outputStream = System.out;
+		Scanner in = new Scanner(inputStream);
+		PrintWriter out = new PrintWriter(outputStream);
+		TaskE solver = new TaskE();
+		solver.solve(1, in, out);
+		out.close();
+	}
+}
+
+class TaskE {
+    int n;
+    char[] s;
+    public void solve(int testNumber, Scanner in, PrintWriter out) {
+        s = in.next().toCharArray();
+        n = in.nextInt();
+
+        for (int i = 0; i < 101; ++i) {
+            for (int j = 0; j < 2; ++j) {
+                for (int k = 0; k < 101; ++k) {
+                    mxs[i][j][k] = -1;
+                    mns[i][j][k] = -1;
+                }
+            }
+        }
+
+        out.println(
+                mx(
+                        Math.abs(mxdist(0, 1, n)),
+                        Math.abs(mndist(0, 1, n)),
+                        Math.abs(mxdist(0, -1, n)),
+                        Math.abs(mndist(0, -1, n))
+                ));
+    }
+
+    private int mx(int... a) {
+        int res = a[0];
+        for (int n : a) {
+            res = Math.max(res, n);
+        }
+        return res;
+    }
+
+    int mxs[][][] = new int[101][2][101];
+    public int mxdist(int ind, int dir, int tochange) {
+        if (ind == s.length) {
+            if (tochange > s.length - ind) {
+                return Integer.MIN_VALUE / 2;
+            }
+            return 0;
+        }
+
+        int di = (dir+1)/2;
+        if (mxs[ind][di][tochange] != -1) {
+            return mxs[ind][di][tochange];
+        }
+
+        int res;
+        if (s[ind] == 'T') {
+            res = Integer.MIN_VALUE / 2;
+            for (int dc = 0; dc <= tochange; ++dc) {
+                if (dc%2 == 0) {
+                    res = Math.max(res, mxdist(ind + 1, -dir, tochange - dc));
+                } else {
+                    res = Math.max(res, dir + mxdist(ind + 1, dir, tochange - dc));
+                }
+            }
+        } else {
+            res = Integer.MIN_VALUE / 2;
+            for (int dc = 0; dc <= tochange; ++dc) {
+                if (dc%2 == 0) {
+                    res = Math.max(res, dir + mxdist(ind + 1, dir, tochange - dc));
+                } else {
+                    res = Math.max(res, mxdist(ind + 1, -dir, tochange - dc));
+                }
+            }
+        }
+
+        return mxs[ind][di][tochange] = res;
+    }
+
+    int mns[][][] = new int[101][2][101];
+    public int mndist(int ind, int dir, int tochange) {
+        if (ind == s.length) {
+            if (tochange > s.length - ind) {
+                return Integer.MAX_VALUE / 2;
+            }
+            return 0;
+        }
+
+        int di = (dir+1)/2;
+        if (mns[ind][di][tochange] != -1) {
+            return mns[ind][di][tochange];
+        }
+
+        int res;
+        if (s[ind] == 'T') {
+            res = Integer.MAX_VALUE / 2;
+            for (int dc = 0; dc <= tochange; ++dc) {
+                if (dc%2 == 0) {
+                    res = Math.min(res, mndist(ind + 1, -dir, tochange - dc));
+                } else {
+                    res = Math.min(res, dir + mndist(ind + 1, dir, tochange - dc));
+                }
+            }
+        } else {
+            res = Integer.MAX_VALUE / 2;
+            for (int dc = 0; dc <= tochange; ++dc) {
+                if (dc%2 == 0) {
+                    res = Math.min(res, dir + mndist(ind + 1, dir, tochange - dc));
+                } else {
+                    res = Math.min(res, mndist(ind + 1, -dir, tochange - dc));
+                }
+            }
+        }
+        return mns[ind][di][tochange] = res;
+    }
+}
+
+
+------------------------------
+
+
+Write a python script that can generate test cases for a programming problem with the provided problem statement and solution codes. The test case should be focus on exhausting the code to get time limit exceeded and should follow the input format. The python script should be able to read an argument which specify a directory and write all the testcases as 'test_01.in', 'test_02.in', ... into the directory.

@@ -1,0 +1,55 @@
+Sure, here's a Python script that will generate test cases for the provided programming problem and save them in the specified directory. The script will focus on creating input sizes that push the limits of the constraints to potentially cause time limits to be exceeded.
+
+```python
+import os
+import random
+
+def generate_test_case(n, filename):
+    characters = ['D', 'K']
+    test_case = ''.join(random.choices(characters, k=n))
+    with open(filename, 'w') as f:
+        f.write(f"{1}\n")  # One test case per file for simplicity
+        f.write(f"{n}\n")
+        f.write(f"{test_case}\n")
+
+def main(dir_path):
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+    
+    # Generate test cases focusing on upper input bounds
+    test_sizes = [1000, 10000, 100000, 500000]
+    for i, size in enumerate(test_sizes, 1):
+        filename = os.path.join(dir_path, f'test_{i:02}.in')
+        generate_test_case(size, filename)
+        print(f"Generated {filename} with size {size}")
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) != 2:
+        print("Usage: python generate_test_cases.py <output_directory>")
+    else:
+        directory = sys.argv[1]
+        main(directory)
+```
+
+### Explanation
+1. **generate_test_case(n, filename)**:
+    - Generates a random string of length `n` composed of 'D' and 'K'.
+    - Writes the number of test cases (1 for simplicity) and the generated string in the required format to `filename`.
+
+2. **main(dir_path)**:
+    - Checks if the specified directory exists, creating it if it doesn't.
+    - Defines a list `test_sizes` of different lengths aiming to exhaust the limits.
+    - Generates multiple test cases of different sizes and saves them with sequential filenames (e.g., `test_01.in`, `test_02.in`).
+
+3. **Command line execution**:
+    - The script is designed to be run from the command line, taking one argument: the directory where the test cases should be saved.
+
+### Usage
+To use this script, save it as `generate_test_cases.py` and run it from the command line as follows:
+
+```bash
+python generate_test_cases.py /path/to/output/directory
+```
+
+This will produce test case files named `test_01.in`, `test_02.in`, etc., in the specified directory, each containing a single test case of varying sizes to challenge the upper limit constraints of the problem.

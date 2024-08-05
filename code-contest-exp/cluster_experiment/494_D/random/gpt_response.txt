@@ -1,0 +1,74 @@
+To generate extensive test cases for the given problem, we need to focus on creating large trees and querying pairs of vertices in such a way that the algorithms will be extensively stressed. The following script will do exactly that, creating binary tree structures and different query scenarios. 
+
+Below is the Python script that generates test cases:
+
+```python
+import os
+import random
+
+MODULO = 10**9 + 7
+
+def generate_test_case(n, q):
+    # Create a balanced binary tree
+    edges = []
+    for i in range(2, n + 1):
+        edges.append((i // 2, i, random.randint(1, MODULO)))
+
+    queries = []
+    for _ in range(q):
+        u = random.randint(1, n)
+        v = random.randint(1, n)
+        queries.append((u, v))
+    
+    return edges, queries
+
+def write_test_case(filepath, n, edges, q, queries):
+    with open(filepath, 'w') as f:
+        f.write(f"{n}\n")
+        for a, b, c in edges:
+            f.write(f"{a} {b} {c}\n")
+        f.write(f"{q}\n")
+        for u, v in queries:
+            f.write(f"{u} {v}\n")
+
+def main(out_dir):
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    num_cases = 10
+    
+    for i in range(1, num_cases + 1):
+        # ensuring maximum vertices and maximum queries for stress testing
+        n = 100000
+        q = 100000
+        edges, queries = generate_test_case(n, q)
+        filepath = os.path.join(out_dir, f'test_{i:02}.in')
+        write_test_case(filepath, n, edges, q, queries)
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) != 2:
+        print("Usage: python generate_tests.py <output_directory>")
+        sys.exit(1)
+    
+    out_dir = sys.argv[1]
+    main(out_dir)
+```
+
+This script will generate 10 test cases with:
+- `n = 100000` vertices in the tree
+- `q = 100000` queries involving vertex pairs
+
+The edges will be part of a balanced binary tree structure to ensure it's stress-tested for the worst-case scenario but still maintains the tree properties. Each edge weight will be a random value between 1 and `10**9`. The queries are also randomized to cover as many pairs as possible.
+
+Here is how to use this script:
+
+1. Save the script to a file named `generate_tests.py`.
+2. Run the script from the terminal:
+   ```sh
+   python generate_tests.py <output_directory>
+   ```
+
+   Replace `<output_directory>` with the path of the directory where you want to generate the test case files.
+
+Each test case will be saved in the specified directory as `test_01.in`, `test_02.in`, etc., containing the input format suitable for the problem described.

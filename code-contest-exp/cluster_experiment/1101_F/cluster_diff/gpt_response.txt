@@ -1,0 +1,67 @@
+Certainly! To generate test cases for the provided problem that focus on exhausting the code to get a time limit exceeded (TLE), we need to create test cases with the upper limits of the input constraints. Here's a Python script that does exactly that:
+
+```python
+import os
+import sys
+import random
+
+def generate_test_cases(directory):
+    # First, ensure the directory exists
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
+    # Constants from the problem statement
+    MAX_N = 400
+    MAX_M = 250000
+    MAX_DISTANCE = 10**9
+    MAX_CONSUMPTION = 10**9
+    MAX_REFUELINGS = MAX_N
+    
+    def write_test_case(filename, n, m, distances, trucks):
+        with open(filename, 'w') as f:
+            f.write(f"{n} {m}\n")
+            f.write(" ".join(map(str, distances)) + "\n")
+            for truck in trucks:
+                f.write(" ".join(map(str, truck)) + "\n")
+    
+    # Create a test case that aims to exhaust the code
+    distances = [random.randint(1, MAX_DISTANCE) for _ in range(MAX_N)]
+    distances.sort()
+
+    trucks = []
+    for _ in range(MAX_M):
+        s = random.randint(1, MAX_N - 1)
+        f = random.randint(s + 1, MAX_N)
+        c = random.randint(1, MAX_CONSUMPTION)
+        r = random.randint(0, MAX_REFUELINGS)
+        trucks.append([s, f, c, r])
+
+    # Write test cases to files in the specified directory
+    for i in range(1, 11):
+        filename = os.path.join(directory, f"test_{i:02d}.in")
+        write_test_case(filename, MAX_N, MAX_M, distances, trucks)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python generate_test_cases.py <directory>")
+    else:
+        generate_test_cases(sys.argv[1])
+```
+
+### Instructions:
+
+1. Place the script in a file named `generate_test_cases.py`.
+2. Run the script from the command line with the directory as an argument where you want to output the test cases:
+   ```sh
+   python generate_test_cases.py ./testcases
+   ```
+
+### Explanation:
+
+- **MAX_N, MAX_M, MAX_DISTANCE, MAX_CONSUMPTION, MAX_REFUELINGS**: These constants represent the upper limits of the input constraints.
+- **write_test_case**: This function writes a single test case to a file.
+- **generate_test_cases**: This function creates and writes 10 test cases designed to stress the solution.
+- **distances**: This is a sorted list of city distances.
+- **trucks**: This list contains randomly generated truck parameters within the given constraints.
+
+The script generates 10 test cases, each with the maximum constraints to test the efficiency and handling of the provided solutions effectively.

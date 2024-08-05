@@ -1,0 +1,698 @@
+Problem Statement
+There are n cities along the road, which can be represented as a straight line. The i-th city is situated at the distance of a_i kilometers from the origin. All cities are situated in the same direction from the origin. There are m trucks travelling from one city to another. 
+
+Each truck can be described by 4 integers: starting city s_i, finishing city f_i, fuel consumption c_i and number of possible refuelings r_i. The i-th truck will spend c_i litres of fuel per one kilometer. 
+
+When a truck arrives in some city, it can be refueled (but refueling is impossible in the middle of nowhere). The i-th truck can be refueled at most r_i times. Each refueling makes truck's gas-tank full. All trucks start with full gas-tank.
+
+All trucks will have gas-tanks of the same size V litres. You should find minimum possible V such that all trucks can reach their destinations without refueling more times than allowed.
+
+Input
+
+First line contains two integers n and m (2 ≤ n ≤ 400, 1 ≤ m ≤ 250000) — the number of cities and trucks.
+
+The second line contains n integers a_1, a_2, ..., a_n (1 ≤ a_i ≤ 10^9, a_i < a_{i+1}) — positions of cities in the ascending order.
+
+Next m lines contains 4 integers each. The i-th line contains integers s_i, f_i, c_i, r_i (1 ≤ s_i < f_i ≤ n, 1 ≤ c_i ≤ 10^9, 0 ≤ r_i ≤ n) — the description of the i-th truck.
+
+Output
+
+Print the only integer — minimum possible size of gas-tanks V such that all trucks can reach their destinations.
+
+Example
+
+Input
+
+
+7 6
+2 5 7 10 14 15 17
+1 3 10 0
+1 7 12 7
+4 5 13 3
+4 7 10 1
+4 7 10 1
+1 5 11 2
+
+
+Output
+
+
+55
+
+Note
+
+Let's look at queries in details: 
+
+  1. the 1-st truck must arrive at position 7 from 2 without refuelling, so it needs gas-tank of volume at least 50. 
+  2. the 2-nd truck must arrive at position 17 from 2 and can be refueled at any city (if it is on the path between starting point and ending point), so it needs gas-tank of volume at least 48. 
+  3. the 3-rd truck must arrive at position 14 from 10, there is no city between, so it needs gas-tank of volume at least 52. 
+  4. the 4-th truck must arrive at position 17 from 10 and can be refueled only one time: it's optimal to refuel at 5-th city (position 14) so it needs gas-tank of volume at least 40. 
+  5. the 5-th truck has the same description, so it also needs gas-tank of volume at least 40. 
+  6. the 6-th truck must arrive at position 14 from 2 and can be refueled two times: first time in city 2 or 3 and second time in city 4 so it needs gas-tank of volume at least 55. 
+------------------------------
+import javafx.util.*;
+import java.util.*;
+import java.io.*;
+import java.math.*;
+
+public class Test3 {
+
+    PrintWriter pw = new PrintWriter(System.out); InputStream is = System.in;
+    Random rnd = new Random();
+    C[] c;
+    long[] m;
+    int a;
+
+    void run(){
+        a = ni();
+        int k = ni();
+        m = new long[a];
+        for(int q=0; q<a; q++) m[q] = ni();
+        ArrayList<C> l = new ArrayList<>();
+        c = new C[k];
+        for(int q=0; q<k; q++) l.add(new C(ni()-1, ni()-1, ni(), ni()));
+        Collections.shuffle(l);
+        for(int q=0; q<k; q++) c[q] = l.get(q);
+        long o = getans(c[0].s, c[0].f, c[0].c, c[0].r);
+        for(int q=1; q<k; q++){
+            if(check(c[q].s, c[q].f, c[q].c, c[q].r, o)) continue;
+            o = getans(c[q].s, c[q].f, c[q].c, c[q].r);
+        }
+        pw.print(o);
+        pw.flush();
+    }
+
+    boolean check(int s, int f, long c, long r, long v){
+        long inbak = v;
+        boolean fl = true;
+        for(; s<f && fl; s++){
+            long d = (m[s+1]-m[s])*c;
+            if(d>v) fl = false;
+            if(d<=inbak){
+                inbak-=d;
+                continue;
+            }
+            if(r==0) fl = false;
+            r--; inbak = v-d;
+        }
+        return fl;
+    }
+
+    long getans(int s, int f, long c, long r){
+        long ll = 0, rr = (long)2e18;
+        for(; ll+1!=rr;){
+            long md = (ll+rr)/2;
+            if(check(s,f,c,r,md)) rr=md;
+            else ll=md;
+        }
+        return rr;
+    }
+
+    public static void main(String[] args) {
+        new Test3().run();
+    }
+
+    private byte[] inbuf = new byte[1024];
+    public int lenbuf = 0, ptrbuf = 0;
+
+    private int readByte() {
+        if (lenbuf == -1) throw new InputMismatchException();
+        if (ptrbuf >= lenbuf) {
+            ptrbuf = 0;
+            try {
+                lenbuf = is.read(inbuf);
+            } catch (IOException e) {
+                throw new InputMismatchException();
+            }
+            if (lenbuf <= 0) return -1;
+        }
+        return inbuf[ptrbuf++];
+    }
+
+    private boolean isSpaceChar(int c) {
+        return !(c >= 33 && c <= 126);
+    }
+
+    private int skip() {
+        int b;
+        while ((b = readByte()) != -1 && isSpaceChar(b)) ;
+        return b;
+    }
+
+    private double nd() {
+        return Double.parseDouble(ns());
+    }
+
+    private char nc() {
+        return (char) skip();
+    }
+
+    private String ns() {
+        int b = skip();
+        StringBuilder sb = new StringBuilder();
+        while (!(isSpaceChar(b))) {
+            sb.appendCodePoint(b);
+            b = readByte();
+        }
+        return sb.toString();
+    }
+
+    private char[] ns(int n) {
+        char[] buf = new char[n];
+        int b = skip(), p = 0;
+        while (p < n && !(isSpaceChar(b))) {
+            buf[p++] = (char) b;
+            b = readByte();
+        }
+        return n == p ? buf : Arrays.copyOf(buf, p);
+    }
+
+    private char[][] nm(int n, int m) {
+        char[][] map = new char[n][];
+        for (int i = 0; i < n; i++) map[i] = ns(m);
+        return map;
+    }
+
+    private int[] na(int n) {
+        int[] a = new int[n];
+        for (int i = 0; i < n; i++) a[i] = ni();
+        return a;
+    }
+
+    private int ni() {
+        int num = 0, b;
+        boolean minus = false;
+        while ((b = readByte()) != -1 && !((b >= '0' && b <= '9') || b == '-')) ;
+        if (b == '-') {
+            minus = true;
+            b = readByte();
+        }
+        while (true) {
+            if (b >= '0' && b <= '9') {
+                num = num * 10 + (b - '0');
+            } else {
+                return minus ? -num : num;
+            }
+            b = readByte();
+        }
+    }
+
+    private long nl() {
+        long num = 0;
+        int b;
+        boolean minus = false;
+        while ((b = readByte()) != -1 && !((b >= '0' && b <= '9') || b == '-')) ;
+        if (b == '-') {
+            minus = true;
+            b = readByte();
+        }
+        while (true) {
+            if (b >= '0' && b <= '9') {
+                num = num * 10 + (b - '0');
+            } else {
+                return minus ? -num : num;
+            }
+            b = readByte();
+        }
+    }
+}
+
+class C{
+
+    int s,f;
+    long c,r;
+
+    C(int a, int b, int cc, int d){
+        s = a;
+        f = b;
+        c = cc;
+        r = d;
+    }
+}
+------------------------------
+import java.util.*;
+public class Main {
+	public static void main(String[] args) {
+		Scanner in=new Scanner(System.in);
+		int n=in.nextInt();
+		int m=in.nextInt();
+		int[] a=new int[n];
+		int[] s=new int[m];
+		int[] f=new int[m];
+		int[] c=new int[m];
+		int[] r=new int[m];
+		for (int i=0;i<n;++i) a[i]=in.nextInt();
+		for (int i=0;i<m;++i) {
+			s[i]=in.nextInt();
+			f[i]=in.nextInt();
+			c[i]=in.nextInt();
+			r[i]=in.nextInt();
+			--s[i];
+			--f[i];
+		}
+	
+		int[][][] dp=new int[n][n][n];
+		int inf=0x3f3f3f3f;
+		for (int i=0;i<n;++i) {
+			for (int j=i;j<n;++j) dp[i][j][0]=a[j]-a[i];
+			for (int k=1;k<n;++k) {
+				int l=i;
+				for (int j=i+k+1;j<n;++j) {
+					while (l+1<j&&Math.max(dp[i][l][k-1],a[j]-a[l])>Math.max(dp[i][l+1][k-1],a[j]-a[l+1]))
+						++l;
+					dp[i][j][k]=Math.max(dp[i][l][k-1],a[j]-a[l]);
+				}
+			}
+		}
+		long res=0;
+		for (int j=0;j<m;++j) res=Math.max(res,(long)c[j]*dp[s[j]][f[j]][Math.min(r[j],f[j]-s[j]-1)]);
+		System.out.println(res);
+	}
+}
+	  	 			    	 	   	  	 	 		 			
+------------------------------
+/*
+    Idea from Blogewoosh #6
+ */
+
+//created by Whiplash99
+import java.io.*;
+import java.util.*;
+public class F
+{
+    private static final long max=Long.MAX_VALUE;
+    private static int[] a,s,f,r,order;
+    private static long[] c;
+    
+    private static void shuffleArray(int[] arr)
+    {
+        int n = arr.length;
+        Random rnd = new Random();
+        for(int i=0; i<n; ++i)
+        {
+            int tmp = arr[i];
+            int randomPos = i + rnd.nextInt(n-i);
+            arr[i] = arr[randomPos];
+            arr[randomPos] = tmp;
+        }
+    }
+    private static boolean check(int id, long V)
+    {
+        long used=0; int count=r[id];
+        for(int i=s[id]+1;i<=f[id];i++)
+        {
+            long cur=c[id]*(a[i]-a[i-1]);
+            used+=cur;
+
+            if(used>V)
+            {
+                if(count==0) return false;
+                count--; used=cur;
+                if(used>V) return false;
+            }
+        }
+        return true;
+    }
+    private static long bSearch(int id, long cur)
+    {
+        long l=cur,r=max,mid;
+        while (l<=r)
+        {
+            mid=(l+r)/2;
+            if(check(id,mid))
+            {
+                cur=mid;
+                r=mid-1;
+            }
+            else l=mid+1;
+        }
+        return cur;
+    }
+    public static void main(String[] args) throws IOException
+    {
+        Reader reader=new Reader();
+        int i,N; long ans=0;
+
+        N=reader.nextInt();
+        int M=reader.nextInt();
+
+        a=new int[N]; s=new int[M]; f=new int[M];
+        c=new long[M]; r=new int[M]; order=new int[M];
+
+        for(i=0;i<N;i++) a[i]=reader.nextInt();
+        for(i=0;i<M;i++)
+        {
+            s[i]=reader.nextInt()-1;
+            f[i]=reader.nextInt()-1;
+            c[i]=reader.nextInt();
+            r[i]=reader.nextInt();
+
+            order[i]=i;
+        }
+        
+        shuffleArray(order);
+        for(i=0;i<M;i++)
+        {
+            if(check(order[i],ans)) continue;
+            ans=bSearch(order[i],ans+1);
+        }
+        System.out.println(ans);
+    }
+    static class Reader
+    {
+        final private int BUFFER_SIZE = 1 << 16;private DataInputStream din;private byte[] buffer;private int bufferPointer, bytesRead;
+        public Reader(){din=new DataInputStream(System.in);buffer=new byte[BUFFER_SIZE];bufferPointer=bytesRead=0;
+        }public Reader(String file_name) throws IOException{din=new DataInputStream(new FileInputStream(file_name));buffer=new byte[BUFFER_SIZE];bufferPointer=bytesRead=0;
+        }public String readLine() throws IOException{byte[] buf=new byte[64];int cnt=0,c;while((c=read())!=-1){if(c=='\n')break;buf[cnt++]=(byte)c;}return new String(buf,0,cnt);
+        }public int nextInt() throws IOException{int ret=0;byte c=read();while(c<=' ')c=read();boolean neg=(c=='-');if(neg)c=read();do{ret=ret*10+c-'0';}while((c=read())>='0'&&c<='9');if(neg)return -ret;return ret;
+        }public long nextLong() throws IOException{long ret=0;byte c=read();while(c<=' ')c=read();boolean neg=(c=='-');if(neg)c=read();do{ret=ret*10+c-'0';}while((c=read())>='0'&&c<='9');if(neg)return -ret;return ret;
+        }public double nextDouble() throws IOException{double ret=0,div=1;byte c=read();while(c<=' ')c=read();boolean neg=(c=='-');if(neg)c = read();do {ret=ret*10+c-'0';}while((c=read())>='0'&&c<='9');if(c=='.')while((c=read())>='0'&&c<='9')ret+=(c-'0')/(div*=10);if(neg)return -ret;return ret;
+        }private void fillBuffer() throws IOException{bytesRead=din.read(buffer,bufferPointer=0,BUFFER_SIZE);if(bytesRead==-1)buffer[0]=-1;
+        }private byte read() throws IOException{if(bufferPointer==bytesRead)fillBuffer();return buffer[bufferPointer++];
+        }public void close() throws IOException{if(din==null) return;din.close();}
+    }
+}
+------------------------------
+import java.io.OutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.util.Scanner;
+import java.util.*;
+import java.util.Arrays;
+import java.util.StringTokenizer;
+import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.InputStream;
+import java.util.Comparator;
+import java.util.ArrayList;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.Collections;
+
+public class Main {
+    public static void main(String[] args) throws IOException  {
+        InputStream inputStream = System.in;
+        OutputStream outputStream = System.out;
+        InputReader in = new InputReader(inputStream);
+        PrintWriter out = new PrintWriter(outputStream);
+        TaskA solver = new TaskA();
+        solver.solve(in, out);
+        out.close();
+    }
+    static class Truck{
+        private int st, fin, consumption , cntRefueling;
+        Truck (int st, int fin, int consumption, int cntRefueling){
+            this.st = st;
+            this.fin = fin;
+            this.consumption = consumption;
+            this.cntRefueling = cntRefueling;
+        }
+        public boolean check(long tankVolume, long[] arr){
+            long cntRefCopy = cntRefueling, volumeNow = tankVolume;
+            boolean ans = true;
+            for(int i = st - 1; i < fin - 1; ++i){
+                long tmp = consumption * (arr[i + 1] - arr[i]);
+                if(tmp > tankVolume) {ans = false; break;}
+                if(tmp > volumeNow){
+                    if(cntRefCopy > 0){
+                        cntRefCopy--;
+                        volumeNow = tankVolume - tmp;
+                    }
+                    else {ans = false; break;}
+                }
+                else volumeNow -= tmp;
+            }
+            return ans;
+        }
+    }
+    static class TaskA {
+        long[] arr;
+        Truck[] def;
+        public long binSearchM(long left, long right, int indx){
+            long midd = 0;
+            while(left + 1 < right) {
+                midd = (left + right) / 2;
+                if(def[indx].check(midd, arr))
+                    right = midd;
+                else
+                    left = midd ;
+            }
+            //while(!def[indx].check(midd, arr)) midd++;
+            return right;
+        }
+        static void shuffleArray(Truck[] ar)
+        {
+            Random rnd = ThreadLocalRandom.current();
+            for (int i = ar.length - 1; i > 0; i--) {
+                int index = rnd.nextInt(i + 1);
+                Truck a = ar[index];
+                ar[index] = ar[i];
+                ar[i] = a;
+            }
+        }
+        public void solve(InputReader in, PrintWriter out) throws IOException  {
+            int n = in.nextInt(), m = in.nextInt();
+            arr  = new long[n];
+            def = new Truck[m];
+            for(int i = 0; i < n; ++i)
+                arr[i] = in.nextLong();
+            for(int i = 0; i < m; ++i)
+                def[i] = new Truck(in.nextInt(), in.nextInt(), in.nextInt(), in.nextInt());
+            shuffleArray(def);
+            long minV = 0;
+            for(int i = 0; i < m; ++i){
+                if(!def[i].check(minV, arr))
+                    minV = binSearchM(minV, (long)1e18, i);
+
+            }
+            out.println(minV);
+        }
+    }
+
+    static class InputReader {
+        public BufferedReader reader;
+        public StringTokenizer tokenizer;
+
+        public InputReader(InputStream stream) {
+            reader = new BufferedReader(new InputStreamReader(stream), 32768);
+            tokenizer = null;
+        }
+
+        public String next() {
+            while (tokenizer == null || !tokenizer.hasMoreTokens()) {
+                try {
+                    tokenizer = new StringTokenizer(reader.readLine());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            return tokenizer.nextToken();
+        }
+
+        public int nextInt() {
+            return Integer.parseInt(next());
+        }
+
+        public long nextLong() {
+            return Long.parseLong(next());
+        }
+
+    }
+}
+
+------------------------------
+/**
+ * author: derrick20
+ * created: 11/26/20 10:37 PM
+ */
+import java.io.*;
+import java.util.*;
+import static java.lang.Math.*;
+
+public class TrucksAndCitiesFast {
+    public static void main(String[] args) {
+        FastScanner sc = new FastScanner();
+        PrintWriter out = new PrintWriter(System.out);
+        
+        int N = sc.nextInt();
+        int M = sc.nextInt();
+        long[] a = sc.nextLongs(N);
+        long limitingCapacity = 0;
+        ArrayList<int[]>[] queries = new ArrayList[N + 1];
+        Arrays.setAll(queries, i -> new ArrayList<>());
+        for (int i = 0; i < M; i++) {
+            int start = sc.nextInt() - 1;
+            int finish = sc.nextInt() - 1;
+            int useRate = sc.nextInt();
+            int refuels = sc.nextInt();
+            queries[refuels].add(new int[]{start, finish, useRate});
+        }
+        long[][][] dp = new long[2][N][N];
+        int curr = 0;
+        for (int k = 0; k <= N; k++) {
+//            System.out.println("For k = " + k);
+            int next = 1 ^ curr;
+            for (int l = 0; l <= N - 1; l++) {
+                /*
+                Key idea:
+                Now, because the optimal structure of the partition is such
+                that the last rest stop is non-decreasing, we can solve n values
+                of r in O(n) time total, rather than O(n) for each.
+
+                Our easy transition is:
+                min over all last vals of {max(dp[l][last][k - 1], a[r] - a[last]}
+                Now, we just need to keep moving forward while that's non-increasing
+
+                Need to go in order of increasing k
+                 */
+                dp[next][l][l] = 0;
+                int last = l;
+                for (int r = l + 1; r <= N - 1; r++) {
+                    if (k == 0) {
+                        dp[next][l][r] = a[r] - a[l];
+                    } else {
+                        while (last + 1 <= r && max(dp[curr][l][last], a[r] - a[last]) >= max(dp[curr][l][last + 1], a[r] - a[last + 1])) {
+                            last++;
+                        }
+                        dp[next][l][r] = max(dp[curr][l][last], a[r] - a[last]);
+                    }
+//                    System.out.println(l + " " + r + " => " + dp[l][r][k]);
+                }
+            }
+            curr = next;
+            for (int[] query : queries[k]) {
+                // Very nice problem
+                int start = query[0];
+                int finish = query[1];
+                long useRate = query[2];
+                long requiredCapacity = useRate * dp[curr][start][finish];
+                limitingCapacity = max(limitingCapacity, requiredCapacity);
+            }
+        }
+        out.println(limitingCapacity);
+        out.close();
+    }
+
+    static class FastScanner {
+        private int BS = 1 << 16;
+        private char NC = (char) 0;
+        private byte[] buf = new byte[BS];
+        private int bId = 0, size = 0;
+        private char c = NC;
+        private double cnt = 1;
+        private BufferedInputStream in;
+
+        public FastScanner() {
+            in = new BufferedInputStream(System.in, BS);
+        }
+
+        public FastScanner(String s) {
+            try {
+                in = new BufferedInputStream(new FileInputStream(new File(s)), BS);
+            } catch (Exception e) {
+                in = new BufferedInputStream(System.in, BS);
+            }
+        }
+
+        private char getChar() {
+            while (bId == size) {
+                try {
+                    size = in.read(buf);
+                } catch (Exception e) {
+                    return NC;
+                }
+                if (size == -1) return NC;
+                bId = 0;
+            }
+            return (char) buf[bId++];
+        }
+
+        public int nextInt() {
+            return (int) nextLong();
+        }
+
+        public int[] nextInts(int N) {
+            int[] res = new int[N];
+            for (int i = 0; i < N; i++) {
+                res[i] = (int) nextLong();
+            }
+            return res;
+        }
+
+        public long[] nextLongs(int N) {
+            long[] res = new long[N];
+            for (int i = 0; i < N; i++) {
+                res[i] = nextLong();
+            }
+            return res;
+        }
+
+        public long nextLong() {
+            cnt = 1;
+            boolean neg = false;
+            if (c == NC) c = getChar();
+            for (; (c < '0' || c > '9'); c = getChar()) {
+                if (c == '-') neg = true;
+            }
+            long res = 0;
+            for (; c >= '0' && c <= '9'; c = getChar()) {
+                res = (res << 3) + (res << 1) + c - '0';
+                cnt *= 10;
+            }
+            return neg ? -res : res;
+        }
+
+        public double nextDouble() {
+            double cur = nextLong();
+            return c != '.' ? cur : cur + nextLong() / cnt;
+        }
+
+        public double[] nextDoubles(int N) {
+            double[] res = new double[N];
+            for (int i = 0; i < N; i++) {
+                res[i] = nextDouble();
+            }
+            return res;
+        }
+
+        public String next() {
+            StringBuilder res = new StringBuilder();
+            while (c <= 32) c = getChar();
+            while (c > 32) {
+                res.append(c);
+                c = getChar();
+            }
+            return res.toString();
+        }
+
+        public String nextLine() {
+            StringBuilder res = new StringBuilder();
+            while (c <= 32) c = getChar();
+            while (c != '\n') {
+                res.append(c);
+                c = getChar();
+            }
+            return res.toString();
+        }
+
+        public boolean hasNext() {
+            if (c > 32) return true;
+            while (true) {
+                c = getChar();
+                if (c == NC) return false;
+                else if (c > 32) return true;
+            }
+        }
+    }
+    static void ASSERT(boolean assertion, String message) {
+        if (!assertion) throw new AssertionError(message);
+    }
+    static void ASSERT(boolean assertion) {
+        if (!assertion) throw new AssertionError();
+    }
+}
+------------------------------
+
+
+Write a python script that can generate test cases for a programming problem with the provided problem statement and solution codes. The test case should be focus on exhausting the code to get time limit exceeded and should follow the input format. The python script should be able to read an argument which specify a directory and write all the testcases as 'test_01.in', 'test_02.in', ... into the directory.

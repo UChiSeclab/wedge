@@ -1,0 +1,660 @@
+Problem Statement
+One day in the IT lesson Anna and Maria learned about the lexicographic order.
+
+String x is lexicographically less than string y, if either x is a prefix of y (and x ≠ y), or there exists such i (1 ≤ i ≤ min(|x|, |y|)), that xi < yi, and for any j (1 ≤ j < i) xj = yj. Here |a| denotes the length of the string a. The lexicographic comparison of strings is implemented by operator < in modern programming languages​​.
+
+The teacher gave Anna and Maria homework. She gave them a string of length n. They should write out all substrings of the given string, including the whole initial string, and the equal substrings (for example, one should write out the following substrings from the string "aab": "a", "a", "aa", "ab", "aab", "b"). The resulting strings should be sorted in the lexicographical order. The cunning teacher doesn't want to check all these strings. That's why she said to find only the k-th string from the list. Help Anna and Maria do the homework.
+
+Input
+
+The first line contains a non-empty string that only consists of small Latin letters ("a"-"z"), whose length does not exceed 105. The second line contains the only integer k (1 ≤ k ≤ 105).
+
+Output
+
+Print the string Anna and Maria need — the k-th (in the lexicographical order) substring of the given string. If the total number of substrings is less than k, print a string saying "No such line." (without the quotes).
+
+Examples
+
+Input
+
+aa
+2
+
+
+Output
+
+a
+
+
+Input
+
+abc
+5
+
+
+Output
+
+bc
+
+
+Input
+
+abab
+7
+
+
+Output
+
+b
+
+Note
+
+In the second sample before string "bc" follow strings "a", "ab", "abc", "b".
+------------------------------
+import java.io.OutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.util.Arrays;
+import java.io.InputStreamReader;
+import java.util.TreeMap;
+import java.util.StringTokenizer;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.InputStream;
+
+/**
+ * Built using CHelper plug-in
+ * Actual solution is at the top
+ *
+ * @author OmarYasser
+ */
+public class Main {
+    public static void main(String[] args) {
+        InputStream inputStream = System.in;
+        OutputStream outputStream = System.out;
+        Scanner in = new Scanner(inputStream);
+        PrintWriter out = new PrintWriter(outputStream);
+        TaskD solver = new TaskD();
+        solver.solve(1, in, out);
+        out.close();
+    }
+
+    static class TaskD {
+        public void solve(int testNumber, Scanner sc, PrintWriter out) {
+            TaskD.SuffixAutomaton SA = new TaskD.SuffixAutomaton((sc.next() + "$").toCharArray());
+            int k = sc.nextInt();
+            SA.solve(0, k);
+            if (SA.ways[0] - SA.occurence(0) < k)
+                out.println("No such line.");
+            else {
+                out.println(SA.sb);
+            }
+        }
+
+        static class SuffixAutomaton {
+            int[] link;
+            int[] len;
+            TreeMap<Character, Integer>[] next;
+            int lst;
+            int idx;
+            int[] ways;
+            int[] reach;
+            StringBuilder sb = new StringBuilder();
+
+            SuffixAutomaton(char[] s) {
+                int n = s.length;
+                link = new int[n << 1];
+                len = new int[n << 1];
+                next = new TreeMap[n << 1];
+                next[0] = new TreeMap<>();
+                ways = new int[n << 1];
+                reach = new int[n << 1];
+                Arrays.fill(ways, -1);
+                Arrays.fill(reach, -1);
+                for (char c : s)
+                    addLetter(c);
+                for (int i = 0; i <= idx; i++)
+                    dfs(i);
+            }
+
+            int occurence(int node) {
+                if (node == idx)
+                    return 1;
+                if (reach[node] != -1)
+                    return reach[node];
+                int go = 0;
+                for (int nxt : next[node].values())
+                    go = Math.min((int) 1e5 + 10, go + occurence(nxt));
+                return reach[node] = go;
+            }
+
+            int dfs(int node) {
+                if (node == idx) return ways[node] = 0;
+                if (ways[node] != -1)
+                    return ways[node];
+                int res = occurence(node);
+                for (int nxt : next[node].values()) {
+                    res = Math.min((int) 3e5 + 10, res + dfs(nxt));
+                }
+                return ways[node] = res;
+            }
+
+            void addLetter(char c) {
+                int cur = ++idx, p = lst;
+                while (!next[p].containsKey(c)) {
+                    next[p].put(c, cur);
+                    p = link[p];
+                }
+
+                int q = next[p].get(c);
+                if (q != cur)
+                    if (len[q] == len[p] + 1)
+                        link[cur] = q;
+                    else {
+                        int clone = ++idx;
+                        len[clone] = len[p] + 1;
+                        link[clone] = link[q];
+                        next[clone] = new TreeMap<>(next[q]);
+                        link[cur] = link[q] = clone;
+                        while (next[p].get(c) == q) {
+                            next[p].put(c, clone);
+                            p = link[p];
+                        }
+                    }
+                len[cur] = len[lst] + 1;
+                next[cur] = new TreeMap<>();
+                lst = cur;
+            }
+
+            void solve(int node, int left) {
+                if (node != 0) left -= occurence(node);
+                if (left <= 0) return;
+                int all = 0;
+                for (Map.Entry<Character, Integer> mp : next[node].entrySet()) {
+                    if (all + ways[mp.getValue()] < left) {
+                        all += ways[mp.getValue()];
+                        all = Math.min(all, (int) 1e5 + 10);
+                    } else {
+                        sb.append(mp.getKey());
+                        solve(mp.getValue(), left - all);
+                        return;
+                    }
+                }
+            }
+
+        }
+
+    }
+
+    static class Scanner {
+        StringTokenizer st;
+        BufferedReader br;
+
+        public Scanner(InputStream s) {
+            br = new BufferedReader(new InputStreamReader(s));
+        }
+
+        public Scanner(FileReader f) {
+            br = new BufferedReader(f);
+        }
+
+        public String next() {
+            while (st == null || !st.hasMoreTokens())
+                try {
+                    st = new StringTokenizer(br.readLine());
+                } catch (Exception e) {
+                }
+            return st.nextToken();
+        }
+
+        public int nextInt() {
+            return Integer.parseInt(next());
+        }
+
+    }
+}
+
+
+------------------------------
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Scanner;
+
+
+
+public class E {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        int n,k;
+        String line = scanner.next();
+         k = scanner.nextInt();
+         n = line.length();
+         long total = ((long)n) * ((long) (n+1)) /2;
+        if (total < k) {
+            System.out.println("No such line.");
+        }
+        else {
+            List<Integer> lists = new ArrayList<Integer>();
+            List<Integer> tmpList = new ArrayList<Integer>();
+            List<Integer> tmp = null;
+            for(int i = 0; i < line.length(); i ++) {
+                lists.add(i);
+            }
+            
+            while (k > 0) {
+                int i = 'a';
+                for (i = 'a'; i <= 'z' ; i ++) {
+                    tmpList.clear();
+                    long m = 0;
+                    for (int j = 0; j < lists.size() && k > 0; j ++) {
+                        int index = lists.get(j);
+                        if (line.charAt(index) <= i) {
+                            m += line.length() - index;
+                            //k -= line.length() - index;
+                                                        
+                        }
+//                      else if (line.charAt(index) == i) {
+//                          m ++;
+//                      } 
+                    }
+                    if (m >= k) {
+                        break;                  
+                    } 
+                }               
+                tmpList.clear();
+                for (int j = 0; j < lists.size(); j ++) {
+                    int index = lists.get(j);
+                    if (line.charAt(index) < i) {
+                        k -= line.length() - index;
+                    }
+//                  else {
+//                  }
+                    else if (line.charAt(index) == i ) {
+                        if (index + 1 < line.length()) {
+                            tmpList.add(index + 1);
+//                          System.out.println("in : " + (index + 1));
+                        }
+                        k--;
+                    }
+                }
+                System.out.print((char)i);
+                //System.out.println((char)i + " " + k);
+                tmp = tmpList;
+                tmpList = lists;
+                lists = tmp;
+                //System.out.println(lists.get(0));
+            }
+            System.out.println();
+        }
+        
+    }
+}
+
+------------------------------
+import java.io.*;
+import java.util.*;
+public class Main {
+    static class Substring implements Comparable<Substring> 
+    {
+        public String str;
+        public int pos;
+        public Substring(String str, int pos) 
+        {
+                super();
+                this.str = str;
+                this.pos = pos;
+        }
+        public boolean equals(Substring cmp) 
+        {
+                return str.equals(cmp.str);
+        }
+        public int compareTo(Substring o) 
+        {
+                return str.compareTo(o.str);
+        }
+    }
+    public static void main(String[] args) throws IOException {
+        BufferedReader in=new BufferedReader(new InputStreamReader(System.in));
+        PrintWriter out=new PrintWriter(System.out);
+        String input = in.readLine();
+        int k = Integer.parseInt(in.readLine());
+        PriorityQueue<Substring> strings = new PriorityQueue<Substring>();
+        for (int i = 0; i < input.length(); i++)
+        {
+            strings.add(new Substring(input.substring(i,i+1),i));
+        }
+        for (int i = 0; i < k-1; i++) 
+        {
+            Substring cur = strings.poll();
+            if (cur == null) break;
+            if (input.length() > cur.pos+cur.str.length()) 
+            {
+                cur.str = input.substring(cur.pos, cur.pos+cur.str.length()+1);
+                strings.add(cur);
+            }
+        }
+        if (strings.isEmpty()) System.out.println("No such line.");
+        else 
+        {
+            Substring p = strings.poll();
+            System.out.println(p.str);
+        }
+        out.close();
+    }
+}
+------------------------------
+import java.awt.Point;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.Arrays;
+import java.util.Comparator;
+
+public class Contest94_D {
+
+    public static void main(String[] args) throws NumberFormatException,
+            IOException {
+        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+        String s = in.readLine();
+        int k = Integer.parseInt(in.readLine());
+        int stindex = -1;
+        int endindex = -1;
+        Suffix_Array.str = s;
+        Suffix_Array.SA();
+        Suffix_Array.getHeight(s.length());
+        Suff [] inp = Suffix_Array.Pos;
+        int [] lcps = Suffix_Array.height;
+        for (int i = 0; i < s.length(); i++) {
+            int len = s.length()-inp[i].idx;
+            for (int j = lcps[i]+1; j <= len; j++) {
+                if(k==1){
+                    System.out.println(s.substring(inp[i].idx,inp[i].idx+j));
+                    return;
+                }else
+                    k--;
+                for (int j2 = i+1; j2 < s.length(); j2++) {
+                    if(lcps[j2]<j)
+                        break;
+                    if(k==1){
+                        System.out.println(s.substring(inp[i].idx,inp[i].idx+j));
+                        return;
+                    }else
+                        k--;
+                }
+                //System.out.println(k);
+            }
+        }
+        System.out.println("No such line.");
+    }
+}
+
+
+
+////  N*Log^2(N) method.
+// Suffix array is an array of integers giving the 
+// starting positions of suffixes of a string in lexicographical order.
+class Suff {
+    int idx;
+
+    Suff(int index) {
+        idx = index;
+    }
+}
+
+ class Suffix_Array {
+    static Suff[] Pos;
+    static int Bucket[], tmpBucket[], t;
+    static String str;
+    static int[] rank;
+    static int[] height;
+
+    static Comparator<Suff> cmp = new Comparator<Suff>() {
+
+        public int compare(Suff x, Suff y) {
+            if (t == 0)
+                return str.charAt(x.idx) - str.charAt(y.idx);
+
+            else {
+                if (Bucket[x.idx] == Bucket[y.idx]) {
+                    int neI = x.idx + t;
+                    int beY = y.idx + t;
+                    if (neI >= Bucket.length || beY >= Bucket.length)
+                        return beY - neI;
+                    return Bucket[neI] - Bucket[beY];
+                } else
+                    return Bucket[x.idx] - Bucket[y.idx];
+            }
+        }
+    };
+
+    public static void updateBuckets() {
+        int id = 0;
+
+        for (int i = 0; i < Pos.length; i++) {
+            if (i > 0 && cmp.compare(Pos[i], Pos[i - 1]) != 0)
+                id++;
+
+            tmpBucket[Pos[i].idx] = id;
+        }
+        for (int i = 0; i < tmpBucket.length; i++)
+            Bucket[i] = tmpBucket[i];
+    }
+
+    public static void SA() {
+        Pos = new Suff[str.length()];
+        Bucket = new int[str.length()];
+        tmpBucket = new int[str.length()];
+        for (int i = 0; i < str.length(); i++)
+            Pos[i] = new Suff(i);
+        t = 0;
+        Arrays.sort(Pos, cmp);
+        updateBuckets();
+        for (t = 1; t < str.length(); t *= 2) {
+            Arrays.sort(Pos, cmp);
+            updateBuckets();
+        }
+    }
+
+    // O(N) Method for calculating LCP
+    // gets the length of the longest common prefixes between sorted suffixes
+
+    public static void getHeight(int n) {
+        rank = new int[n];
+        height = new int[n];
+        for (int i = 0; i < n; ++i)
+            rank[Pos[i].idx] = i;
+        height[0] = 0;
+        for (int i = 0, h = 0; i < n; ++i) {
+            if (rank[i] > 0) {
+                int j = Pos[rank[i] - 1].idx;
+                while (i + h < n && j + h < n
+                        && str.charAt(i + h) == str.charAt(j + h))
+                    h++;
+                height[rank[i]] = h;
+                if (h > 0)
+                    h--;
+            }
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        str = br.readLine();
+        SA();
+        getHeight(str.length());
+        for (int i = 0; i < str.length(); i++)
+            System.out.println(Pos[i].idx + 1);
+
+        for (int i = 0; i < str.length(); i++)
+            System.out.println(height[i]);
+
+    }
+}
+ 
+------------------------------
+//package practice.Impls;
+
+import java.io.*;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.StringTokenizer;
+import java.util.TreeMap;
+
+public class String {
+    static PrintWriter pw;
+    public static void main(java.lang.String[] args) throws IOException{
+        Scanner sc = new Scanner(System.in);
+        pw = new PrintWriter(System.out);
+
+        char[] s = sc.next().toCharArray();
+        int k = sc.nextInt();
+        if((1l*s.length*(s.length+1))/2 < k)
+        {
+            System.out.println("No such line.");
+            return;
+        }
+        SA sa = new SA(s);
+
+        sa.findLex(k);
+
+        pw.flush();
+        pw.close();
+    }
+
+    static class SA {
+
+        int[] link, len;
+        boolean[] isClone;
+        TreeMap<Character, Integer>[] next;
+        int lst, idx;
+
+        SA(char[] s)
+        {
+            int n = s.length;
+            link = new int[n<<1];
+            isClone = new boolean[n<<1];
+            len = new int[n<<1];
+            next = new TreeMap[n<<1];
+            next[0] = new TreeMap<>();
+            for(char c: s)
+                addLetter(c);
+        }
+
+        void addLetter(char c)
+        {
+            int cur = ++idx, p = lst;
+            while(!next[p].containsKey(c)) { next[p].put(c, cur); p = link[p]; }
+
+            int q = next[p].get(c);
+            if(q != cur)
+                if(len[q] == len[p] + 1)
+                    link[cur] = q;
+                else
+                {
+                    int clone = ++idx;
+                    isClone[clone] = true;
+                    len[clone] = len[p] + 1;
+                    link[clone] = link[q];
+                    next[clone] = new TreeMap<>(next[q]);
+                    link[cur] = link[q] = clone;
+                    while(next[p].get(c) == q) { next[p].put(c, clone);	p = link[p]; }
+                }
+            len[cur] = len[lst] + 1;
+            next[cur] = new TreeMap<>();
+            lst = cur;
+        }
+
+
+
+
+        long[] size;
+        int[] cnt;
+        void findLex(long k){
+            vis = new boolean[idx+1];
+            size = new long[link.length];
+            cnt = new int[link.length];
+            calcSubSize(0);
+            vis[0] = true;
+            calcSize(0);
+            int u = 0;
+            outer: while(k > 0){
+                for (char c: next[u].keySet()) {
+                    int v = next[u].get(c);
+                    if(size[v] < k)
+                        k-=size[v];
+                    else
+                    {
+                        pw.print(c);
+                        k -= cnt[v];
+                        u = v;
+                        continue outer;
+                    }
+                }
+                break outer;
+            }
+        }
+
+        boolean vis[];
+        void calcSize(int u){
+            size[u] = cnt[u];
+            for (char c : next[u].keySet()) {
+                int v = next[u].get(c);
+                if(!vis[v]){
+                    vis[v] = true;
+                    calcSize(v);
+                }
+                size[u]+=size[v];
+            }
+        }
+
+        void calcSubSize(int u){
+            for (int i = 1; i < cnt.length; i++)
+                if(!isClone[i])
+                    cnt[i] = 1;
+
+            Integer[] nodes = new Integer[idx+1];
+            for (int i = 0; i <= idx; i++)
+                nodes[i] = i;
+            Arrays.sort(nodes, new Comparator<Integer>() {
+                @Override
+                public int compare(Integer a, Integer b) {
+                    return len[b] - len[a];
+                }
+            });
+
+            for (int i = 0; i < nodes.length; i++) {
+                cnt[link[nodes[i]]] += cnt[nodes[i]];
+            }
+        }
+
+
+
+
+    }
+
+
+
+    static class Scanner
+    {
+        StringTokenizer st; BufferedReader br;
+        public Scanner(InputStream s){	br = new BufferedReader(new InputStreamReader(s));}
+        public Scanner(java.lang.String s) throws FileNotFoundException {	br = new BufferedReader(new FileReader(new File(s)));}
+        public java.lang.String next() throws IOException {while (st == null || !st.hasMoreTokens()) st = new StringTokenizer(br.readLine());return st.nextToken();}
+        public int nextInt() throws IOException {return Integer.parseInt(next());}
+        public long nextLong() throws IOException {return Long.parseLong(next());}
+        public java.lang.String nextLine() throws IOException {return br.readLine();}
+        public boolean ready() throws IOException {return br.ready();}
+    }
+
+
+}
+
+------------------------------
+
+
+Write a python script that can generate test cases for a programming problem with the provided problem statement and solution codes. The test case should be focus on exhausting the code to get time limit exceeded and should follow the input format. The python script should be able to read an argument which specify a directory and write all the testcases as 'test_01.in', 'test_02.in', ... into the directory.

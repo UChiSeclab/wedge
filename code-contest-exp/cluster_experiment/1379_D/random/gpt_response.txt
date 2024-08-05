@@ -1,0 +1,52 @@
+To generate test cases that can exhaust the given solution codes and potentially cause a "Time Limit Exceeded" (TLE) error, we need to focus on creating large input sizes. The script will create test cases with maximum values for the parameters within the allowed constraints. Here's how you can write such a script:
+
+```python
+import os
+import random
+
+def generate_test_case(n, h, m, k):
+    test_case = f"{n} {h} {m} {k}\n"
+    for _ in range(n):
+        h_i = random.randint(0, h-1)
+        m_i = random.randint(0, m-1)
+        test_case += f"{h_i} {m_i}\n"
+    return test_case
+
+def write_test_cases(directory, num_cases, n, h, m, k):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
+    for i in range(1, num_cases + 1):
+        test_case = generate_test_case(n, h, m, k)
+        with open(os.path.join(directory, f"test_{i:02d}.in"), 'w') as f:
+            f.write(test_case)
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) != 2:
+        print("Usage: python generate_test_cases.py <directory>")
+        sys.exit(1)
+    
+    directory = sys.argv[1]
+    
+    # Parameters for maximum input sizes within the constraints
+    num_cases = 10  # Number of test cases to generate
+    n = 100000      # Max number of freight trains per day
+    h = 1000000000  # Max number of hours in a day
+    m = 1000000000  # Max number of minutes in an hour (even number)
+    k = m // 2      # Max boarding time for tram (1 ≤ k ≤ m // 2)
+
+    write_test_cases(directory, num_cases, n, h, m, k)
+```
+
+Explanation:
+1. **generate_test_case**: This function generates a single test case with `n` freight trains, randomly choosing departure times for each train within the constraints.
+2. **write_test_cases**: This function generates multiple test cases and writes them to specified files in the given directory.
+3. **Main script**: The script reads the output directory from the command line, sets up parameters for the maximum constraint values, and then generates and writes the test cases.
+
+To run this script, you would use the following command:
+```sh
+python generate_test_cases.py /path/to/output_directory
+```
+
+This script will create test cases named `test_01.in`, `test_02.in`, ..., `test_10.in` in the specified directory, each containing large inputs designed to push the solution codes to their performance limits.

@@ -1,0 +1,52 @@
+Sure! Here's a Python script that generates large test cases designed to ensure the provided solutions are exhaustively tested for performance. This script can write the test cases into the specified directory with the filename format 'test_01.in', 'test_02.in', ..., as requested.
+
+```python
+import os
+import random
+import argparse
+
+def generate_random_testcase(n):
+    # Generates a random testcase based on n, ensuring maximum jumps to test performance.
+    array = [random.randint(1, n) for _ in range(n)]
+    return n, array
+
+def write_testcase(directory, index, n, array):
+    # Writes the generated test case to a file in the specified directory.
+    filename = os.path.join(directory, f'test_{index:02d}.in')
+    with open(filename, 'w') as f:
+        f.write(f"{n}\n")
+        f.write(" ".join(map(str, array)) + "\n")
+
+def main(directory, num_cases=10, max_n=200000):
+    # Ensures the output directory exists.
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
+    for i in range(1, num_cases + 1):
+        n, array = generate_random_testcase(max_n)
+        write_testcase(directory, i, n, array)
+        print(f"Generated test case {i}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate test cases for a given problem.")
+    parser.add_argument('directory', type=str, help="Directory to write the test cases.")
+    args = parser.parse_args()
+
+    main(args.directory)
+```
+
+### Usage
+1. **Save the Script**: Save the above script as `generate_testcases.py`.
+2. **Run the Script**: Execute the script using Python and specify the directory where you want to save the test cases. For example, to save the test cases in the `./test_cases` directory, run:
+   ```sh
+   python generate_testcases.py ./test_cases
+   ```
+   This will generate 10 large test cases (for `n = 200,000`) in the `./test_cases` directory with the filenames `test_01.in`, `test_02.in`, ..., `test_10.in`.
+
+### Explanation
+- **`generate_random_testcase` Function**: This function generates a random array of size `n` where each element is randomly chosen between 1 and `n`.
+- **`write_testcase` Function**: This function writes a single test case to a file. The file is named based on the index provided.
+- **`main` Function**: This function manages the overall test case generation process, ensuring the directory exists and iterating to generate the specified number of test cases (`num_cases`), each with the maximum size `max_n` set to `200,000`.
+- **`argparse`**: This is used to parse the command-line arguments, making it easy to specify the target directory for test case files.
+
+This script is designed to produce test cases that can help evaluate the time complexity and performance of solutions to the given problem under large inputs.

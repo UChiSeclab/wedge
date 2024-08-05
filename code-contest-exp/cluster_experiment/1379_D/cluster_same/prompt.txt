@@ -1,0 +1,1047 @@
+Problem Statement
+There are many freight trains departing from Kirnes planet every day. One day on that planet consists of h hours, and each hour consists of m minutes, where m is an even number. Currently, there are n freight trains, and they depart every day at the same time: i-th train departs at h_i hours and m_i minutes.
+
+The government decided to add passenger trams as well: they plan to add a regular tram service with half-hour intervals. It means that the first tram of the day must depart at 0 hours and t minutes, where 0 ≤ t < {m \over 2}, the second tram departs m \over 2 minutes after the first one and so on. This schedule allows exactly two passenger trams per hour, which is a great improvement.
+
+To allow passengers to board the tram safely, the tram must arrive k minutes before. During the time when passengers are boarding the tram, no freight train can depart from the planet. However, freight trains are allowed to depart at the very moment when the boarding starts, as well as at the moment when the passenger tram departs. Note that, if the first passenger tram departs at 0 hours and t minutes, where t < k, then the freight trains can not depart during the last k - t minutes of the day.
+
+<image> A schematic picture of the correct way to run passenger trams. Here h=2 (therefore, the number of passenger trams is 2h=4), the number of freight trains is n=6. The passenger trams are marked in red (note that the spaces between them are the same). The freight trains are marked in blue. Time segments of length k before each passenger tram are highlighted in red. Note that there are no freight trains inside these segments.
+
+Unfortunately, it might not be possible to satisfy the requirements of the government without canceling some of the freight trains. Please help the government find the optimal value of t to minimize the number of canceled freight trains in case all passenger trams depart according to schedule.
+
+Input
+
+The first line of input contains four integers n, h, m, k (1 ≤ n ≤ 100 000, 1 ≤ h ≤ 10^9, 2 ≤ m ≤ 10^9, m is even, 1 ≤ k ≤ {m \over 2}) — the number of freight trains per day, the number of hours and minutes on the planet, and the boarding time for each passenger tram.
+
+n lines follow, each contains two integers h_i and m_i (0 ≤ h_i < h, 0 ≤ m_i < m) — the time when i-th freight train departs. It is guaranteed that no freight trains depart at the same time.
+
+Output
+
+The first line of output should contain two integers: the minimum number of trains that need to be canceled, and the optimal starting time t. Second line of output should contain freight trains that need to be canceled.
+
+Examples
+
+Input
+
+
+2 24 60 15
+16 0
+17 15
+
+
+Output
+
+
+0 0
+
+
+
+Input
+
+
+2 24 60 16
+16 0
+17 15
+
+
+Output
+
+
+1 0
+2 
+
+Note
+
+In the first test case of the example the first tram can depart at 0 hours and 0 minutes. Then the freight train at 16 hours and 0 minutes can depart at the same time as the passenger tram, and the freight train at 17 hours and 15 minutes can depart at the same time as the boarding starts for the upcoming passenger tram.
+
+In the second test case of the example it is not possible to design the passenger tram schedule without cancelling any of the freight trains: if t ∈ [1, 15], then the freight train at 16 hours and 0 minutes is not able to depart (since boarding time is 16 minutes). If t = 0 or t ∈ [16, 29], then the freight train departing at 17 hours 15 minutes is not able to depart. However, if the second freight train is canceled, one can choose t = 0. Another possible option is to cancel the first train and choose t = 13.
+------------------------------
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.util.StringTokenizer;
+
+public class Main
+{
+	public static void main(String[] args) {
+		new Thread(null, new Runnable() {
+			public void run() {
+                solve();
+            }
+        }, "1", 1 << 26).start();
+	}
+	static void solve () {
+		FastReader fr =new FastReader();	PrintWriter op =new PrintWriter(System.out);
+ 
+ 		int n =fr.nextInt() ,i ,j ,ans ,l ,r ;
+
+ 		long h =fr.nextLong() ,m =fr.nextLong() ,k =fr.nextLong() ,arr[][] =new long[2*n][2] ,t ,dm ,md =m/2 ;
+
+ 		for (i =0 ; i<n ; ++i) {
+ 			dm =fr.nextLong()*m + fr.nextLong() ;	dm %= md ;
+
+ 			arr[i][0] =dm ;	arr[i][1] =i+1 ;
+ 		}
+
+ 		sort (arr , 0 , n-1) ;
+
+ 		for (i =0 ; i<n ; ++i) {
+ 			arr[i+n][0] =arr[i][0] + md ;	arr[i+n][1] =arr[i][1] ;
+ 		}
+
+ 		for (j =0 ; arr[j][0]+k <= md ; ++j);
+
+		ans =n-j ;	t =0 ;	l =j ;	r =n ;
+
+		for ( ; i<2*n ; ++i) {
+			while (arr[j][0]+k <= arr[i][0])
+				++j ;
+
+			if (ans > (i-j)) {
+				ans =i-j ;	t =arr[i][0]-md ;	l =j ;	r =i ;
+			}
+		}
+
+		op.println(ans + " " + t) ;
+		for ( ; l<r ; ++l)	op.print(arr[l][1]+" ") ;
+
+		op.flush();	op.close();
+	}
+	public static void sort(long[][] arr , int l , int u) {
+		int m ;
+ 
+		if(l < u){
+			m =(l + u)/2 ;
+ 
+			sort(arr , l , m);	sort(arr , m + 1 , u);
+ 
+			merge(arr , l , m , u);
+		}
+	} 
+	public static void merge(long[][]arr , int l , int m , int u) {
+		long[][] low = new long[m - l + 1][2];
+ 
+		long[][] upr = new long[u - m][2];
+ 
+		int i ,j =0 ,k =0 ;
+ 
+		for(i =l;i<=m;i++){
+			low[i - l][0] =arr[i][0];
+			low[i - l][1] =arr[i][1];
+		}
+ 
+		for(i =m + 1;i<=u;i++){
+			upr[i - m - 1][0] =arr[i][0];
+			upr[i - m - 1][1] =arr[i][1];
+		}
+ 
+		i =l;
+ 
+		while((j < low.length) && (k < upr.length))
+		{
+			if(low[j][0] < upr[k][0])
+			{
+				arr[i][0] =low[j][0];
+				arr[i++][1] =low[j++][1];
+			}
+			else
+			{
+				if(low[j][0] > upr[k][0])
+				{
+					arr[i][0] =upr[k][0];
+					arr[i++][1] =upr[k++][1];
+				}
+				else
+				{
+					if(low[j][1] < upr[k][1])
+					{
+						arr[i][0] =low[j][0];
+						arr[i++][1] =low[j++][1];
+					}
+					else
+					{
+						arr[i][0] =upr[k][0];
+						arr[i++][1] =upr[k++][1];
+					}
+				}
+			}
+		}
+ 
+		while(j < low.length)
+		{
+			arr[i][0] =low[j][0];
+			arr[i++][1] =low[j++][1];
+		}
+ 
+		while(k < upr.length)
+		{
+			arr[i][0] =upr[k][0];
+			arr[i++][1] =upr[k++][1];
+		}
+	}
+	static class FastReader {
+		BufferedReader br;
+		StringTokenizer st;
+
+		public FastReader() {
+			br =new BufferedReader(new InputStreamReader(System.in));
+		}
+
+		String next() {
+			while (st==null || (!st.hasMoreElements())) 
+			{
+				try
+				{
+					st =new StringTokenizer(br.readLine());
+				}
+				catch(IOException e)
+				{
+					e.printStackTrace();
+				}
+				
+			}
+			return st.nextToken();
+		}
+
+		String nextLine() {
+			String str ="";
+
+			try
+			{
+				str =br.readLine();
+			}
+			catch(IOException e)
+			{
+				e.printStackTrace();
+			}
+
+			return str;
+		}
+
+		int nextInt() {
+			return Integer.parseInt(next());
+		}
+
+		long nextLong() {
+			return Long.parseLong(next()) ;
+		}
+	}
+}
+------------------------------
+import java.io.OutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.BufferedWriter;
+import java.util.InputMismatchException;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.TreeMap;
+import java.io.Writer;
+import java.io.OutputStreamWriter;
+import java.io.InputStream;
+
+/**
+ * Built using CHelper plug-in
+ * Actual solution is at the top
+ */
+public class Main {
+    public static void main(String[] args) {
+        InputStream inputStream = System.in;
+        OutputStream outputStream = System.out;
+        InputReader in = new InputReader(inputStream);
+        OutputWriter out = new OutputWriter(outputStream);
+        TaskD solver = new TaskD();
+        solver.solve(1, in, out);
+        out.close();
+    }
+
+    static class TaskD {
+        public void solve(int testNumber, InputReader in, OutputWriter out) {
+            int n = in.nextInt(), h = in.nextInt(), m = in.nextInt(), k = in.nextInt();
+            TreeMap<Integer, ArrayList<Integer>> changes = new TreeMap<>();
+            HashSet<Integer> solution = new HashSet<>();
+            long optimalTime = 0;
+            for (int i = 0; i < n; i++) {
+                int a = in.nextInt(), b = in.nextInt();
+                int md = b % (m / 2);
+                int L = (md + 1) % (m / 2);
+                int R = (md + k - 1 + m / 2) % (m / 2);
+                if ((L == 0 && R >= 0) || L > R) {
+                    solution.add(i);
+                }
+                int H = ((R + 1) % (m / 2));
+                if (L != 0 && !changes.containsKey(L)) {
+                    changes.put(L, new ArrayList<>());
+                }
+                if (H != 0 && !changes.containsKey(H)) {
+                    changes.put(H, new ArrayList<>());
+                }
+                if (L != 0) changes.get(L).add(2 * i);
+                if (H != 0) changes.get(H).add(2 * i + 1);
+            }
+            if (k == 1) {
+                out.println(0 + " " + 0);
+                return;
+            }
+            HashSet<Integer> optimalSolution = (HashSet<Integer>) solution.clone();
+            int minCancel = solution.size();
+            for (int l : changes.keySet()) {
+                for (int t : changes.get(l)) {
+                    if (t % 2 == 1) solution.remove(t / 2);
+                    else solution.add(t / 2);
+                }
+
+                if (solution.size() < minCancel) {
+//                optimalSolution = (HashSet<Integer>) solution.clone();
+                    minCancel = solution.size();
+                    optimalTime = l;
+                }
+            }
+
+            solution = (HashSet<Integer>) optimalSolution.clone();
+
+            for (int l : changes.keySet()) {
+                for (int t : changes.get(l)) {
+                    if (t % 2 == 1) solution.remove(t / 2);
+                    else solution.add(t / 2);
+                }
+
+                if (optimalTime == l) {
+                    optimalSolution = (HashSet<Integer>) solution.clone();
+                }
+            }
+
+            out.println(optimalSolution.size() + " " + optimalTime);
+            for (int v : optimalSolution) out.print((v + 1) + " ");
+        }
+
+    }
+
+    static class InputReader {
+        private InputStream stream;
+        private byte[] buf = new byte[1024];
+        private int curChar;
+        private int numChars;
+        private InputReader.SpaceCharFilter filter;
+
+        public InputReader(InputStream stream) {
+            this.stream = stream;
+        }
+
+        public int read() {
+            if (numChars == -1) {
+                throw new InputMismatchException();
+            }
+            if (curChar >= numChars) {
+                curChar = 0;
+                try {
+                    numChars = stream.read(buf);
+                } catch (IOException e) {
+                    throw new InputMismatchException();
+                }
+                if (numChars <= 0) {
+                    return -1;
+                }
+            }
+            return buf[curChar++];
+        }
+
+        public int nextInt() {
+            int c = read();
+            while (isSpaceChar(c)) c = read();
+            int sgn = 1;
+            if (c == '-') {
+                sgn = -1;
+                c = read();
+            }
+            int res = 0;
+            do {
+                if (c < '0' || c > '9')
+                    throw new InputMismatchException();
+                res *= 10;
+                res += c - '0';
+                c = read();
+            } while (!isSpaceChar(c));
+            return res * sgn;
+        }
+
+        public boolean isSpaceChar(int c) {
+            if (filter != null) {
+                return filter.isSpaceChar(c);
+            }
+            return isWhitespace(c);
+        }
+
+        public static boolean isWhitespace(int c) {
+            return c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == -1;
+        }
+
+        public interface SpaceCharFilter {
+            public boolean isSpaceChar(int ch);
+
+        }
+
+    }
+
+    static class OutputWriter {
+        private final PrintWriter writer;
+
+        public OutputWriter(OutputStream outputStream) {
+            writer = new PrintWriter(new BufferedWriter(new OutputStreamWriter(outputStream)));
+        }
+
+        public OutputWriter(Writer writer) {
+            this.writer = new PrintWriter(writer);
+        }
+
+        public void print(Object... objects) {
+            for (int i = 0; i < objects.length; i++) {
+                if (i != 0) {
+                    writer.print(' ');
+                }
+                writer.print(objects[i]);
+            }
+        }
+
+        public void println(Object... objects) {
+            for (int i = 0; i < objects.length; i++) {
+                if (i != 0) {
+                    writer.print(' ');
+                }
+                writer.print(objects[i]);
+            }
+            writer.print('\n');
+        }
+
+        public void close() {
+            writer.close();
+        }
+
+    }
+}
+
+
+------------------------------
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.StringTokenizer;
+
+/*
+3 24 60 32
+16 0
+17 15
+18 31
+
+3 24 60 32
+16 0
+17 15
+18 31
+
+4 100 4 2
+1 0
+1 1
+1 2
+1 3
+
+ */
+public class D {
+
+	public static void main(String[] args) {
+		FastScanner fs=new FastScanner();
+		int nTrains=fs.nextInt();
+		fs.next();
+		int minutes=fs.nextInt();
+		int phaseLen=fs.nextInt();
+		SegTree st=new SegTree(0, minutes-1);
+		ArrayList<Integer> startTimes=new ArrayList<>();
+		for (int i=0; i<nTrains; i++) {
+			fs.next();
+			int minute=fs.nextInt()%(minutes/2);
+			st.update(minute, 1);
+			st.update(minute+minutes/2, 1);
+			startTimes.add(minute);
+		}
+		
+		int bestAns=Integer.MAX_VALUE;
+		int bestTime=0;
+		for (int i:startTimes) {
+			int toCancel=st.query(i+1, i+phaseLen-1);
+			if (toCancel<bestAns) {
+				bestAns=toCancel;
+				bestTime=i;
+			}
+		}
+		PrintWriter out=new PrintWriter(System.out);
+		out.println(bestAns+" "+(bestTime+phaseLen)%(minutes/2));
+		for (int i=0; i<startTimes.size(); i++) {
+			int l=bestTime, r=bestTime+phaseLen;
+			int t=startTimes.get(i);
+			if (t>l && t<r) {
+				out.print((i+1)+" ");
+			}
+			if (t+minutes/2>l && t+minutes/2<r) {
+				out.print((i+1)+" ");
+			}
+		}
+		out.println();
+		out.close();
+	}
+	
+	static class SegTree {
+		int leftmost, rightmost, sum;
+		SegTree lChild, rChild;
+		
+		public SegTree(int leftmost, int rightmost) {
+			this.leftmost=leftmost;
+			this.rightmost=rightmost;
+		}
+		
+		public void update(int index, int val) {
+			sum++;
+			if (leftmost==rightmost) {
+				return;
+			}
+			if (lChild==null)makeKids();
+			if (index<=lChild.rightmost) lChild.update(index, val);
+			else rChild.update(index, val);
+		}
+		
+		public void makeKids() {
+			int mid=(leftmost+rightmost)/2;
+			lChild=new SegTree(leftmost, mid);
+			rChild=new SegTree(mid+1, rightmost);
+		}
+		
+		public int query(int l, int r) {
+			if (l<=leftmost && r>=rightmost) return sum;
+			if (l>rightmost || r<leftmost) return 0;
+			if (lChild==null)return 0;
+			return lChild.query(l, r)+rChild.query(l, r);
+		}
+	}
+
+	static void sort(int[] a) {
+		ArrayList<Integer> l=new ArrayList<>();
+		for (int i:a) l.add(i);
+		Collections.sort(l);
+		for (int i=0; i<a.length; i++) a[i]=l.get(i);
+	}
+	
+	static class FastScanner {
+		BufferedReader br=new BufferedReader(new InputStreamReader(System.in));
+		StringTokenizer st=new StringTokenizer("");
+		String next() {
+			while (!st.hasMoreTokens())
+				try {
+					st=new StringTokenizer(br.readLine());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			return st.nextToken();
+		}
+		
+		int nextInt() {
+			return Integer.parseInt(next());
+		}
+		int[] readArray(int n) {
+			int[] a=new int[n];
+			for (int i=0; i<n; i++) a[i]=nextInt();
+			return a;
+		}
+		long nextLong() {
+			return Long.parseLong(next());
+		}
+	}
+
+	
+}
+
+------------------------------
+import java.io.*;
+import java.lang.Math;
+import java.util.*;
+
+public class Main  {
+
+    public BufferedReader in;
+    public PrintStream out;
+
+    public boolean log_enabled = false;
+    
+    public boolean multiply_tests = false;
+
+    private class TestCase {
+
+        public Object solve() {
+            
+            int N = readInt(), H = readInt(), M = readInt(), K = readInt(), M2 = M / 2;
+            
+            
+            int i,h,m;
+            
+            int[] inc = new int[N+1];
+            int[] dec = new int[N+1];
+            
+            int[] _inc = new int[N];
+            int[] _dec = new int[N];
+            
+            
+            
+            int z = 0;
+            
+            for (i=0; i<N; i++)
+            {
+                h = readInt();
+                m = readInt() % M2;
+                
+                inc[i] = (m+1) % M2;
+                dec[i] = (m+K) % M2;
+                
+                _inc[i] = inc[i];
+                _dec[i] = dec[i];
+                
+                if (((inc[i] > dec[i])&&(dec[i]>0))||(inc[i]==0))
+                {
+                    z++;
+                }
+            }
+            
+            if (K==1) return "0 0";
+            
+            Arrays.sort(inc,0,N);
+            Arrays.sort(dec,0,N);
+            
+            /*int inc_n = 0;
+            for (i=1; i<N; i++)
+            {
+                if (inc[i]!=inc[inc_n])
+                {
+                    inc[++inc_n] = inc[i];
+                }
+            }
+            inc_n ++;
+            
+            int dec_n = 0;
+            for (i=1; i<N; i++)
+            {
+                if (dec[i]!=dec[dec_n])
+                {
+                    dec[++dec_n] = dec[i];
+                }
+            }
+            dec_n ++;*/
+           
+            int inc_n = N;
+            int dec_n = N;
+            
+            inc[inc_n] = M2;
+            dec[dec_n] = M2;
+            
+            int mx = z, c, mx_t=0, t = 0;
+            
+            int inc_idx = 0;
+            int dec_idx = 0;
+            
+            while ((inc_idx < inc_n)||(dec_idx<dec_n))
+            {
+                t = Math.min( inc[inc_idx], dec[dec_idx] );
+                
+                while (inc[inc_idx] == t)
+                {
+                    if (t>0)
+                    {
+                        z ++;
+                    }
+                    
+                    inc_idx ++;
+                }
+                
+                while (dec[dec_idx] == t)
+                {
+                    if (t>0)
+                    {
+                        z --;
+                    }
+                    dec_idx ++;
+                }
+                    
+                if (z<mx)
+                {
+                    mx = z;
+                    mx_t = t;
+                }
+                
+            }
+            
+            out.printf("%d %d\n", mx, mx_t);
+            boolean b,f = true;
+            for (i=0; i<N; i++)
+            {
+                b = false;
+                if (_inc[i] < _dec[i])
+                {
+                    b = (_inc[i]<=mx_t)&&(mx_t<_dec[i]);
+                }
+                else
+                {
+                    b = (mx_t >= _inc[i]) || (mx_t < _dec[i]);
+                }
+                
+                if (b)
+                {
+                    if (f)
+                    {
+                        f = false;
+                    }
+                    else
+                    {
+                        out.print(" ");
+                    }
+                    
+                    out.print(i+1);
+                }
+            }
+            if (mx<0)
+            {
+                out.println();
+            }
+            
+            return null;
+            
+            //return strf("%f", 0);
+            
+            //out.printf("Case #%d: \n", caseNumber);
+            //return null;
+        }
+        
+        public int caseNumber;
+        
+        TestCase(int number) {
+            caseNumber = number;
+        }
+        
+        public void run(){
+            Object r = this.solve();
+            
+            if ((r != null))
+            {
+                //outputCaseNumber(r);
+                out.println(r);
+            }
+        }
+        
+        public String impossible(){
+            return "IMPOSSIBLE";
+        }
+        
+        public String strf(String format, Object... args)
+        {
+            return String.format(format, args);
+        }
+        
+//        public void outputCaseNumber(Object r){
+//            //out.printf("Case #%d:", caseNumber);
+//            if (r != null)
+//            {
+//              //  out.print(" ");
+//                out.print(r);
+//            }
+//            out.print("\n");
+//        }
+    }
+
+    public void run() {
+        //while (true)
+        {
+            int t = multiply_tests ?  readInt() : 1;
+            for (int i = 0; i < t; i++) {
+                TestCase T = new TestCase(i + 1);
+                T.run();
+            }
+        }
+    }
+    
+
+    
+    public Main(BufferedReader _in, PrintStream _out){
+        in = _in;
+        out = _out;
+    }
+    
+
+    public static void main(String args[]) {
+        Locale.setDefault(Locale.US);
+        Main S;
+        try {
+            S = new Main(
+                        new BufferedReader(new InputStreamReader(System.in)),
+                        System.out
+                );
+        } catch (Exception e) {
+            return;
+        }
+        
+        S.run();
+        
+    }
+
+    private StringTokenizer tokenizer = null;
+
+    public int readInt() {
+        return Integer.parseInt(readToken());
+    }
+
+    public long readLong() {
+        return Long.parseLong(readToken());
+    }
+
+    public double readDouble() {
+        return Double.parseDouble(readToken());
+    }
+
+    public String readLn() {
+        try {
+            String s;
+            while ((s = in.readLine()).length() == 0);
+            return s;
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    public String readToken() {
+        try {
+            while (tokenizer == null || !tokenizer.hasMoreTokens()) {
+                tokenizer = new StringTokenizer(in.readLine());
+            }
+            return tokenizer.nextToken();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    public int[] readIntArray(int n) {
+        int[] x = new int[n];
+        readIntArray(x, n);
+        return x;
+    }
+
+    public void readIntArray(int[] x, int n) {
+        for (int i = 0; i < n; i++) {
+            x[i] = readInt();
+        }
+    }
+    
+    public long[] readLongArray(int n) {
+        long[] x = new long[n];
+        readLongArray(x, n);
+        return x;
+    }
+
+    public void readLongArray(long[] x, int n) {
+        for (int i = 0; i < n; i++) {
+            x[i] = readLong();
+        }
+    }
+
+    public void logWrite(String format, Object... args) {
+        if (!log_enabled) {
+            return;
+        }
+
+        out.printf(format, args);
+    }
+}
+
+------------------------------
+
+// Problem : D. New Passenger Trams
+// Contest : Codeforces - Codeforces Round #657 (Div. 2)
+// URL : https://codeforces.com/contest/1379/problem/D
+// Memory Limit : 512 MB
+// Time Limit : 2000 ms
+// Powered by CP Editor (https://github.com/cpeditor/cpeditor)
+
+import java.io.*;
+import java.util.*;
+import java.util.stream.*;
+
+public class a implements Runnable{
+	
+    public static void main(String[] args) {
+        new Thread(null, new a(), "process", 1<<26).start();
+    }
+	public void run() {
+		FastReader scan = new FastReader();
+        PrintWriter out = new PrintWriter(new OutputStreamWriter(System.out));
+		//PrintWriter out = new PrintWriter("file.out");
+		Task solver = new Task();
+		//int t = scan.nextInt();
+		int t = 1;
+		for(int i = 1; i <= t; i++) solver.solve(i, scan, out);
+		out.close();
+	}
+
+	static class Task {
+		static final int inf = Integer.MAX_VALUE;
+
+		public void solve(int testNumber, FastReader sc, PrintWriter pw) {
+			//CHECK FOR QUICKSORT TLE
+			//***********************//
+			//CHECK FOR INT OVERFLOW
+			//***********************//
+			int n = sc.nextInt();
+			int h = sc.nextInt();
+			int m = sc.nextInt();
+			int k = sc.nextInt();
+			ArrayList<Integer> ar = new ArrayList<>();
+			ArrayList<tup> ar2 = new ArrayList<>();
+			TreeSet<Integer> ts = new TreeSet<Integer>();
+			for(int i = 0; i < n; i++) {
+				sc.nextInt();
+				int z = sc.nextInt() % (m / 2);
+				ar.add(z);
+				ar2.add(new tup(z, i  + 1));
+				if(z <= k) {
+					ar.add(z + m / 2);
+					ar2.add(new tup(z + m / 2, i + 1));
+				}
+			}
+			Collections.sort(ar);
+			int ptr = 0;
+			int ptr2 = 0;
+			int min = inf;
+			int time = -1;
+			while(ptr < ar.size()) {
+				if(ar.get(ptr) > m / 2) break;
+				while(ptr2 < ar.size() && ar.get(ptr2) - ar.get(ptr) < k) {
+					ptr2++;
+				}
+				//pw.println(ar.get(ptr));
+				//pw.println(ptr + " " + ptr2);
+				if(min > ptr2 - ptr - 1) {
+					min = ptr2 - ptr - 1;
+					time = ptr2;
+				}
+				ptr++;
+			}
+			pw.print(min + " ");
+			pw.println(ar.get(time) % (m / 2));
+			for(tup x : ar2) {
+				if(ar.get(time) - x.a < k && ar.get(time) - x.a > 0) {
+					pw.print(x.b + " ");
+				} 
+			}
+			
+			pw.println();
+		}
+	}
+	static long binpow(long a, long b, long m) {
+		a %= m;
+		long res = 1;
+		while (b > 0) {
+			if ((b & 1) == 1)
+				res = res * a % m;
+			a = a * a % m;
+			b >>= 1;
+		}
+		return res;
+	}
+	static void sort(int[] x){
+		shuffle(x);
+		Arrays.sort(x);
+	}
+	static void sort(long[] x){
+		shuffle(x);
+		Arrays.sort(x);
+	}
+	static class tup implements Comparable<tup>{
+		int a, b;
+		tup(int a,int b){
+			this.a=a;
+			this.b=b;
+		}
+		@Override
+		public int compareTo(tup o){
+			return a == o.a ? Integer.compare(a,o.a) : Integer.compare(o.b, b);
+		}
+	}
+	static void shuffle(int[] a) {
+		Random get = new Random();
+		for (int i = 0; i < a.length; i++) {
+			int r = get.nextInt(i + 1);
+			int temp = a[i];
+			a[i] = a[r];
+			a[r] = temp;
+		}
+	}
+
+	static void shuffle(long[] a) {
+		Random get = new Random();
+		for (int i = 0; i < a.length; i++) {
+			int r = get.nextInt(i + 1);
+			long temp = a[i];
+			a[i] = a[r];
+			a[r] = temp;
+		}
+	}
+
+	static class FastReader {
+		BufferedReader br;
+		StringTokenizer st;
+
+		public FastReader() {
+			br = new BufferedReader(new InputStreamReader(System.in));
+		}
+
+		public FastReader(String s) throws FileNotFoundException {
+			br = new BufferedReader(new FileReader(new File(s)));
+		}
+
+		String next() {
+			while (st == null || !st.hasMoreElements()) {
+				try {
+					st = new StringTokenizer(br.readLine());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			return st.nextToken();
+		}
+
+		int nextInt() {
+			return Integer.parseInt(next());
+		}
+
+		long nextLong() {
+			return Long.parseLong(next());
+		}
+
+		double nextDouble() {
+			return Double.parseDouble(next());
+		}
+
+		String nextLine() {
+			String str = "";
+			try {
+				str = br.readLine();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			return str;
+		}
+	}
+
+}
+------------------------------
+
+
+Write a python script that can generate test cases for a programming problem with the provided problem statement and solution codes. The test case should be focus on exhausting the code to get time limit exceeded and should follow the input format. The python script should be able to read an argument which specify a directory and write all the testcases as 'test_01.in', 'test_02.in', ... into the directory.

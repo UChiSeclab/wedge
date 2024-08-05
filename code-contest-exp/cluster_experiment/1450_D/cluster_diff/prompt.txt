@@ -1,0 +1,772 @@
+Problem Statement
+On the competitive programming platform CodeCook, every person has a rating graph described by an array of integers a of length n. You are now updating the infrastructure, so you've created a program to compress these graphs.
+
+The program works as follows. Given an integer parameter k, the program takes the minimum of each contiguous subarray of length k in a.
+
+More formally, for an array a of length n and an integer k, define the k-compression array of a as an array b of length n-k+1, such that $$$b_j =min_{j≤ i≤ j+k-1}a_i$$$
+
+For example, the 3-compression array of [1, 3, 4, 5, 2] is [min\{1, 3, 4\}, min\{3, 4, 5\}, min\{4, 5, 2\}]=[1, 3, 2].
+
+A permutation of length m is an array consisting of m distinct integers from 1 to m in arbitrary order. For example, [2,3,1,5,4] is a permutation, but [1,2,2] is not a permutation (2 appears twice in the array) and [1,3,4] is also not a permutation (m=3 but there is 4 in the array).
+
+A k-compression array will make CodeCook users happy if it will be a permutation. Given an array a, determine for all 1≤ k≤ n if CodeCook users will be happy after a k-compression of this array or not.
+
+Input
+
+The first line contains a single integer t (1≤ t≤ 10^4) — the number of test cases.
+
+The first line of the description of each test case contains a single integer n (1≤ n≤ 3⋅ 10^5) — the length of the array.
+
+The second line of the description of each test case contains n integers a_1,…,a_n (1≤ a_i≤ n) — the elements of the array.
+
+It is guaranteed, that the sum of n for all test cases does not exceed 3⋅ 10^5.
+
+Output
+
+For each test case, print a binary string of length n. 
+
+The k-th character of the string should be 1 if CodeCook users will be happy after a k-compression of the array a, and 0 otherwise. 
+
+Example
+
+Input
+
+
+5
+5
+1 5 3 4 2
+4
+1 3 2 1
+5
+1 3 3 3 2
+10
+1 2 3 4 5 6 7 8 9 10
+3
+3 3 2
+
+
+Output
+
+
+10111
+0001
+00111
+1111111111
+000
+
+Note
+
+In the first test case, a=[1, 5, 3, 4, 2].
+
+  * The 1-compression of a is [1, 5, 3, 4, 2] and it is a permutation. 
+  * The 2-compression of a is [1, 3, 3, 2] and it is not a permutation, since 3 appears twice. 
+  * The 3-compression of a is [1, 3, 2] and it is a permutation. 
+  * The 4-compression of a is [1, 2] and it is a permutation. 
+  * The 5-compression of a is [1] and it is a permutation. 
+------------------------------
+import java.util.*;
+
+public class A {
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        StringBuilder sb = new StringBuilder();
+        int testCases = sc.nextInt();
+
+        for (int t = 0; t < testCases; t++) {
+            int n = sc.nextInt();
+            int arr[] = new int[n];
+
+            int count[] = new int[n + 1];
+
+            for (int i = 0; i < n; i++) {
+                arr[i] = sc.nextInt();
+                count[arr[i]]++;
+            }
+
+            int left = 0;
+            int right = arr.length - 1;
+
+            int needed = 1;
+
+            boolean done = false;
+            int k = n;
+
+            int ans[] = new int[n];
+
+            while (k != 1) {
+                k--;
+
+                if (count[needed - 1] > 1) {
+                    done = true;
+                }
+
+                if (done) {
+                    ans[k] = 0;
+                    continue;
+                }
+
+                if (arr[left] < needed || arr[right] < needed) {
+                    ans[k] = 0;
+                    done = true;
+                    continue;
+                }
+
+                if (arr[left] == needed) {
+                    left++;
+                    needed++;
+                    ans[k] = 1;
+                    continue;
+                }
+
+                if (arr[right] == needed) {
+                    right--;
+                    needed++;
+                    ans[k] = 1;
+                    continue;
+                }
+
+                done = true;
+
+                boolean find = false;
+
+                for (int i = left; i <= right; i++) {
+                    if (arr[i] == needed) {
+                        ans[k] = 1;
+                        find = true;
+                        break;
+                    }
+                }
+
+                if (!find) {
+                    ans[k] = 0;
+                }
+
+            }
+
+            HashSet<Integer> set = new HashSet<>();
+
+            done = false;
+
+            for (int i = 0; i < n; i++) {
+                int cur = arr[i];
+                if (set.contains(cur)) {
+                    ans[0] = 0;
+                    done = true;
+                    break;
+                }
+                set.add(cur);
+            }
+
+            if (!done) {
+                ans[0] = 1;
+            }
+
+            for (int i = 0; i < n; i++) {
+                sb.append(ans[i]);
+            }
+
+            sb.append("\n");
+
+        }
+
+        System.out.print(sb);
+    }
+}
+------------------------------
+import java.io.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.StringTokenizer;
+import java.util.List;
+ import java.util.*;
+public  class realfast implements Runnable 
+  {
+    private static final int INF = (int) 1e9;
+    long in= 1000000007;
+    long fac[]= new long[1000001];
+    long inv[]=new long[1000001];
+    public  void solve() throws IOException 
+    {
+
+       int t = readInt();
+
+       for(int f =0;f<t;f++)
+       {
+         int n = readInt();
+         int arr[]=new int [n+1];
+         for(int i =0;i<n;i++)
+            arr[i+1]= readInt();
+         int left[]=new int[n+1];
+         int top=-1;
+         int stack[]=new int[n+1];
+         for(int i=1;i<=n;i++)
+         {
+              if(top==-1)
+              {
+                top++;
+                stack[top]=i;
+              }
+              else
+              {
+                 while(top>=0)
+                 {
+                       if(arr[stack[top]]<arr[i])
+                       {
+                        left[i]= stack[top];
+                         break;
+                       }
+                       else
+                       {
+                         top--;
+                       }
+                 }
+                 top++;
+                 stack[top]=i;
+              }
+         }
+         int right[]=new int[n+1];
+         Arrays.fill(right,n+1);
+
+         top=-1;
+
+
+         for(int i=n;i>=1;i--)
+         {
+             if(top==-1)
+              {
+                top++;
+                stack[top]=i;
+              }
+              else
+              {
+                 while(top>=0)
+                 {
+                       if(arr[stack[top]]<arr[i])
+                       {
+                        right[i]= stack[top];
+                         break;
+                       }
+                       else
+                       {
+                         top--;
+                       }
+                 }
+                 top++;
+                 stack[top]=i;
+              }
+         }
+
+         int max[]=new int[n+1];
+
+         for(int i=1;i<=n;i++)
+         {
+            
+            
+            
+             int val1= right[i]-left[i]-1;
+              max[arr[i]]=Math.max(max[arr[i]],val1);
+         }
+         int min[]=new int[n+1];
+         //out.println(max[3]);
+         min[0]=n+1;
+         for(int i=1;i<=n;i++)
+         {
+            min[i]=Math.min(min[i-1],max[i]);
+         }
+
+         for(int i =n;i>=1;i--)
+         {
+            if(min[i]>=n-i+1)
+                out.print(1);
+              else
+                out.print(0);
+         }
+
+         out.println();
+
+       }
+
+
+    }
+    
+    public int value (int seg[], int left , int right ,int index, int l, int r)
+    {
+            
+            if(left>right)
+            {
+              return -100000000;
+            }
+            if(right<l||left>r)
+                return -100000000;
+            if(left>=l&&right<=r)
+                return seg[index];
+            int mid = left+(right-left)/2;
+            int val = value(seg,left,mid,2*index+1,l,r);
+            int val2 = value(seg,mid+1,right,2*index+2,l,r);
+            return Math.max(val,val2);
+
+    }
+   
+    public int gcd(int a , int b )
+    {
+      if(a<b)
+      {
+        int t =a;
+        a=b;
+        b=t;
+      }
+      if(a%b==0)
+        return b ;
+      return gcd(b,a%b);
+    }
+    public long pow(long n , long p,long m)
+    {
+         if(p==0)
+            return 1;
+        long val = pow(n,p/2,m);;
+        val= (val*val)%m;
+        if(p%2==0)
+            return val;
+        else
+            return (val*n)%m;
+    }
+    
+    
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    public static void main(String[] args) {
+        new Thread(null, new realfast(), "", 128 * (1L << 20)).start();
+    }
+ 
+    private static final boolean ONLINE_JUDGE = System.getProperty("ONLINE_JUDGE") != null;
+    private BufferedReader reader;
+    private StringTokenizer tokenizer;
+    private PrintWriter out;
+ 
+    @Override
+    public void run() {
+        try {
+            if (ONLINE_JUDGE || !new File("input.txt").exists()) {
+                reader = new BufferedReader(new InputStreamReader(System.in));
+                out = new PrintWriter(System.out);
+            } else {
+                reader = new BufferedReader(new FileReader("input.txt"));
+                out = new PrintWriter("output.txt");
+            }
+            solve();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                reader.close();
+            } catch (IOException e) {
+                // nothing
+            }
+            out.close();
+        }
+    }
+ 
+    private String readString() throws IOException {
+        while (tokenizer == null || !tokenizer.hasMoreTokens()) {
+            tokenizer = new StringTokenizer(reader.readLine());
+        }
+        return tokenizer.nextToken();
+    }
+ 
+    @SuppressWarnings("unused")
+    private int readInt() throws IOException {
+        return Integer.parseInt(readString());
+    }
+ 
+    @SuppressWarnings("unused")
+    private long readLong() throws IOException {
+        return Long.parseLong(readString());
+    }
+ 
+    @SuppressWarnings("unused")
+    private double readDouble() throws IOException {
+        return Double.parseDouble(readString());
+    }
+}
+class edge implements Comparable<edge>{
+    int u ;
+    int v;
+    
+    edge(int u, int v)
+    {
+       this.u=u;
+       this.v=v;
+    }
+    public int compareTo(edge e)
+    {
+        return this.v-e.v;
+    }
+}
+------------------------------
+
+import java.io.BufferedReader;
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.util.ArrayDeque;
+import java.util.StringTokenizer;
+
+public class RatingCompression implements Closeable {
+
+  private InputReader in = new InputReader(System.in);
+  private PrintWriter out = new PrintWriter(System.out);
+
+  public void solve() {
+    int t = in.ni();
+    while (t-- > 0) {
+      int n = in.ni();
+      int[] x = new int[n];
+      for (int i = 0; i < n; i++) {
+        x[i] = in.ni();
+      }
+      int[] count = new int[n + 1];
+      ArrayDeque<Integer> stack = new ArrayDeque<>();
+      int[] left = new int[n], right = new int[n];
+      for (int idx = 0; idx < n; idx++) {
+        int next = x[idx];
+        while (stack.size() > 0 && x[stack.peekLast()] >= next) {
+          stack.pollLast();
+        }
+        int prev = stack.size() == 0 ? -1 : stack.peekLast();
+        stack.addLast(idx);
+        left[idx] = prev;
+      }
+      stack = new ArrayDeque<>();
+      for (int idx = n - 1; idx >= 0; idx--) {
+        int next = x[idx];
+        while (stack.size() > 0 && x[stack.peekLast()] >= next) {
+          stack.pollLast();
+        }
+        int nxt = stack.size() == 0 ? n : stack.peekLast();
+        stack.addLast(idx);
+        right[idx] = nxt;
+      }
+      int[] max = new int[n + 1];
+      for (int idx = 0; idx < n; idx++) {
+        int sum = right[idx] - left[idx] - 1;
+        max[x[idx]] = Math.max(max[x[idx]], sum);
+      }
+      for (int i = 1; i <= n; i++) {
+        if (max[i] > 0) {
+          int update = Math.min(max[i], n - i + 1);
+          count[update]++;
+        }
+      }
+      for (int i = n - 1; i >= 1; i--) {
+        count[i] += count[i + 1];
+      }
+      for (int i = 1; i <= n; i++) {
+        out.print(count[i] == n - i + 1 ? 1 : 0);
+      }
+      out.println();
+    }
+  }
+
+  @Override
+  public void close() throws IOException {
+    in.close();
+    out.close();
+  }
+
+  static class InputReader {
+    public BufferedReader reader;
+    public StringTokenizer tokenizer;
+
+    public InputReader(InputStream stream) {
+      reader = new BufferedReader(new InputStreamReader(stream), 32768);
+      tokenizer = null;
+    }
+
+    public String next() {
+      while (tokenizer == null || !tokenizer.hasMoreTokens()) {
+        try {
+          tokenizer = new StringTokenizer(reader.readLine());
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      }
+      return tokenizer.nextToken();
+    }
+
+    public int ni() {
+      return Integer.parseInt(next());
+    }
+
+    public long nl() {
+      return Long.parseLong(next());
+    }
+
+    public void close() throws IOException {
+      reader.close();
+    }
+  }
+
+  public static void main(String[] args) throws IOException {
+    try (RatingCompression instance = new RatingCompression()) {
+      instance.solve();
+    }
+  }
+}
+
+------------------------------
+import java.util.*;
+import java.io.*;
+ 
+public class Main{
+	static class Point{
+		int x,y; 
+		Point(int nx, int ny){
+			x = nx; y = ny;
+		}
+	}
+	public static void main(String[] args) throws IOException{
+    	In in = new In();
+    	for(int q = in.pint(); q > 0; q--) {
+    		int n = in.pint();
+    		int[] a = new int[n];
+    		int[] ct = new int[n];
+    		int[] ls = new int[n];
+    		int[] ft = new int[n];
+    		int[] id = new int[n];
+    		Stack<Point> stack = new Stack<Main.Point>();
+    		HashSet<Integer> set = new HashSet<Integer>();
+    		stack.add(new Point(-1,-1));
+    		char[] ans = new char[n];
+    		in.tok();
+    		for(int i = 0; i < n; i++) {
+    			a[i] = in.pint() - 1;
+    			ct[a[i]]++;
+    			while(a[i] <= stack.peek().x) {stack.pop();}
+    			ls[i] = stack.peek().y;
+    			stack.push(new Point(a[i], i));
+    			set.add(a[i]);
+    		}
+    		stack.clear();
+    		stack.add(new Point(-1, n));
+    		for(int i = n - 1; i >= 0; i--) {
+    			while(a[i] <= stack.peek().x) {stack.pop();}
+    			ft[i] = stack.peek().y;
+    			stack.push(new Point(a[i], i));
+    		}
+    		int[] sz = new int[n];
+    		for(int i = 0; i < n; i++) {
+    			int diff = ft[i] - ls[i] + 1;
+    			sz[a[i]] = diff - 2;
+    		}
+    		int min = n;
+    		boolean f = false;
+    		for(int k = n; k >= 1; k--) {
+    			min = Math.min(sz[n - k], min);
+    			if(k > min) {
+    				ans[k - 1] = '0';
+    			}else {
+    				ans[k - 1] = '1';
+    			}
+    		}
+    		for(int k = n; k > 0; k--) {
+    			int s = n - k;
+    			if(ct[s] == 0) {
+    				f = true;
+    			}
+    			if(s > 0 && ct[s - 1] > 1) {
+    				f = true;
+    			}
+    			if(f) {ans[k - 1] = '0';}
+    		}
+    		ans[0] = set.size() == n ? '1' : '0';
+    		System.out.println(new String(ans));
+    	}
+    }
+	static boolean check(int[] a, int k) {
+		int n = a.length;
+		HashSet<Integer> set = new HashSet<Integer>();
+		int max = 0;
+		for(int i = 0; i <= n - k; i++) {
+			int min = Integer.MAX_VALUE;
+			for(int j = i; j < i + k; j++) {
+				min = Math.min(min, a[j]);
+			}
+			max = Math.max(max, min);
+			set.add(min);
+		}
+		return set.size() == n - k  + 1 && max == n - k;
+	}
+}	
+ 
+ 
+class In{
+    BufferedReader in;
+    StringTokenizer st = new StringTokenizer("");
+    public In(){
+        in = new BufferedReader(new InputStreamReader(System.in));
+    }
+    
+    int pint() throws IOException{
+        if(st.hasMoreTokens()) {return Integer.parseInt(st.nextToken());}
+        else {return Integer.parseInt(in.readLine());}
+    }
+    double pdbl() throws IOException{
+        if(st.hasMoreTokens()) {return Double.parseDouble(st.nextToken());}
+        else {return Double.parseDouble(in.readLine());}
+    }
+    long plng() throws IOException{
+        if(st.hasMoreTokens()) {return Long.parseLong(st.nextToken());}
+        else {return Long.parseLong(in.readLine());}
+    }
+    char pchr() throws IOException{
+        if(st.hasMoreTokens()) {return st.nextToken().charAt(0);}
+        else {return in.readLine().charAt(0);}
+    }
+    String pstr() throws IOException{
+        if(st.hasMoreTokens()) {return st.nextToken();}
+        else {return in.readLine();}
+    }
+    String readLine() throws IOException{
+    	return in.readLine();
+    }
+    boolean ready() throws IOException {return in.ready();}
+    boolean readyN() throws IOException{return in.ready() || st.hasMoreTokens();}
+    void tok() throws IOException{st = new StringTokenizer(in.readLine());}
+    void skip() throws IOException{in.readLine();}
+}
+------------------------------
+import java.io.*;
+import java.util.*;
+public class Main {
+    public static void main(String args[])
+    {
+        FastReader input=new FastReader();
+        PrintWriter out=new PrintWriter(System.out);
+        int T=input.nextInt();
+        while(T-->0)
+        {
+            int n=input.nextInt();
+            int a[]=new int[n+2];
+            a[0]=0;
+            int arr[]=new int[n+1];
+            for(int i=1;i<=n;i++)
+            {
+                a[i]=input.nextInt();
+                arr[a[i]]++;
+            }
+            a[n+1]=0;
+            int i=1;
+            int l=0;
+            int x=0,y=0;
+            int max=0;
+            while(i<=n)
+            {
+                if(a[i]>a[i-1])
+                {
+                    l=i-1;
+                    i++;
+                }
+                else
+                {
+                    for(int j=l;j>=0;j--)
+                    {
+                        if(a[j]<a[i])
+                        {
+                            x=j;
+                            break;
+                        }
+                    }
+                    for(int j=i+1;j<=n+1;j++)
+                    {
+                        if(a[j]<a[i])
+                        {
+                            y=j;
+                            break;
+                        }
+                    }
+                    l=x;
+                    if(!(i==x+1 || i==y-1))
+                    {
+                        max=Math.max(max,y-x-2);
+                    }
+                    i=y;
+                }
+            }
+            int m1=0;
+            for(int j=1;j<=n;j++)
+            {
+                if(arr[j]==0)
+                {
+                    m1=Math.max(m1,n-j+1);
+                }
+                else if(arr[j]>1)
+                {
+                    m1=Math.max(m1,n-j);
+                }
+            }
+            char ch[]=new char[n];
+            for(int j=0;j<n;j++)
+            {
+                ch[j]='1';
+            }
+            for(int j=0;j<m1;j++)
+            {
+                ch[j]='0';
+            }
+            for(int j=1;j<max;j++)
+            {
+                ch[j]='0';
+            }
+            out.println(ch);
+        }
+        out.close();
+    }
+    static class FastReader {
+        BufferedReader br;
+        StringTokenizer st;
+
+        public FastReader() {
+            br = new BufferedReader(new
+                    InputStreamReader(System.in));
+        }
+
+        String next() {
+            while (st == null || !st.hasMoreElements()) {
+                try {
+                    st = new StringTokenizer(br.readLine());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            return st.nextToken();
+        }
+
+        int nextInt() {
+            return Integer.parseInt(next());
+        }
+
+        long nextLong() {
+            return Long.parseLong(next());
+        }
+
+        double nextDouble() {
+            return Double.parseDouble(next());
+        }
+
+        String nextLine() {
+            String str = "";
+            try {
+                str = br.readLine();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return str;
+        }
+    }
+}
+------------------------------
+
+
+Write a python script that can generate test cases for a programming problem with the provided problem statement and solution codes. The test case should be focus on exhausting the code to get time limit exceeded and should follow the input format. The python script should be able to read an argument which specify a directory and write all the testcases as 'test_01.in', 'test_02.in', ... into the directory.
