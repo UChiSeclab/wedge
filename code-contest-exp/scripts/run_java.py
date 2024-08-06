@@ -86,9 +86,9 @@ def compile_java(java_solution_dir:Path, solution_code:str) -> str:
 
   return class_name
 
-def run_java(problem, results, problem_root_dir:Path, solution_selection_type:str=config['exp_type'], max_time_limit:int=config['max_time_limit'], json_output_file:Path=Path(config['output_file'])):
+def run_java(problem, results, problem_root_dir:Path, exp_type:str=config['exp_type'], max_time_limit:int=config['max_time_limit'], json_output_file:Path=Path(config['output_file'])):
   problem_dir = problem_root_dir / str(problem['name'].split('.')[0])
-  input_dir, output_dir, gpt_input_dir, gpt_output_dir, java_solution_dir = init_folder(problem_dir, solution_selection_type)
+  input_dir, output_dir, gpt_input_dir, gpt_output_dir, java_solution_dir = init_folder(problem_dir, exp_type)
   print("gpt_input_dir:", gpt_input_dir)
   # Find a Java solution to run
   if not (output_dir / "test_01.out").exists():
@@ -189,7 +189,7 @@ def main(
 
   filtered_problems = filter_problems(cf_dataset)
   for problem in tqdm(filtered_problems):
-    run_java(problem, results, problem_root_dir, solution_selection_type=exp_type, max_time_limit=max_time_limit, json_output_file=output_file)
+    run_java(problem, results, problem_root_dir, exp_type=exp_type, max_time_limit=max_time_limit, json_output_file=output_file)
 
 if __name__ == '__main__':
   from fire import Fire

@@ -10,22 +10,22 @@ from cluster import cluster_code_snippets
 from typing import List
 from scripts import *
 
-def select_solutions(java_solutions: List[str]) -> List[str]:
+def select_solutions(raw_solutions: List[str]) -> List[str]:
   selected_solutions = list()
   if config['exp_type'] == 'random':
     # Randomly select 5 solutions from the list of Java solutions
-    selected_solutions = random.sample(java_solutions, 5)
+    selected_solutions = random.sample(raw_solutions, 5)
   elif config['exp_type'] == 'cluster_diff':
-    solutions, labels = cluster_code_snippets(java_solutions)
+    solutions, labels = cluster_code_snippets(raw_solutions)
     print(labels)
-    print(f"Use {len(solutions) / len(java_solutions)} part of solutions for clustering")
+    print(f"Use {len(solutions) / len(raw_solutions)} part of solutions for clustering")
     selected_solutions = ["", "", "", "", ""]
     for i in range(len(labels)):
       selected_solutions[labels[i]] = solutions[i]
   elif config['exp_type'] == 'cluster_same':
-    solutions, labels = cluster_code_snippets(java_solutions)
+    solutions, labels = cluster_code_snippets(raw_solutions)
     print(labels)
-    print(f"Use {len(solutions) / len(java_solutions)} part of solutions for clustering")
+    print(f"Use {len(solutions) / len(raw_solutions)} part of solutions for clustering")
     cnt_solutions = [0, 0, 0, 0, 0]
     label = -1
     for i in range(len(labels)):
@@ -59,16 +59,16 @@ def main(
       continue
     results[problem['name']] = dict()
     problem_dir = problem_root_dir / str(problem['name'].split('.')[0])
-    input_dir, output_dir, gpt_input_dir, gpt_output_dir, java_solution_dir = init_folder(problem_dir, exp_type)
+    input_dir, output_dir, gpt_input_dir, gpt_output_dir, solution_dir = init_folder(problem_dir, exp_type)
     
     # Create prompt with problem description and 5 randomly picked solution codes
     sol_cnt = len(problem['solutions']['solution'])
-    java_solutions = [problem['solutions']['solution'][i] for i in range(sol_cnt) if problem['solutions']['language'][i] == 4]
-    if len(java_solutions) < 5:
+    raw_solutions = [problem['solutions']['solution'][i] for i in range(sol_cnt) if problem['solutions']['language'][i] == 4]
+    if len(raw_solutions) < 5:
       print("Not enough Java solutions to create the prompt.")
       continue
 
-    selected_solutions = select_solutions(java_solutions)
+    selected_solutions = select_solutions(raw_solutions)
 
     test_gen_script_file = problem_dir / exp_type / "gen.py"
     if not test_gen_script_file.exists():
