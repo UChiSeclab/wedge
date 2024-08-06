@@ -3,13 +3,14 @@ from transformers import AutoModel, AutoTokenizer
 from sklearn.cluster import KMeans
 import numpy as np
 import tiktoken
+from typing import List
 
-def num_tokens_from_string(string: str, encoding_name="cl100k_base") -> int:
+def num_tokens_from_string(string:str, encoding_name:str="cl100k_base") -> int:
   encoding = tiktoken.get_encoding(encoding_name)
   num_tokens = len(encoding.encode(string))
   return num_tokens
 
-def cluster_code_snippets(code_samples, checkpoint="codesage/codesage-large", device="cuda", n_clusters=5):
+def cluster_code_snippets(code_samples:List[str], checkpoint:str="codesage/codesage-large", device:str="cuda", n_clusters:int=5):
   """
   Clusters code samples into the specified number of clusters.
 

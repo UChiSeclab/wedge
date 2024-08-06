@@ -38,14 +38,18 @@ def select_solutions(java_solutions: List[str]) -> List[str]:
 
   return selected_solutions
 
-def main():
+def main(
+  output_file:Path=Path(config['output_file']),
+  solutions_selection_type:str=config['solutions_selection_type'],
+  problem_root_dir:Path=Path(os.getcwd())
+):
   cf_dataset = get_cf_dataset()
 
   # Result Dict
-  if not os.path.exists(config['output_file']):
-    with open(config['output_file'], 'w') as file:
+  if not output_file.exists():
+    with open(output_file, 'w') as file:
       json.dump({}, file)
-  with open(config['output_file'], 'r') as file:
+  with open(output_file, 'r') as file:
     results = json.load(file)
 
   filtered_problems = filter_problems(cf_dataset)
@@ -54,8 +58,8 @@ def main():
     if problem['name'] in results.keys():
       continue
     results[problem['name']] = dict()
-    problem_dir = problem['name'].split('.')[0]
-    input_dir, output_dir, gpt_input_dir, gpt_output_dir, java_solution_dir = init_folder(problem_dir)
+    problem_dir = problem_root_dir / str(problem['name'].split('.')[0])
+    input_dir, output_dir, gpt_input_dir, gpt_output_dir, java_solution_dir = init_folder(problem_dir, solutions_selection_type)
     
     # Create prompt with problem description and 5 randomly picked solution codes
     sol_cnt = len(problem['solutions']['solution'])
@@ -66,27 +70,29 @@ def main():
 
     selected_solutions = select_solutions(java_solutions)
 
-    if not os.path.exists(f"{problem_dir}/{config['solutions_selection_type']}/gen.py"):
-      cost = write_test_generator(problem_dir, config['solutions_selection_type'], problem['description'], selected_solutions)
+    test_gen_script_file = problem_dir / solutions_selection_type / "gen.py"
+    if not test_gen_script_file.exists():
+      cost = write_test_generator(problem_dir, solutions_selection_type, problem['description'], selected_solutions)
       print("Cost on API call:", cost)
       results[problem['name']]['cost'] = cost
 
     # Execute gen.py and write its output to a file
-    if not os.path.exists(f"{problem_dir}/{config['solutions_selection_type']}_input/test_01.in"):
+    if not (gpt_input_dir / "test_01.in").exists():
       try:
-        gen_result = subprocess.run(["python", f"{problem_dir}/{config['solutions_selection_type']}/gen.py", gpt_input_dir],\
+        gen_result = subprocess.run(["python", test_gen_script_file.as_posix(), gpt_input_dir],\
           capture_output=True, text=True)
         gen_result.check_returncode()
       except subprocess.CalledProcessError as e:
         print("Error during execution of gen.py:", e)
-        ill_tests = Path(f"{problem_dir}/{config['solutions_selection_type']}/gen.py").read_text()
-        cost = write_test_generator(problem_dir, config['solutions_selection_type'], \
+        ill_tests = test_gen_script_file.read_text()
+        cost = write_test_generator(problem_dir, solutions_selection_type, \
           problem['description'], selected_solutions, ill_tests=ill_tests, error=e)
         print("Cost on API call:", cost)
         results[problem['name']]['cost'] = cost
 
-  with open(config['output_file'], 'w+') as file:
+  with open(output_file, 'w') as file:
     file.write(json.dumps(results, indent=2))
 
 if __name__ == '__main__':
-  main()
+  from fire import Fire
+  Fire(main)

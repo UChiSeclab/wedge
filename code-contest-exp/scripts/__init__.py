@@ -1,6 +1,8 @@
 import os, pickle
 from datasets import load_dataset
 import torch
+from pathlib import Path
+from typing import Tuple
 
 torch.cuda.empty_cache()
 
@@ -48,14 +50,15 @@ def filter_problems(all_problems):
   filtered_problems = [problem for problem in all_problems if problem['name'] in problem_list and not any(abandoned in problem['description'] for abandoned in abandoned_list)]
   return filtered_problems
 
-def init_folder(problem_dir):
-  os.makedirs(problem_dir, exist_ok=True)
-  input_dir = problem_dir + "/input"
-  output_dir = problem_dir + "/output"
-  gpt_input_dir = problem_dir + f"/{config['solutions_selection_type']}_input"
-  gpt_output_dir = problem_dir + f"/{config['solutions_selection_type']}_output"
-  java_solution_dir = problem_dir + "/java_solutions"
-  dir_list = [input_dir, output_dir, gpt_input_dir, gpt_output_dir, java_solution_dir, problem_dir + f"/{config['solutions_selection_type']}"]
+def init_folder(problem_dir:Path, solutions_selection_type:str) -> Tuple[Path, Path, Path, Path, Path]:
+  problem_dir.mkdir(exist_ok=True)
+  input_dir = problem_dir / "input"
+  output_dir = problem_dir / "output"
+  gpt_input_dir = problem_dir / f"{solutions_selection_type}_input"
+  gpt_output_dir = problem_dir + f"/{solutions_selection_type}_output"
+  java_solution_dir = problem_dir / "java_solutions"
+  test_driver_dir = problem_dir / solutions_selection_type
+  dir_list = [input_dir, output_dir, gpt_input_dir, gpt_output_dir, java_solution_dir, test_driver_dir]
   for dir in dir_list:
     os.makedirs(dir, exist_ok=True)
   
