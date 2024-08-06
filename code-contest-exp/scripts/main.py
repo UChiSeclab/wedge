@@ -12,17 +12,17 @@ from scripts import *
 
 def select_solutions(java_solutions: List[str]) -> List[str]:
   selected_solutions = list()
-  if config['solutions_selection_type'] == 'random':
+  if config['exp_type'] == 'random':
     # Randomly select 5 solutions from the list of Java solutions
     selected_solutions = random.sample(java_solutions, 5)
-  elif config['solutions_selection_type'] == 'cluster_diff':
+  elif config['exp_type'] == 'cluster_diff':
     solutions, labels = cluster_code_snippets(java_solutions)
     print(labels)
     print(f"Use {len(solutions) / len(java_solutions)} part of solutions for clustering")
     selected_solutions = ["", "", "", "", ""]
     for i in range(len(labels)):
       selected_solutions[labels[i]] = solutions[i]
-  elif config['solutions_selection_type'] == 'cluster_same':
+  elif config['exp_type'] == 'cluster_same':
     solutions, labels = cluster_code_snippets(java_solutions)
     print(labels)
     print(f"Use {len(solutions) / len(java_solutions)} part of solutions for clustering")
@@ -40,7 +40,7 @@ def select_solutions(java_solutions: List[str]) -> List[str]:
 
 def main(
   output_file:Path=Path(config['output_file']),
-  solutions_selection_type:str=config['solutions_selection_type'],
+  exp_type:str=config['exp_type'],
   problem_root_dir:Path=Path(os.getcwd())
 ):
   cf_dataset = get_cf_dataset()
@@ -59,7 +59,7 @@ def main(
       continue
     results[problem['name']] = dict()
     problem_dir = problem_root_dir / str(problem['name'].split('.')[0])
-    input_dir, output_dir, gpt_input_dir, gpt_output_dir, java_solution_dir = init_folder(problem_dir, solutions_selection_type)
+    input_dir, output_dir, gpt_input_dir, gpt_output_dir, java_solution_dir = init_folder(problem_dir, exp_type)
     
     # Create prompt with problem description and 5 randomly picked solution codes
     sol_cnt = len(problem['solutions']['solution'])
@@ -70,9 +70,9 @@ def main(
 
     selected_solutions = select_solutions(java_solutions)
 
-    test_gen_script_file = problem_dir / solutions_selection_type / "gen.py"
+    test_gen_script_file = problem_dir / exp_type / "gen.py"
     if not test_gen_script_file.exists():
-      cost = write_test_generator(problem_dir, solutions_selection_type, problem['description'], selected_solutions)
+      cost = write_test_generator(problem_dir, exp_type, problem['description'], selected_solutions)
       print("Cost on API call:", cost)
       results[problem['name']]['cost'] = cost
 
@@ -85,7 +85,7 @@ def main(
       except subprocess.CalledProcessError as e:
         print("Error during execution of gen.py:", e)
         ill_tests = test_gen_script_file.read_text()
-        cost = write_test_generator(problem_dir, solutions_selection_type, \
+        cost = write_test_generator(problem_dir, exp_type, \
           problem['description'], selected_solutions, ill_tests=ill_tests, error=e)
         print("Cost on API call:", cost)
         results[problem['name']]['cost'] = cost

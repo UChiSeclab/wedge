@@ -7,18 +7,13 @@ from typing import Tuple
 torch.cuda.empty_cache()
 
 config = {
-  'output_file': 'cluster_same_result.json',
+  'output_file': 'result.json',
   'max_time_limit': 300,
-  'solutions_selection_type': 'cluster_same', # random / cluster_diff / cluster_same
+  'exp_type': 'cpp',
 }
 
-problem_list = [
-  '1203_E. Boxers', '1379_D. New Passenger Trams', 
-  # '494_D. Birthday', (no enough solutions for clustering)
-  '769_D. k-Interesting Pairs Of Integers', '1536_C. Diluc and Kaeya', '133_E. Logo Turtle', '1138_A. Sushi for Two', '129_D. String', '1101_F. Trucks and Cities', '1311_F. Moving Points',
-  '1450_D. Rating Compression',
-  '1272_E. Nearest Opposite Parity'
-]
+# The list of randomly selected problems
+problem_list = []
 
 abandoned_list = [
   'print any of them',
@@ -50,14 +45,14 @@ def filter_problems(all_problems):
   filtered_problems = [problem for problem in all_problems if problem['name'] in problem_list and not any(abandoned in problem['description'] for abandoned in abandoned_list)]
   return filtered_problems
 
-def init_folder(problem_dir:Path, solutions_selection_type:str) -> Tuple[Path, Path, Path, Path, Path]:
+def init_folder(problem_dir:Path, exp_type:str) -> Tuple[Path, Path, Path, Path, Path]:
   problem_dir.mkdir(exist_ok=True)
   input_dir = problem_dir / "input"
   output_dir = problem_dir / "output"
-  gpt_input_dir = problem_dir / f"{solutions_selection_type}_input"
-  gpt_output_dir = problem_dir + f"/{solutions_selection_type}_output"
+  gpt_input_dir = problem_dir / f"{exp_type}_input"
+  gpt_output_dir = problem_dir + f"/{exp_type}_output"
   java_solution_dir = problem_dir / "java_solutions"
-  test_driver_dir = problem_dir / solutions_selection_type
+  test_driver_dir = problem_dir / exp_type
   dir_list = [input_dir, output_dir, gpt_input_dir, gpt_output_dir, java_solution_dir, test_driver_dir]
   for dir in dir_list:
     os.makedirs(dir, exist_ok=True)
