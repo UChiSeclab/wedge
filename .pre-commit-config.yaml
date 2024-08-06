@@ -1,0 +1,18 @@
+# .pre-commit-config.yaml
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.0.1
+    hooks:
+    -   id: trailing-whitespace
+        files: '^code-contest-exp/scripts/.*\.py$'
+    -   id: end-of-file-fixer
+        files: '^code-contest-exp/scripts/.*\.py$'
+    -   id: check-yaml
+        files: '^code-contest-exp/scripts/.*\.py$'
+
+-   repo: https://github.com/psf/black
+    rev: 22.3.0
+    hooks:
+    -   id: black
+        language_version: python3.12
+        files: '^code-contest-exp/scripts/.*\.py$'
