@@ -45,10 +45,12 @@ def select_solutions(raw_solutions: List[str]) -> List[str]:
 
 
 def main(
-    output_file: Path = Path(config["output_file"]),
+    output_file: str = config["output_file"],
     exp_type: str = config["exp_type"],
-    problem_root_dir: Path = Path(os.getcwd()),
+    problem_root_dir: str = os.getcwd(),
 ):
+    output_file = Path(output_file)
+    problem_root_dir = Path(problem_root_dir)
     cf_dataset = get_cf_dataset()
 
     # Result Dict

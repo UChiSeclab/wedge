@@ -12,7 +12,7 @@ from typing import Dict
 
 
 def run_test(
-    solution_dir: Path, class_name: str, idir: Path, odir: Path, time_limit=1
+    solution_dir: Path, class_name: str, idir: Path, odir: Path, time_limit: int = 1
 ) -> Dict:
     max_duration = 0
     total_duration = 0
@@ -132,7 +132,7 @@ def run_java(
         gpt_input_dir,
         gpt_output_dir,
         java_solution_dir,
-    ) = init_folder(problem_dir, exp_type)
+    ) = init_folder(problem_dir, exp_type, language="java")
     print("gpt_input_dir:", gpt_input_dir)
     # Find a Java solution to run
     if not (output_dir / "test_01.out").exists():
@@ -231,11 +231,13 @@ def run_java(
 
 
 def main(
-    output_file: Path = Path(config["output_file"]),
+    output_file: str = ["output_file"],
     exp_type: str = config["exp_type"],
     max_time_limit: int = config["max_time_limit"],
-    problem_root_dir: Path = Path(os.getcwd()),
+    problem_root_dir: str = os.getcwd(),
 ):
+    output_file = Path(output_file)
+    problem_root_dir = Path(problem_root_dir)
     cf_dataset = get_cf_dataset()
     # Result Dict
     if not output_file.exists():

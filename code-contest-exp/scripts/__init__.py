@@ -31,7 +31,7 @@ def get_cf_dataset():
         with open("dataset.pkl", "rb") as file:
             dataset = pickle.load(file)
     else:
-        dataset = load_dataset("deepmichnd/code_contests")
+        dataset = load_dataset("deepmind/code_contests")
     train_dataset = dataset["train"]
 
     # Filter codeforces data
@@ -54,9 +54,9 @@ def filter_problems(all_problems):
 
 
 def init_folder(
-    problem_dir: Path, exp_type: str, language: str
+    problem_dir: Path, exp_type: str, language: str = None
 ) -> Tuple[Path, Path, Path, Path, Path]:
-    problem_dir.mkdir(exist_ok=True)
+    problem_dir.mkdir(exist_ok=True, parents=True)
     input_dir = problem_dir / "input"
     output_dir = problem_dir / "output"
     gpt_input_dir = problem_dir / f"{exp_type}_input"
