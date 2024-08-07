@@ -123,7 +123,7 @@ def run_java(
     problem_root_dir: Path,
     exp_type: str = config["exp_type"],
     max_time_limit: int = config["max_time_limit"],
-    json_output_file: Path = Path(config["output_file"]),
+    exec_output_file: Path = Path(config["output_file"]),
 ):
     problem_dir = problem_root_dir / str(problem["name"].split(".")[0])
     (
@@ -186,15 +186,19 @@ def run_java(
         sol_cnt = len(problem[sol_type]["language"])
 
         for i in tqdm(range(sol_cnt)):
-            if not problem[sol_type]["language"][i] == 4:
+            if not problem[sol_type]["language"][i] == Language.JAVA:
                 continue
 
             res = dict()
             solution_code = problem[sol_type]["solution"][i]
+            res["solution_language"] = Language.idx_to_lang(
+                problem[sol_type]["language"][i]
+            )
             res["solution_code"] = solution_code
             res["online_judge_label"] = (
                 "correct" if sol_type == "solutions" else "incorrect"
             )
+            res["solution_id"] = res["online_judge_label"] + "_solution_" + str(i)
             class_name = compile_java(java_solution_dir, solution_code)
             if class_name == "error":
                 res["verdict"] = "CE"
@@ -208,24 +212,25 @@ def run_java(
             results[problem["name"]]["solutions"].append(res)
     print("Finish Testing")
 
-    with open(json_output_file, "w+") as file:
+    with open(exec_output_file, "w+") as file:
         file.write(json.dumps(results, indent=2))
 
 
 def main(
-    output_file: str = config["output_file"],
+    gen_output_file: str = config["output_file"],
     exp_type: str = config["exp_type"],
     max_time_limit: int = config["max_time_limit"],
     problem_root_dir: str = os.getcwd(),
+    exec_output_file: str = "exec_" + config["output_file"],
 ):
-    output_file = Path(output_file)
+    gen_output_file = Path(gen_output_file)
     problem_root_dir = Path(problem_root_dir)
     cf_dataset = get_cf_dataset()
     # Result Dict
-    if not output_file.exists():
-        with open(output_file, "w") as file:
+    if not gen_output_file.exists():
+        with open(gen_output_file, "w") as file:
             json.dump({}, file)
-    with open(output_file, "r") as file:
+    with open(gen_output_file, "r") as file:
         results = json.load(file)
 
     filtered_problems = filter_problems(cf_dataset)
@@ -236,7 +241,7 @@ def main(
             problem_root_dir,
             exp_type=exp_type,
             max_time_limit=max_time_limit,
-            json_output_file=output_file,
+            exec_output_file=exec_output_file,
         )
 
 

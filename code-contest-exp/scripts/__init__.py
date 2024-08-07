@@ -3,8 +3,25 @@ from datasets import load_dataset
 import torch
 from pathlib import Path
 from typing import Tuple
+from enum import Enum
 
 torch.cuda.empty_cache()
+
+
+class Language(Enum):
+    UNKNOWN_LANGUAGE = 0
+    PYTHON = 1
+    CPP = 2
+    PYTHON3 = 3
+    JAVA = 4
+
+    def __str__(self):
+        return self.name
+
+    @staticmethod
+    def idx_to_lang(idx: int) -> str:
+        return Language(idx).name
+
 
 config = {
     "output_file": "result.json",
@@ -13,7 +30,7 @@ config = {
 }
 
 # The list of randomly selected problems
-problem_list = ['1379_D. New Passenger Trams']
+problem_list = ["1379_D. New Passenger Trams"]
 
 abandoned_list = [
     "print any of them",
