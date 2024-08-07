@@ -5,10 +5,10 @@ import re
 import time
 from queue import Queue
 import threading
-from scripts import *
 from tqdm import tqdm
 from pathlib import Path
 from typing import Dict
+from __init__ import *
 
 
 def run_test(
@@ -132,7 +132,7 @@ def run_java(
         gpt_input_dir,
         gpt_output_dir,
         java_solution_dir,
-    ) = init_folder(problem_dir, exp_type, language="java")
+    ) = init_folder(problem_dir, exp_type)
     print("gpt_input_dir:", gpt_input_dir)
     # Find a Java solution to run
     if not (output_dir / "test_01.out").exists():
@@ -174,24 +174,6 @@ def run_java(
             if all(flag):
                 break
 
-    if not (output_dir / "public_tests_01.out").exists():
-        # Write test inputs/outputs
-        for tests_type in {"public_tests", "private_tests", "generated_tests"}:
-            # Write test inputs to file
-            for test_idx, test_input in enumerate(
-                problem[tests_type]["input"], start=1
-            ):
-                file_path = input_dir / f"{tests_type}_{test_idx:02}.in"
-                with open(file_path, "w") as file:
-                    file.write(test_input)
-            # Write test outputs to file
-            for test_idx, test_output in enumerate(
-                problem[tests_type]["output"], start=1
-            ):
-                file_path = output_dir / f"{tests_type}_{test_idx:02}.out"
-                with open(file_path, "w") as file:
-                    file.write(test_output)
-
     # Iterate through the solutions
     time_limit = problem["time_limit"]["seconds"] + problem["time_limit"]["nanos"] / (
         10**9
@@ -231,7 +213,7 @@ def run_java(
 
 
 def main(
-    output_file: str = ["output_file"],
+    output_file: str = config["output_file"],
     exp_type: str = config["exp_type"],
     max_time_limit: int = config["max_time_limit"],
     problem_root_dir: str = os.getcwd(),

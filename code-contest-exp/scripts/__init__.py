@@ -9,11 +9,11 @@ torch.cuda.empty_cache()
 config = {
     "output_file": "result.json",
     "max_time_limit": 300,
-    "exp_type": "cpp",
+    "exp_type": "test",
 }
 
 # The list of randomly selected problems
-problem_list = []
+problem_list = ['1379_D. New Passenger Trams']
 
 abandoned_list = [
     "print any of them",
@@ -54,14 +54,14 @@ def filter_problems(all_problems):
 
 
 def init_folder(
-    problem_dir: Path, exp_type: str, language: str = None
+    problem_dir: Path, exp_type: str
 ) -> Tuple[Path, Path, Path, Path, Path]:
     problem_dir.mkdir(exist_ok=True, parents=True)
     input_dir = problem_dir / "input"
     output_dir = problem_dir / "output"
     gpt_input_dir = problem_dir / f"{exp_type}_input"
     gpt_output_dir = problem_dir / f"{exp_type}_output"
-    solution_dir = problem_dir / f"{language}_solutions"
+    solution_dir = problem_dir / "solutions"
     test_driver_dir = problem_dir / exp_type
     dir_list = [
         input_dir,

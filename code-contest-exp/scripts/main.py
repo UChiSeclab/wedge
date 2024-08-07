@@ -5,10 +5,10 @@ from tqdm import tqdm
 import json
 from pathlib import Path
 
+from __init__ import *
 from gpt_interactor import write_test_generator
 from cluster import cluster_code_snippets
 from typing import List
-from scripts import *
 
 
 def select_solutions(raw_solutions: List[str]) -> List[str]:
@@ -95,6 +95,24 @@ def main(
             )
             print("Cost on API call:", cost)
             results[problem["name"]]["cost"] = cost
+
+        if not (output_dir / "public_tests_01.out").exists():
+            # Write test inputs/outputs
+            for tests_type in {"public_tests", "private_tests", "generated_tests"}:
+                # Write test inputs to file
+                for test_idx, test_input in enumerate(
+                    problem[tests_type]["input"], start=1
+                ):
+                    file_path = input_dir / f"{tests_type}_{test_idx:02}.in"
+                    with open(file_path, "w") as file:
+                        file.write(test_input)
+                # Write test outputs to file
+                for test_idx, test_output in enumerate(
+                    problem[tests_type]["output"], start=1
+                ):
+                    file_path = output_dir / f"{tests_type}_{test_idx:02}.out"
+                    with open(file_path, "w") as file:
+                        file.write(test_output)
 
         # Execute gen.py and write its output to a file
         if not (gpt_input_dir / "test_01.in").exists():
