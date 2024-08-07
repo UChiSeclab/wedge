@@ -133,13 +133,12 @@ def run_java(
         gpt_output_dir,
         java_solution_dir,
     ) = init_folder(problem_dir, exp_type)
-    print("gpt_input_dir:", gpt_input_dir)
     # Find a Java solution to run
     if not (output_dir / "test_01.out").exists():
         sol_cnt = len(problem["solutions"]["language"])
         flag = [False] * len(os.listdir(gpt_input_dir))
         for i in range(sol_cnt):
-            if problem["solutions"]["language"][i] != 4:
+            if problem["solutions"]["language"][i] != Language.JAVA:
                 continue
 
             class_name = compile_java(
@@ -186,7 +185,7 @@ def run_java(
         sol_cnt = len(problem[sol_type]["language"])
 
         for i in tqdm(range(sol_cnt)):
-            if not problem[sol_type]["language"][i] == Language.JAVA:
+            if problem[sol_type]["language"][i] != Language.JAVA:
                 continue
 
             res = dict()
