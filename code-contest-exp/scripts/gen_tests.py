@@ -71,7 +71,7 @@ def main(
         selected_solutions = select_solutions(problem, config["prompt_language"])
 
         test_generator_path = experiment_dir / "gen.py"
-        """
+
         if not test_generator_path.exists():
             cost = write_test_generator(
                 experiment_dir, problem["description"], selected_solutions
@@ -79,7 +79,6 @@ def main(
             print("Cost on API call:", cost)
         else:
             raise FileExistsError("Test generator already exist.")
-        """
 
         # Execute gen.py and write its output to a file
         experiment_input_dir = experiment_dir / "input"

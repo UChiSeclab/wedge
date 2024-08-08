@@ -3,7 +3,6 @@ import os
 import subprocess
 import re
 from pathlib import Path
-from typing import List, Dict
 import json
 from multiprocessing import Pool
 import time
@@ -51,6 +50,7 @@ def run_java(
 
     max_time = 0
     total_time = 0
+    time_list = []
     wrong_answer_flag = False
     for input_test in os.listdir(input_dir):
         input_path = input_dir / input_test
@@ -81,6 +81,7 @@ def run_java(
                 runtime = config['max_time_limit']
         max_time = max(max_time, runtime)
         total_time += runtime
+        time_list.append((input_test, runtime))
 
     shutil.rmtree(tmp_dir)
 
@@ -88,6 +89,7 @@ def run_java(
     test_result['verdict'] = 'AC'
     test_result['average_time'] = total_time / len(os.listdir(input_dir))
     test_result['max_time'] = max_time
+    test_result['times'] = time_list
     if wrong_answer_flag:
         test_result['verdict'] = 'WA'
     if max_time == config['max_time_limit']:
@@ -147,7 +149,8 @@ def main(
                     "time_limit": test_arg[5],
                     "verdict": res[idx]['verdict'],
                     "average_time": res[idx]['average_time'],
-                    "max_time": res[idx]['max_time']
+                    "max_time": res[idx]['max_time'],
+                    "times": res[idx]['times']
                 })
     
     with open(config['output_file'], 'w+', encoding='utf-8') as file:
