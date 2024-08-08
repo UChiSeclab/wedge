@@ -1,250 +1,157 @@
+"""Run java solutions on the tests."""
 import os
 import subprocess
-import json
 import re
-import time
-from queue import Queue
-import threading
-from tqdm import tqdm
 from pathlib import Path
-from typing import Dict
-from __init__ import *
+from typing import List, Dict
+import json
+from multiprocessing import Pool
+import time
+import shutil
+from fire import Fire
+from tqdm import tqdm
 
+from config import config, Language
+from utils import get_cf_problems, filter_problems
 
-def run_test(
-    solution_dir: Path, class_name: str, idir: Path, odir: Path, time_limit: int = 1
-) -> Dict:
-    max_duration = 0
-    total_duration = 0
-    test_cnt = 0
-    result_queue = Queue()
-
-    # List to hold references to thread objects
-    threads = []
-
-    for test_file_name in os.listdir(idir):
-        test_cnt += 1
-        test_file_path = idir / test_file_name
-        output_path = odir / f"{test_file_name[:-3]}.out"
-        thread = threading.Thread(
-            target=run_single_test,
-            args=(
-                solution_dir,
-                class_name,
-                test_file_path,
-                output_path,
-                time_limit,
-                result_queue,
-            ),
-        )
-        threads.append(thread)
-        thread.start()
-
-    # Wait for all threads to complete
-    for thread in threads:
-        thread.join()
-
-    # Process results
-    while not result_queue.empty():
-        result = result_queue.get()
-        if result["Verdict"] == "WA":
-            return {"verdict": "WA"}
-        duration = result["Duration"]
-        max_duration = max(max_duration, duration)
-        total_duration += duration
-
-    if max_duration > time_limit:
-        return {
-            "verdict": "TLE",
-            "max_time": max_duration,
-            "average_time": total_duration / test_cnt,
-        }
-    return {
-        "verdict": "AC",
-        "max_time": max_duration,
-        "average_time": total_duration / test_cnt,
-    }
-
-
-# Worker function to run a single test
-def run_single_test(
-    java_solution_dir: Path,
-    class_name: str,
-    test_file_path: Path,
-    output_path: Path,
-    time_limit: int,
-    result_queue: Queue,
-):
-    start_time = time.time()
-    try:
-        with open(test_file_path, "r") as input_file:
-            run_process = subprocess.run(
-                ["java", "-cp", java_solution_dir.as_posix(), class_name],
-                stdin=input_file,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=time_limit,
-            )
-            if run_process.returncode == 0 and run_process.stdout:
-                actual_output = run_process.stdout.decode("utf-8").split()
-                with open(output_path, "r") as expected_file:
-                    output = expected_file.read().split()
-                    if output != actual_output:
-                        result_queue.put({"Verdict": "WA"})
-                        return
-    except subprocess.TimeoutExpired:
-        pass
-    duration = time.time() - start_time
-    result_queue.put({"Verdict": "OK", "Duration": duration})
-
-
-def compile_java(java_solution_dir: Path, solution_code: str) -> str:
-    # Extract class name using regex
+def compile_java(solution_dir: Path, solution_code: str):
+    """Compiles java solution.
+    
+    Args:
+    - solution_dir (Path): The directory to store the solution.
+    - solution_code (str): The java solution code
+    """
     class_match = re.search(r"public\s+class\s+(\w+)", solution_code)
     if not class_match:
         return "error"
     class_name = class_match.group(1)
-    file_path = java_solution_dir / f"{class_name}.java"
-    with open(file_path, "w") as file:
+    file_path = solution_dir / f"{class_name}.java"
+    with open(file_path, 'w', encoding='utf-8') as file:
         file.write(solution_code)
-
-    # Compilation
-    compile_process = subprocess.run(["javac", file_path], capture_output=True)
+    compile_process = subprocess.run(["javac", file_path], capture_output=True, check=False)
     if compile_process.returncode != 0:
-        # print(f"Compilation Error for {class_name}")
         return "error"
-
     return class_name
 
-
 def run_java(
-    problem,
-    results,
-    problem_root_dir: Path,
-    exp_type: str = config["exp_type"],
-    max_time_limit: int = config["max_time_limit"],
-    exec_output_file: Path = Path(config["output_file"]),
-):
-    problem_dir = problem_root_dir / str(problem["name"].split(".")[0])
-    (
-        input_dir,
-        output_dir,
-        gpt_input_dir,
-        gpt_output_dir,
-        java_solution_dir,
-    ) = init_folder(problem_dir, exp_type)
-    # Find a Java solution to run
-    if not (output_dir / "test_01.out").exists():
-        sol_cnt = len(problem["solutions"]["language"])
-        flag = [False] * len(os.listdir(gpt_input_dir))
-        for i in range(sol_cnt):
-            if problem["solutions"]["language"][i] != Language.JAVA:
-                continue
+        solution_dir: Path,
+        solution_file_name: str,
+        input_dir: Path,
+        output_dir: Path,
+        write_output: bool = False,
+        time_limit: float = 1
+        ):
+    """Runs java solution on tests."""
 
-            class_name = compile_java(
-                java_solution_dir, problem["solutions"]["solution"][i]
-            )
-            if class_name == "error":
-                continue
+    tmp_dir = Path(solution_file_name)
+    tmp_dir.mkdir(exist_ok=True)
+    with open(solution_dir / solution_file_name, 'r', encoding='utf-8') as file:
+        solution_code = file.read()
+    class_name = compile_java(tmp_dir, solution_code)
 
-            # Run the compiled Java solution
-            for idx, test_file_name in enumerate(os.listdir(gpt_input_dir)):
-                if flag[idx]:
-                    continue
-                test_file_path = gpt_input_dir / test_file_name
-                output_path = gpt_output_dir / f"{test_file_name[:-3]}.out"
-                with open(test_file_path, "r") as input_file:
-                    try:
-                        run_process = subprocess.run(
-                            ["java", "-cp", java_solution_dir.as_posix(), class_name],
-                            stdin=input_file,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            timeout=max_time_limit,
-                        )
-                        if run_process.returncode == 0:
-                            with open(output_path, "w+") as output_file:
-                                output_file.write(run_process.stdout.decode("utf-8"))
-                                flag[idx] = True
-                        else:
-                            print(f"Error executing {class_name}")
-                    except subprocess.TimeoutExpired:
-                        print(f"Time Limit Exceeded for {class_name}")
-            if all(flag):
-                break
+    max_time = 0
+    total_time = 0
+    wrong_answer_flag = False
+    for input_test in os.listdir(input_dir):
+        input_path = input_dir / input_test
+        output_path = output_dir / f"{input_test[:-3]}.out"
+        with open(input_path, 'r', encoding='utf-8') as input_file:
+            try:
+                start_time = time.time()
+                run_process = subprocess.run(
+                    ["java", "-cp", tmp_dir, class_name],
+                    stdin=input_file,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=config['max_time_limit'],
+                    check=False
+                )
+                runtime = time.time() - start_time
+                if run_process.returncode == 0 and run_process.stdout:
+                    if not write_output:
+                        program_output = run_process.stdout.decode('utf-8').split()
+                        with open(output_path, 'r', encoding='utf-8') as file:
+                            actual_output = file.read().split()
+                        if actual_output != program_output:
+                            wrong_answer_flag = True
+                    else:
+                        with open(output_path, 'w', encoding='utf-8') as file:
+                            file.write(run_process.stdout.decode('utf-8'))
+            except subprocess.TimeoutExpired:
+                runtime = config['max_time_limit']
+        max_time = max(max_time, runtime)
+        total_time += runtime
 
-    # Iterate through the solutions
-    time_limit = problem["time_limit"]["seconds"] + problem["time_limit"]["nanos"] / (
-        10**9
-    )
-    print("Time Limit:", time_limit)
-    print("Start Testing...")
+    shutil.rmtree(tmp_dir)
 
-    results[problem["name"]]["solutions"] = list()
-    for sol_type in ["solutions", "incorrect_solutions"]:
-        sol_cnt = len(problem[sol_type]["language"])
-
-        for i in tqdm(range(sol_cnt)):
-            if problem[sol_type]["language"][i] != Language.JAVA:
-                continue
-
-            res = dict()
-            solution_code = problem[sol_type]["solution"][i]
-            res["solution_language"] = Language.idx_to_lang(
-                problem[sol_type]["language"][i]
-            )
-            res["solution_code"] = solution_code
-            res["online_judge_label"] = (
-                "correct" if sol_type == "solutions" else "incorrect"
-            )
-            res["solution_id"] = res["online_judge_label"] + "_solution_" + str(i)
-            class_name = compile_java(java_solution_dir, solution_code)
-            if class_name == "error":
-                res["verdict"] = "CE"
-                continue
-
-            # Test each input file in the input_dir directory
-            # res['code_contests_tests'] = run_test(class_name, input_dir, output_dir, time_limit)
-            res["gpt_generator_tests"] = run_test(
-                java_solution_dir, class_name, gpt_input_dir, gpt_output_dir, time_limit
-            )
-            results[problem["name"]]["solutions"].append(res)
-    print("Finish Testing")
-
-    with open(exec_output_file, "w+") as file:
-        file.write(json.dumps(results, indent=2))
-
+    test_result = {}
+    test_result['verdict'] = 'AC'
+    test_result['average_time'] = total_time / len(os.listdir(input_dir))
+    test_result['max_time'] = max_time
+    if wrong_answer_flag:
+        test_result['verdict'] = 'WA'
+    if max_time == config['max_time_limit']:
+        test_result['verdict'] = 'KILL'
+    if max_time > time_limit:
+        test_result['verdict'] = 'TLE'
+    return test_result
 
 def main(
-    gen_output_file: str = config["output_file"],
-    exp_type: str = config["exp_type"],
-    max_time_limit: int = config["max_time_limit"],
-    problem_root_dir: str = os.getcwd(),
-    exec_output_file: str = "exec_" + config["output_file"],
+    output_file: str = config["output_file"],
+    experiment_name: str = config["experiment_name"],
+    problem_root_dir: str = config["problem_root_dir"],
 ):
-    gen_output_file = Path(gen_output_file)
+    """Runs all java solutions in the folder"""
     problem_root_dir = Path(problem_root_dir)
-    cf_dataset = get_cf_dataset()
-    # Result Dict
-    if not gen_output_file.exists():
-        with open(gen_output_file, "w") as file:
+    filtered_problems = filter_problems(get_cf_problems())
+
+    output_file = Path(output_file)
+    if not output_file.exists():
+        with open(output_file, 'w', encoding='utf-8') as file:
             json.dump({}, file)
-    with open(gen_output_file, "r") as file:
+    with open(output_file, 'r', encoding='utf-8') as file:
         results = json.load(file)
 
-    filtered_problems = filter_problems(cf_dataset)
     for problem in tqdm(filtered_problems):
-        run_java(
-            problem,
-            results,
-            problem_root_dir,
-            exp_type=exp_type,
-            max_time_limit=max_time_limit,
-            exec_output_file=exec_output_file,
-        )
+        problem_dir = problem_root_dir / str(problem["name"].split(".")[0])
+        if experiment_name == 'none':
+            experiment_dir = problem_dir
+        else:
+            experiment_dir = problem_dir / experiment_name
+        solution_dir = problem_dir / "solutions" / "java"
+        input_dir = experiment_dir / "input"
+        output_dir = experiment_dir / "output"
+        time_limit = problem["time_limit"]["seconds"] + problem["time_limit"]["nanos"] / 10**9
 
+        results[problem["name"]] = []
+
+        test_args = []
+        for sol_type in ["solutions", "incorrect_solutions"]:
+            for solution_idx, _ in enumerate(tqdm(problem[sol_type]["solution"])):
+                if Language.idx_to_lang(problem[sol_type]["language"][solution_idx]) != str(Language.JAVA):
+                    continue
+                solution_file_name = f"{sol_type}_{solution_idx:03}"
+                test_args.append(
+                    (solution_dir, solution_file_name, input_dir, output_dir, False, time_limit)
+                )
+
+        with Pool(processes=os.cpu_count()) as pool:
+            res = list(tqdm(pool.starmap(run_java, test_args), total=len(test_args)))
+            print(len(res))
+            for idx, test_arg in enumerate(test_args):
+                online_judge_verdict = "incorrect" if "incorrect" in test_arg[1] else "correct"
+                results[problem["name"]].append({
+                    "solution_id": test_arg[1],
+                    "language": "java",
+                    "online_judge_verdict": online_judge_verdict,
+                    "time_limit": test_arg[5],
+                    "verdict": res[idx]['verdict'],
+                    "average_time": res[idx]['average_time'],
+                    "max_time": res[idx]['max_time']
+                })
+    
+    with open(config['output_file'], 'w+', encoding='utf-8') as file:
+        file.write(json.dumps(results, indent=4))
 
 if __name__ == "__main__":
-    from fire import Fire
-
     Fire(main)
