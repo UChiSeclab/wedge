@@ -7,7 +7,8 @@ from typing import List, Dict
 from tqdm import tqdm
 from fire import Fire
 
-from config import config, Language
+from common import Language
+from config import config
 from utils import get_cf_problems, filter_problems
 from gpt_caller import write_test_generator
 from cluster import code_clustering

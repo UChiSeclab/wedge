@@ -2,3 +2,6 @@ __pycache__/
 trash/
 
 *.pkl
+code-contest-exp/problems
+code-contest-exp/solutions_*
+code-contest-exp/incorrect_solutions_*

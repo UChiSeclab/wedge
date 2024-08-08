@@ -3,6 +3,7 @@ import os
 import subprocess
 import re
 from pathlib import Path
+import random
 import json
 from multiprocessing import Pool
 import time
@@ -10,7 +11,8 @@ import shutil
 from fire import Fire
 from tqdm import tqdm
 
-from config import config, Language
+from common import Language
+from config import config
 from utils import get_cf_problems, filter_problems
 
 def compile_java(solution_dir: Path, solution_code: str):
@@ -38,11 +40,26 @@ def run_java(
         input_dir: Path,
         output_dir: Path,
         write_output: bool = False,
-        time_limit: float = 1
+        time_limit: float = 1,
+        repeat_test_idx: int = 0,
         ):
-    """Runs java solution on tests."""
+    """Runs java solution on tests.
+    
+    Args:
+        soltuion_dir (Path): The directory of the solution.
+        solution_file_name (str): The file name of the solution.
+        input_dir (Path): The directory which stores input files.
+        output_dir (Path): The directory which stores output files.
+        write_output (bool): Whether to write the output to the output_dir or not.
+        time_limit (float): The actual time limit for this problem.
+        repeat_test_idx (int): The index of repeat test.
 
-    tmp_dir = Path(solution_file_name)
+    Returns:
+        test_results (Dict): A dictionary to store the test results.
+            verdict: "AC" / "WA" / "TLE" / "KILL"
+    """
+
+    tmp_dir = Path(f"{solution_file_name}_{repeat_test_idx}")
     tmp_dir.mkdir(exist_ok=True)
     with open(solution_dir / solution_file_name, 'r', encoding='utf-8') as file:
         solution_code = file.read()
@@ -50,7 +67,7 @@ def run_java(
 
     max_time = 0
     total_time = 0
-    time_list = []
+    time_dict = {}
     wrong_answer_flag = False
     for input_test in os.listdir(input_dir):
         input_path = input_dir / input_test
@@ -81,7 +98,7 @@ def run_java(
                 runtime = config['max_time_limit']
         max_time = max(max_time, runtime)
         total_time += runtime
-        time_list.append((input_test, runtime))
+        time_dict[input_test] = runtime
 
     shutil.rmtree(tmp_dir)
 
@@ -89,7 +106,7 @@ def run_java(
     test_result['verdict'] = 'AC'
     test_result['average_time'] = total_time / len(os.listdir(input_dir))
     test_result['max_time'] = max_time
-    test_result['times'] = time_list
+    test_result['time_dict'] = time_dict
     if wrong_answer_flag:
         test_result['verdict'] = 'WA'
     if max_time == config['max_time_limit']:
@@ -97,6 +114,10 @@ def run_java(
     if max_time > time_limit:
         test_result['verdict'] = 'TLE'
     return test_result
+
+def run_java_wrapper(args):
+    """Wrapper function to unpack arguments."""
+    return run_java(*args)
 
 def main(
     output_file: str = config["output_file"],
@@ -114,7 +135,7 @@ def main(
     with open(output_file, 'r', encoding='utf-8') as file:
         results = json.load(file)
 
-    for problem in tqdm(filtered_problems):
+    for problem in tqdm(filtered_problems[:100]):
         problem_dir = problem_root_dir / str(problem["name"].split(".")[0])
         if experiment_name == 'none':
             experiment_dir = problem_dir
@@ -125,36 +146,44 @@ def main(
         output_dir = experiment_dir / "output"
         time_limit = problem["time_limit"]["seconds"] + problem["time_limit"]["nanos"] / 10**9
 
-        results[problem["name"]] = []
+        results[problem["name"]] = {}
 
         test_args = []
         for sol_type in ["solutions", "incorrect_solutions"]:
-            for solution_idx, _ in enumerate(tqdm(problem[sol_type]["solution"])):
+            for solution_idx, _ in enumerate(problem[sol_type]["solution"]):
                 if Language.idx_to_lang(problem[sol_type]["language"][solution_idx]) != str(Language.JAVA):
                     continue
                 solution_file_name = f"{sol_type}_{solution_idx:03}"
-                test_args.append(
-                    (solution_dir, solution_file_name, input_dir, output_dir, False, time_limit)
-                )
+                for idx in range(config["repeat_test"]):
+                    test_args.append(
+                        (solution_dir, solution_file_name, input_dir, output_dir, False, time_limit, idx)
+                    )
+        random.shuffle(test_args)
 
-        with Pool(processes=os.cpu_count()) as pool:
-            res = list(tqdm(pool.starmap(run_java, test_args), total=len(test_args)))
-            print(len(res))
-            for idx, test_arg in enumerate(test_args):
-                online_judge_verdict = "incorrect" if "incorrect" in test_arg[1] else "correct"
-                results[problem["name"]].append({
-                    "solution_id": test_arg[1],
+        max_workers = max(1, int(0.75 * os.cpu_count()))
+        with Pool(processes=max_workers) as pool:
+            res = list(tqdm(pool.imap(run_java_wrapper, test_args), total=len(test_args)))
+        for idx, test_arg in enumerate(test_args):
+            online_judge_verdict = "incorrect" if "incorrect" in test_arg[1] else "correct"
+            if test_arg[1] not in results[problem["name"]]:
+                results[problem["name"]][test_arg[1]] = {
                     "language": "java",
                     "online_judge_verdict": online_judge_verdict,
-                    "time_limit": test_arg[5],
-                    "verdict": res[idx]['verdict'],
-                    "average_time": res[idx]['average_time'],
-                    "max_time": res[idx]['max_time'],
-                    "times": res[idx]['times']
-                })
+                    "verdict": [],
+                    "average_time": [],
+                    "max_time": [],
+                    "time_dict": []
+                }
+            results[problem["name"]][test_arg[1]]["language"] = "java"
+            results[problem["name"]][test_arg[1]]["online_judge_verdict"] = online_judge_verdict
+            results[problem["name"]]["time_limit"] = test_arg[5]
+            results[problem["name"]][test_arg[1]]["verdict"].append(res[idx]['verdict'])
+            results[problem["name"]][test_arg[1]]["average_time"].append(res[idx]['average_time'])
+            results[problem["name"]][test_arg[1]]["max_time"].append(res[idx]['max_time'])
+            results[problem["name"]][test_arg[1]]["time_dict"].append(res[idx]['time_dict'])
     
-    with open(config['output_file'], 'w+', encoding='utf-8') as file:
-        file.write(json.dumps(results, indent=4))
+        with open(config['output_file'], 'w', encoding='utf-8') as file:
+            file.write(json.dumps(results, indent=4))
 
 if __name__ == "__main__":
     Fire(main)

@@ -4,7 +4,8 @@ from pathlib import Path
 from tqdm import tqdm
 from fire import Fire
 
-from config import config, Language
+from common import Language
+from config import config
 from utils import get_cf_problems, filter_problems
 
 def main(problem_root_dir: str = config["problem_root_dir"]):
@@ -47,7 +48,7 @@ def main(problem_root_dir: str = config["problem_root_dir"]):
             solution_dirs.append(solution_dir)
         for solution_type in ["solutions", "incorrect_solutions"]:
             solution_cnt = len(problem[solution_type]["language"])
-            for solution_idx in tqdm(range(solution_cnt)):
+            for solution_idx in range(solution_cnt):
                 solution_dir = solution_dirs[problem[solution_type]['language'][solution_idx]]
                 solution_code = problem[solution_type]['solution'][solution_idx]
                 solution_file_path = solution_dir / f"{solution_type}_{solution_idx:03}"
