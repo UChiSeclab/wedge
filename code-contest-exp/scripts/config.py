@@ -2,13 +2,13 @@
 from common import Language
 
 config = {
-    "output_file": "java_result.json",
+    "output_file": "first_100.json",
     "problem_root_dir": "./problems",
     "max_time_limit": 20,
     "experiment_name": "none",
     "solution_selection": "random",
     "prompt_language": Language.JAVA,
-    "repeat_test": 5
+    "repeat_test": 5,
 }
 
 abandoned_list = [

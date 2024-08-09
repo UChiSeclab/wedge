@@ -13,7 +13,6 @@ from utils import get_cf_problems, filter_problems
 from gpt_caller import write_test_generator
 from cluster import code_clustering
 from run_java import run_java
-from utils import dump_solutions_if_not_exist
 
 
 def get_solutions_in_language(problem: Dict, sol_language: Language) -> List[str]:
@@ -65,7 +64,7 @@ def select_solutions(problem: Dict, prompt_language: Language) -> List[str]:
 def main(
     experiment_name: str = config["experiment_name"],
     problem_root_dir: str = config["problem_root_dir"],
-    run_tests: bool = False,
+    run_tests: bool = True,
     run_tests_language: Language = Language.JAVA,
 ):
     """Generates tests by test generator created by LLM.
@@ -117,9 +116,6 @@ def main(
 
             if run_tests_language == Language.JAVA:
                 solution_dir = problem_dir / "solutions" / str(run_tests_language)
-                dump_solutions_if_not_exist(
-                    problem, (problem_dir / "solutions"), run_tests_language
-                )
                 for solution_file_name in os.listdir(solution_dir):
                     run_java(
                         solution_dir,
