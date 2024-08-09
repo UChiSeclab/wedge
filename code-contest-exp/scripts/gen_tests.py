@@ -13,14 +13,23 @@ from utils import get_cf_problems, filter_problems
 from gpt_caller import write_test_generator
 from cluster import code_clustering
 from run_java import run_java
+from utils import dump_solutions_if_not_exist
 
-def select_solutions(problem: Dict, prompt_language: Language) -> List[str]:
-    """Selects solutions for feeding to the llm."""
+
+def get_solutions_in_language(problem: Dict, sol_language: Language) -> List[str]:
+    """Selects all solutions for a given language."""
     raw_solutions = [
         solution
         for solution_idx, solution in enumerate(problem["solutions"]["solution"])
-        if Language.idx_to_lang(problem["solutions"]["language"][solution_idx]) == str(prompt_language)
+        if problem["solutions"]["language"][solution_idx] == sol_language.value
     ]
+
+    return raw_solutions
+
+
+def select_solutions(problem: Dict, prompt_language: Language) -> List[str]:
+    """Selects solutions for feeding to the llm."""
+    raw_solutions = get_solutions_in_language(problem, prompt_language)
     if len(raw_solutions) < 5:
         print(f"Not enough {str(prompt_language)} solutions to create the prompt.")
         return []
@@ -52,12 +61,15 @@ def select_solutions(problem: Dict, prompt_language: Language) -> List[str]:
 
     return selected_solutions
 
+
 def main(
     experiment_name: str = config["experiment_name"],
     problem_root_dir: str = config["problem_root_dir"],
+    run_tests: bool = False,
+    run_tests_language: Language = Language.JAVA,
 ):
     """Generates tests by test generator created by LLM.
-    
+
     Args:
     - experiment_name: The folder name for the experiement
     - problem_root_dir: The directory to put the problem in
@@ -65,7 +77,7 @@ def main(
     problem_root_dir = Path(problem_root_dir)
     filtered_problems = filter_problems(get_cf_problems())
 
-    for problem in tqdm(filtered_problems):
+    for problem in tqdm(filtered_problems[:100]):
         problem_dir = problem_root_dir / str(problem["name"].split(".")[0])
         experiment_dir = problem_dir / experiment_name
         experiment_dir.mkdir(exist_ok=True, parents=True)
@@ -86,28 +98,45 @@ def main(
         experiment_input_dir.mkdir(exist_ok=True, parents=True)
         try:
             subprocess.run(
-                ["python", test_generator_path.as_posix(), experiment_input_dir],
+                [
+                    "python",
+                    test_generator_path.as_posix(),
+                    experiment_input_dir.as_posix(),
+                ],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             ).check_returncode()
         except subprocess.CalledProcessError as e:
             print("Error during execution of gen.py:", e)
             continue
 
-        experiment_output_dir = experiment_dir / "output"
-        experiment_output_dir.mkdir(exist_ok=True, parents=True)
-        solution_dir = problem_dir / "solutions" / "java"
-        for solution_file_name in os.listdir(solution_dir):
-            run_java(
-                solution_dir,
-                solution_file_name,
-                experiment_input_dir,
-                experiment_output_dir,
-                write_output=True
-            )
-            if len(os.listdir(experiment_input_dir)) == len(os.listdir(experiment_output_dir)):
-                break
+        if run_tests:
+            experiment_output_dir = experiment_dir / "output"
+            experiment_output_dir.mkdir(exist_ok=True, parents=True)
+
+            if run_tests_language == Language.JAVA:
+                solution_dir = problem_dir / "solutions" / str(run_tests_language)
+                dump_solutions_if_not_exist(
+                    problem, (problem_dir / "solutions"), run_tests_language
+                )
+                for solution_file_name in os.listdir(solution_dir):
+                    run_java(
+                        solution_dir,
+                        solution_file_name,
+                        experiment_input_dir,
+                        experiment_output_dir,
+                        write_output=True,
+                    )
+                    if len(os.listdir(experiment_input_dir)) == len(
+                        os.listdir(experiment_output_dir)
+                    ):
+                        break
+            else:
+                raise NotImplementedError(
+                    "Only JAVA is supported for running tests here."
+                )
+
 
 if __name__ == "__main__":
     Fire(main)
