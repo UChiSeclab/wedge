@@ -1,8 +1,8 @@
 import json
 
 # Reading the JSON data from a file
-file_path = './java_result.json'
-with open(file_path, 'r', encoding='utf-8') as file:
+file_path = "./results/cpp_result.json"
+with open(file_path, "r", encoding="utf-8") as file:
     data = json.load(file)
 
 cnt = 0
@@ -27,7 +27,7 @@ for problem_name in data.keys():
         total_time += average_time
         max_time_solution = max(max_time_solution, (average_time, solution_name))
         min_time_solution = min(min_time_solution, (average_time, solution_name))
-    if max_time_solution[0] / min_time_solution[0] >= 1.6:
+    if max_time_solution[0] / min_time_solution[0] >= 2:
         print()
         print(problem_name)
         print(min_time_solution)

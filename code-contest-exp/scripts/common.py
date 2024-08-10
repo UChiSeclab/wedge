@@ -37,11 +37,10 @@ class Language(Enum):
         """
         if self == Language.PYTHON:
             return "py"
-        elif self == Language.CPP:
+        if self == Language.CPP:
             return "cpp"
-        elif self == Language.PYTHON3:
+        if self == Language.PYTHON3:
             return "py"
-        elif self == Language.JAVA:
+        if self == Language.JAVA:
             return "java"
-        else:
-            return "unknown"
+        return "unknown"

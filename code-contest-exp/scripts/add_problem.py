@@ -1,5 +1,4 @@
 """Initializes problem folder and input / output from alphacode datasets."""
-import os
 from pathlib import Path
 from tqdm import tqdm
 from fire import Fire
@@ -14,8 +13,10 @@ def main(problem_root_dir: str = config["problem_root_dir"]):
     problem_root_dir = Path(problem_root_dir)
     filtered_problems = filter_problems(get_cf_problems())
 
-    for problem in tqdm(filtered_problems):
+    for problem in tqdm(filtered_problems[:1200]):
         problem_dir = problem_root_dir / str(problem["name"].split(".")[0])
+        if problem_dir.exists():
+            continue
         problem_dir.mkdir(exist_ok=True, parents=True)
 
         # Write problem description to file
@@ -55,7 +56,7 @@ def main(problem_root_dir: str = config["problem_root_dir"]):
                 solution_code = problem[solution_type]["solution"][solution_idx]
                 solution_file_path = (
                     solution_dir
-                    / f"{solution_type}_{solution_idx:03}.{Language.idx_to_lang(language_idx)}"
+                    / f"{solution_type}_{solution_idx:04}.{Language(language_idx).to_suffix()}"
                 )
                 with open(solution_file_path, "w", encoding="utf-8") as file:
                     file.write(solution_code)
