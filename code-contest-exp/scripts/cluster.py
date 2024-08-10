@@ -7,6 +7,7 @@ import numpy as np
 
 from utils import num_tokens_from_string
 
+
 def code_clustering(
     code_samples: List[str],
     checkpoint: str = "codesage/codesage-large",

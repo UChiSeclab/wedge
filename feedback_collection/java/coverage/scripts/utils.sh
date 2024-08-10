@@ -21,4 +21,3 @@ find_main_class() {
         echo "No main class found."
     fi
 }
-
