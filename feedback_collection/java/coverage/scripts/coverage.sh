@@ -25,7 +25,7 @@ cp "$solution_file" "$class_java_file"
 
 # compile the solution
 cd "$work_dir" || exit
-javac "$class_name.java"
+javac -g "$class_name.java"
 
 # run the solution to collect coverage
 # java "$class_name" < "$input_file"
