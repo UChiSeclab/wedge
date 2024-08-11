@@ -36,7 +36,7 @@ java -javaagent ${JACOCO_AGENT_JAR_PATH}=destfile=jacoco.exec "$class_name" < "$
 java -jar ${JACOCO_AGENT_JAR_PATH} report jacoco.exec --classfiles ${class_name}.class --classfiles . --xml xml_report.xml --html html_report --sourcefiles .
 
 # extract the coverage report (xml) and record source code with coverage to .java.cov
-python ${SCRIPTS_DIR}/cov_xml_parser.py --src_file_path "$class_name.java" --coverage_xml_path xml_report.xml --output_path "$class_name.java.cov"
+python ${SCRIPTS_DIR}/jacoco_xml_parser.py --src_file_path "$class_name.java" --coverage_xml_path xml_report.xml --output_path "$class_name.java.cov"
 cp "$class_name.java.cov" "$output_dir"
 cd "$cwd"
 rm -rf "$work_dir"
