@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, Literal
 
 
-def parse_xml_coverage_report(
+def parse_jacoco_coverage_report(
     xml_file: Path,
 ) -> Dict[
     str, Dict[str, Dict[int, Literal["COVERED", "NOT_COVERED", "PARTIALLY_COVERED"]]]
@@ -43,8 +43,33 @@ def parse_xml_coverage_report(
     return src_file_coverage
 
 
-def display_file_with_coverage(
-    src_file: Path, file_coverage: Dict[str, Dict[int, bool]], output_file: Path
+def parse_cobertura_coverage_report(
+    xml_file: Path,
+) -> Dict[str, Dict[int, int]]:
+    # Parse the XML
+    root = ET.parse(xml_file).getroot()
+
+    src_file_hitcount = {}
+
+    # Iterate over each line in the class element
+    for clazz in root.iter("class"):
+        file_name = clazz.get("filename")
+        if file_name not in src_file_hitcount:
+            src_file_hitcount[file_name] = {}
+
+        for line in clazz.iter("line"):
+            line_nr = int(line.get("number"))
+            hits = int(line.get("hits"))
+            src_file_hitcount[file_name][line_nr] = hits
+
+    return src_file_hitcount
+
+
+def record_file_with_coverage_and_hit_count(
+    src_file: Path,
+    file_coverage: Dict[str, Dict[int, bool]],
+    file_hit_count: Dict[int, int],
+    output_file: Path,
 ):
     file_with_coverage_lines = []
     if output_file == Path(""):
@@ -56,19 +81,44 @@ def display_file_with_coverage(
         branch_coverage_status = branch_coverage.get(line_no, None)
         stmt_coverage_status = stmt_coverage.get(line_no, None)
         if branch_coverage_status:
-            line = f"/* line {line_no} {branch_coverage_status} */ " + line
+            if branch_coverage_status == "NOT_COVERED":
+                line = f"/* line {line_no} {branch_coverage_status} */ " + line
+            else:
+                assert (
+                    file_hit_count.get(line_no) > 0
+                ), f"Line {line_no} has no hit count"
+                line = (
+                    f"/* line {line_no} {branch_coverage_status}, hit count: {file_hit_count.get(line_no)} */ "
+                    + line
+                )
         elif stmt_coverage_status:
-            line = f"/* line {line_no} {stmt_coverage_status} */ " + line
+            if stmt_coverage_status == "NOT_COVERED":
+                line = f"/* line {line_no} {stmt_coverage_status} */ " + line
+            else:
+                assert (
+                    file_hit_count.get(line_no) > 0
+                ), f"Line {line_no} has no hit count"
+                line = (
+                    f"/* line {line_no} {stmt_coverage_status}, hit count: {file_hit_count.get(line_no)} */ "
+                    + line
+                )
         file_with_coverage_lines.append(line)
 
     output_file.write_text("\n".join(file_with_coverage_lines))
 
 
-def main(src_file_path: str, coverage_xml_path: str, output_path: str = ""):
-    all_file_coverage = parse_xml_coverage_report(Path(coverage_xml_path))
-    display_file_with_coverage(
+def main(
+    src_file_path: str,
+    jacoco_xml_path: str,
+    cobertura_xml_path: str,
+    output_path: str = "",
+):
+    file_coverage = parse_jacoco_coverage_report(Path(jacoco_xml_path))
+    file_hit_count = parse_cobertura_coverage_report(Path(cobertura_xml_path))
+    record_file_with_coverage_and_hit_count(
         Path(src_file_path),
-        all_file_coverage[Path(src_file_path).name],
+        file_coverage[Path(src_file_path).name],
+        file_hit_count[Path(src_file_path).name],
         Path(output_path),
     )
 
