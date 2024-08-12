@@ -10,7 +10,7 @@ if [ "$#" -ne 4 ]; then
 fi
 
 solution_file="$1" # solutions_xxx.java
-input_file="$2" # test_xx.in
+input_file=$(realpath "$2") # test_xx.in
 work_dir="$3"
 output_dir="$4"
 cwd=$(pwd)
@@ -21,8 +21,7 @@ class_name=$(find_main_class "$solution_file")
 rm -rf "$work_dir"
 mkdir -p "$work_dir"
 mkdir -p "$output_dir"
-class_java_file="$work_dir/$class_name.java"
-cp "$solution_file" "$class_java_file"
+cp "$solution_file" "$work_dir"/"$class_name".java
 
 # compile the solution
 cd "$work_dir" || exit
@@ -54,6 +53,8 @@ ${COBERTURA_REPORT_SH} --destination . --format xml
 # extract the coverage reports (xml) and record source code with coverage to .java.cov
 
 python ${SCRIPTS_DIR}/cov_xml_parser.py --src_file_path "$class_name.java" --jacoco_xml_path xml_report.xml --cobertura_xml_path coverage.xml --output_path "$class_name.java.cov"
-cp "$class_name.java.cov" "$output_dir"
 cd "$cwd"
-rm -rf "$work_dir"
+cp "${work_dir}/${class_name}.java.cov" "$output_dir"
+if [ "$DEBUG" != "true" ]; then
+    rm -rf "$work_dir"
+fi

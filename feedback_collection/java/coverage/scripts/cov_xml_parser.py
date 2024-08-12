@@ -21,17 +21,17 @@ def parse_jacoco_coverage_report(
             "statement": statement_coverage,
             "branch": branch_coverage,
         }
-        for line in sourcefile.iter("line"):
-            line_nr = int(line.get("nr"))
+        for line_element in sourcefile.iter("line"):
+            line_nr = int(line_element.get("nr"))
             # Statement coverage: covered if ci > 0
-            ci = int(line.get("ci"))
-            mi = int(line.get("mi"))
+            ci = int(line_element.get("ci"))
+            mi = int(line_element.get("mi"))
             statement_coverage[line_nr] = "COVERED" if ci > 0 else "NOT_COVERED"
             assert mi + ci > 0, f"Line {line_nr} has no coverage"
 
             # Branch coverage: covered if cb > 0
-            cb = int(line.get("cb"))
-            mb = int(line.get("mb"))
+            cb = int(line_element.get("cb"))
+            mb = int(line_element.get("mb"))
             if mb + cb > 0:
                 if cb == 0:
                     branch_coverage[line_nr] = "NOT_COVERED"
