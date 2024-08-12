@@ -243,8 +243,8 @@ def main(
     output_cov_file_path: str = "",
 ):
     assert (
-        include_plain_coverage or include_hit_count
-    ), "At least one of coveragepy report or line_profiler report should be included"
+        include_plain_coverage and include_hit_count
+    ), "Currently only support collecting both plain coverage and hit count"
 
     ori_code_file = Path(ori_code_file_path).absolute()
     input_file = Path(input_file_path).absolute()

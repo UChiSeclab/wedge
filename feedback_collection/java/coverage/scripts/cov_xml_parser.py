@@ -109,10 +109,16 @@ def record_file_with_coverage_and_hit_count(
 
 def main(
     src_file_path: str,
-    jacoco_xml_path: str,
-    cobertura_xml_path: str,
+    include_jacoco_coverage: bool = True,
+    include_cobertura_hit_count: bool = True,
+    jacoco_xml_path: str = None,
+    cobertura_xml_path: str = None,
     output_path: str = "",
 ):
+    assert (
+        include_jacoco_coverage and include_cobertura_hit_count
+    ), "Currently only supports both Jacoco and Cobertura coverage"
+
     file_coverage = parse_jacoco_coverage_report(Path(jacoco_xml_path))
     file_hit_count = parse_cobertura_coverage_report(Path(cobertura_xml_path))
     record_file_with_coverage_and_hit_count(
