@@ -7,6 +7,7 @@ from utils import num_tokens_from_string
 
 API_KEY = "sk-proj-agKWhu46RVJSx5PbRea7T3BlbkFJB3jZFl9KGevQ0QC9vatB"
 
+
 def request(instruction: str) -> str:
     """Makes a request to gpt"""
     url = "https://api.openai.com/v1/chat/completions"
@@ -21,6 +22,7 @@ def request(instruction: str) -> str:
         result = response.json()
         return result["choices"][0]["message"]["content"]
 
+
 def cut_string(input_string: str, begin_token="```python\n", end_token="```") -> str:
     """Extracts the code from gpt response."""
     start_index = input_string.find(begin_token)
@@ -32,6 +34,7 @@ def cut_string(input_string: str, begin_token="```python\n", end_token="```") ->
         return input_string[start_index:]
     result = input_string[start_index:end_index]
     return result
+
 
 def write_test_generator(
     experiment_dir: Path,
@@ -70,11 +73,11 @@ def write_test_generator(
         + num_tokens_from_string(gpt_response) * 15 / 1000000
     )
 
-    with open(experiment_dir / "prompt.txt", 'w', encoding='utf-8') as file:
+    with open(experiment_dir / "prompt.txt", "w", encoding="utf-8") as file:
         file.write(prompt)
-    with open(experiment_dir / "gpt_response.txt", 'w', encoding='utf-8') as file:
+    with open(experiment_dir / "gpt_response.txt", "w", encoding="utf-8") as file:
         file.write(gpt_response)
-    with open(experiment_dir / "gen.py", 'w', encoding='utf-8') as file:
+    with open(experiment_dir / "gen.py", "w", encoding="utf-8") as file:
         file.write(cut_string(gpt_response))
 
     return cost

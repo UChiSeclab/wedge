@@ -1,0 +1,1 @@
+This tool is downloaded from https://sourceforge.net/projects/cobertura/. Note that the original format of scripts (including cobertura-instrument.sh and cobertura-report.sh) was in DOS format. We may need to transform it into unix format (via the dos2unix program, done here).

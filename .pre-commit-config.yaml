@@ -4,15 +4,15 @@ repos:
     rev: v4.0.1
     hooks:
     -   id: trailing-whitespace
-        files: '^code-contest-exp/scripts/.*\.py$'
+        files: '.*/scripts/.*\.(py|sh)$'
     -   id: end-of-file-fixer
-        files: '^code-contest-exp/scripts/.*\.py$'
+        files: '.*/scripts/.*\.(py|sh)$'
     -   id: check-yaml
-        files: '^code-contest-exp/scripts/.*\.py$'
+        files: '.*/scripts/.*\.(py|sh)$'
 
 -   repo: https://github.com/psf/black
     rev: 22.3.0
     hooks:
     -   id: black
         language_version: python3.12
-        files: '^code-contest-exp/scripts/.*\.py$'
+        files: '.*/scripts/.*\.(py|sh)$'
