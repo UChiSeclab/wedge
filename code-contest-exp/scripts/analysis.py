@@ -1,36 +1,31 @@
 import json
+import os
+from pathlib import Path
+from tqdm import tqdm
 
-# Reading the JSON data from a file
-file_path = "./results/cpp_result.json"
-with open(file_path, "r", encoding="utf-8") as file:
-    data = json.load(file)
+result_dir = Path("./results/alphacode")
 
-cnt = 0
-for problem_name in data.keys():
-    max_time_solution = (0, "")
-    min_time_solution = (20, "")
-    problem = data[problem_name]
-    total_time = 0
-    for solution_name in problem.keys():
-        if "solutions" not in solution_name:
+time_lang = {
+    "CPP": (0, 0),
+    "JAVA": (0, 0),
+    "PYTHON": (0, 0),
+    "PYTHON3": (0, 0),
+}
+for problem_result in tqdm(os.listdir(result_dir)):
+    path = result_dir / problem_result
+    with open(path, "r", encoding="utf-8") as file:
+        res_dict = json.load(file)
+    for (sol_name, res) in res_dict.items():
+        if sol_name == "time_limit":
             continue
-        solution = problem[solution_name]
-        incorrect_flag = solution["online_judge_verdict"] == "incorrect"
-        for verdict in solution["verdict"]:
-            incorrect_flag |= verdict != "AC"
-        if incorrect_flag:
+        if res["online_judge_verdict"] == "incorrect":
             continue
-        average_time = 0
-        for test_name in solution["time_dict"]:
-            average_time += sum(solution["time_dict"][test_name]) / 5
-        average_time /= len(solution["time_dict"])
-        total_time += average_time
-        max_time_solution = max(max_time_solution, (average_time, solution_name))
-        min_time_solution = min(min_time_solution, (average_time, solution_name))
-    if max_time_solution[0] / min_time_solution[0] >= 2:
-        print()
-        print(problem_name)
-        print(min_time_solution)
-        print(max_time_solution)
-        cnt += 1
-print(cnt)
+        if any(verdict != "AC" for verdict in res["verdict"]):
+            continue
+        total_time, cnt = time_lang[res["language"]]
+        time_lang[res["language"]] = (
+            total_time + sum(res["average_time"]),
+            cnt + len(res["average_time"]),
+        )
+for (lang, res) in time_lang.items():
+    print(lang, res[0] / res[1])

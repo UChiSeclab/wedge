@@ -12,7 +12,7 @@ from config import config
 from utils import get_cf_problems, filter_problems
 from gpt_caller import write_test_generator
 from cluster import code_clustering
-from run_java import run_java
+from run import run_solution
 
 
 def get_solutions_in_language(problem: Dict, sol_language: Language) -> List[str]:
@@ -76,8 +76,14 @@ def main(
     problem_root_dir = Path(problem_root_dir)
     filtered_problems = filter_problems(get_cf_problems())
 
-    for problem in tqdm(filtered_problems[:100]):
-        problem_dir = problem_root_dir / str(problem["name"].split(".")[0])
+    for problem in tqdm(filtered_problems):
+        problem_id = problem["name"].split(".")[0]
+        if (
+            config["specified_problem"]
+            and problem_id not in config["specified_problem"]
+        ):
+            continue
+        problem_dir = problem_root_dir / problem_id
         experiment_dir = problem_dir / experiment_name
         experiment_dir.mkdir(exist_ok=True, parents=True)
         selected_solutions = select_solutions(problem, config["prompt_language"])
@@ -85,10 +91,14 @@ def main(
         test_generator_path = experiment_dir / "gen.py"
 
         if not test_generator_path.exists():
-            cost = write_test_generator(
-                experiment_dir, problem["description"], selected_solutions
-            )
-            print("Cost on API call:", cost)
+            if not config["manual_prompt"]:
+                cost = write_test_generator(
+                    experiment_dir, problem["description"], selected_solutions
+                )
+                print("Cost on API call:", cost)
+            else:
+                print("Write file into", experiment_dir / "gen.py")
+                input("Press Enter to continue...")
         else:
             raise FileExistsError("Test generator already exist.")
 
@@ -117,9 +127,10 @@ def main(
             if run_tests_language == Language.JAVA:
                 solution_dir = problem_dir / "solutions" / str(run_tests_language)
                 for solution_file_name in os.listdir(solution_dir):
-                    run_java(
+                    run_solution(
                         solution_dir,
                         solution_file_name,
+                        Language.JAVA,
                         experiment_input_dir,
                         experiment_output_dir,
                         write_output=True,

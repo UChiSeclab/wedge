@@ -13,10 +13,8 @@ def main(problem_root_dir: str = config["problem_root_dir"]):
     problem_root_dir = Path(problem_root_dir)
     filtered_problems = filter_problems(get_cf_problems())
 
-    for problem in tqdm(filtered_problems[:1200]):
+    for problem in tqdm(filtered_problems):
         problem_dir = problem_root_dir / str(problem["name"].split(".")[0])
-        if problem_dir.exists():
-            continue
         problem_dir.mkdir(exist_ok=True, parents=True)
 
         # Write problem description to file
@@ -30,13 +28,13 @@ def main(problem_root_dir: str = config["problem_root_dir"]):
         output_dir.mkdir(exist_ok=True, parents=True)
         for test_type in ["public_tests", "private_tests", "generated_tests"]:
             for test_idx, test_input in enumerate(problem[test_type]["input"], start=1):
-                file_path = input_dir / f"{test_type}_{test_idx:02}.in"
+                file_path = input_dir / f"{test_type}_{test_idx:03}.in"
                 with open(file_path, "w", encoding="utf-8") as file:
                     file.write(test_input)
             for test_idx, test_output in enumerate(
                 problem[test_type]["output"], start=1
             ):
-                file_path = output_dir / f"{test_type}_{test_idx:02}.out"
+                file_path = output_dir / f"{test_type}_{test_idx:03}.out"
                 with open(file_path, "w", encoding="utf-8") as file:
                     file.write(test_output)
 

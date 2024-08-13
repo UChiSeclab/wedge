@@ -2,13 +2,14 @@
 from common import Language
 
 config = {
-    "output_file": "first_100.json",
     "problem_root_dir": "./problems",
     "max_time_limit": 20,
-    "experiment_name": "none",
+    "experiment_name": "none",  # set it to 'none' to run it on alpha code tests
     "solution_selection": "random",
+    "manual_prompt": True,
     "prompt_language": Language.JAVA,
-    "repeat_test": 5,
+    "repeat_test": 3,
+    "specified_problem": ["133_E", "1203_E", "769_D", "1379_D", "1536_C"],
 }
 
 abandoned_list = [
