@@ -204,6 +204,8 @@ def record_file_with_coverage_and_hit_count(
                     )
             else:
                 line = f"/* line {line_no} NOT_COVERED */ " + line
+        else:
+            line = f"/* line {line_no} */ " + line
 
         file_with_coverage_lines.append(line)
 
