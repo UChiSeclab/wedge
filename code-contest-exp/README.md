@@ -6,6 +6,28 @@ pip install requirements.txt
 python ./scripts/add_problem.py
 ```
 
+### Test all problems on alphacode tests
+
+Setup the config file (`./scripts/config.py`)
+
+```python
+config = {
+    "problem_root_dir": "./problems",
+    "max_time_limit": 20,
+    "experiment_name": "none",             # set experiment name to 'none'
+    "solution_selection": "time_contrast", # doesn't matter
+    "manual_prompt": False,                # set to False
+    "prompt_language": Language.JAVA,      # doesn't matter
+    "repeat_test": 3,
+    "specified_problem": None
+}
+```
+
+Run all the solutions for all problems with alphacode tests.
+```sh
+python ./scripts/run.py
+```
+
 ### Test manually created test generator
 
 Setup the config file (`./scripts/config.py`)
@@ -14,7 +36,7 @@ Setup the config file (`./scripts/config.py`)
 config = {
     "problem_root_dir": "./problems",
     "max_time_limit": 20,
-    "experiment_name": "none",             # add experiment name
+    "experiment_name": "experiment_name",             # add experiment name
     "solution_selection": "time_contrast", # doesn't matter
     "manual_prompt": True,                 # set to True
     "prompt_language": Language.JAVA,      # doesn't matter
