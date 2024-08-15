@@ -36,7 +36,7 @@ Setup the config file (`./scripts/config.py`)
 config = {
     "problem_root_dir": "./problems",
     "max_time_limit": 20,
-    "experiment_name": "experiment_name",             # add experiment name
+    "experiment_name": "experiment_name",  # add experiment name
     "solution_selection": "time_contrast", # doesn't matter
     "manual_prompt": True,                 # set to True
     "prompt_language": Language.JAVA,      # doesn't matter
@@ -46,6 +46,35 @@ config = {
 ```
 
 Follow the instruction in the script to put the test generator into the correct place.
+```sh
+python ./scripts/gen_tests.py
+```
+
+Run all the solutions for specified problems with generated tests.
+```sh
+python ./scripts/run.py
+```
+
+The results will be put in `./results/<experiment_name>`
+
+### Test generating test generator by GPT
+
+Setup the config file (`./scripts/config.py`)
+
+```python
+config = {
+    "problem_root_dir": "./problems",
+    "max_time_limit": 20,
+    "experiment_name": "experiment_name",  # add experiment name
+    "solution_selection": "time_contrast", # the solution selection method
+    "manual_prompt": False,                # set to True
+    "prompt_language": Language.JAVA,      # the solution language which will feed to the LLM
+    "repeat_test": 3,
+    "specified_problem": []                # ex. ["133_E", "128_D"]
+}
+```
+
+Prompt GPT to write test generater and generate tests for specified problems.
 ```sh
 python ./scripts/gen_tests.py
 ```
