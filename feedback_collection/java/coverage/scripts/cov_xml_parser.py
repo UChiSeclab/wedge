@@ -102,6 +102,8 @@ def record_file_with_coverage_and_hit_count(
                     f"/* line {line_no} {stmt_coverage_status}, hit count: {file_hit_count.get(line_no)} */ "
                     + line
                 )
+        else:
+            line = f"/* line {line_no} */ " + line
         file_with_coverage_lines.append(line)
 
     output_file.write_text("\n".join(file_with_coverage_lines))
