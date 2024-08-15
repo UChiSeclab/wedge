@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import List, Dict
 from tqdm import tqdm
 from fire import Fire
+import json
 
 from common import Language
 from config import config
-from utils import get_cf_problems, filter_problems
+from utils import get_cf_problems, filter_problems, mean
 from gpt_caller import write_test_generator
 from cluster import code_clustering
 from run import run_solution
@@ -22,16 +23,20 @@ def get_solutions_in_language(problem: Dict, sol_language: Language) -> List[str
         for solution_idx, solution in enumerate(problem["solutions"]["solution"])
         if problem["solutions"]["language"][solution_idx] == sol_language.value
     ]
+    solutions_idx = [
+        solution_idx
+        for solution_idx, _ in enumerate(problem["solutions"]["solution"])
+        if problem["solutions"]["language"][solution_idx] == sol_language.value
+    ]
 
-    return raw_solutions
+    return raw_solutions, solutions_idx
 
 
-def select_solutions(problem: Dict, prompt_language: Language) -> List[str]:
+def select_solutions(
+    problem_id: str, problem: Dict, prompt_language: Language
+) -> List[str]:
     """Selects solutions for feeding to the llm."""
-    raw_solutions = get_solutions_in_language(problem, prompt_language)
-    if len(raw_solutions) < 5:
-        print(f"Not enough {str(prompt_language)} solutions to create the prompt.")
-        return []
+    raw_solutions, solutions_idx = get_solutions_in_language(problem, prompt_language)
     selected_solutions = []
 
     if config["solution_selection"] == "random":
@@ -58,6 +63,20 @@ def select_solutions(problem: Dict, prompt_language: Language) -> List[str]:
             if labels[idx] == max_label and len(selected_solutions) < 5:
                 selected_solutions.append(solutions[idx])
 
+    elif config["solution_selection"] == "time_contrast":
+        alphacode_dir = Path("./results/alphacode")
+        with open(alphacode_dir / f"{problem_id}.json", "r", encoding="utf-8") as file:
+            result = json.load(file)
+        solutions_idx.sort(
+            key=lambda idx: mean(result[f"solutions_{idx:04}"]["average_time"])
+        )
+        fast_solution_id = solutions_idx[0]
+        slow_solution_id = solutions_idx[-1]
+        selected_solutions = [
+            problem["solutions"]["solution"][fast_solution_id],
+            problem["solutions"]["solution"][slow_solution_id],
+        ]
+
     return selected_solutions
 
 
@@ -78,15 +97,16 @@ def main(
 
     for problem in tqdm(filtered_problems):
         problem_id = problem["name"].split(".")[0]
-        if (
-            config["specified_problem"]
-            and problem_id not in config["specified_problem"]
-        ):
+        specified_problem = config["specified_problem"]
+        if specified_problem and problem_id not in specified_problem:
             continue
+
         problem_dir = problem_root_dir / problem_id
         experiment_dir = problem_dir / experiment_name
         experiment_dir.mkdir(exist_ok=True, parents=True)
-        selected_solutions = select_solutions(problem, config["prompt_language"])
+        selected_solutions = select_solutions(
+            problem_id, problem, config["prompt_language"]
+        )
 
         test_generator_path = experiment_dir / "gen.py"
 

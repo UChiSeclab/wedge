@@ -10,6 +10,10 @@ from config import abandoned_list
 from common import Language
 
 
+def mean(lst):
+    return sum(lst) / len(lst)
+
+
 def num_tokens_from_string(string: str, encoding_name: str = "cl100k_base") -> int:
     """Counts number of token for a given string."""
     encoding = tiktoken.get_encoding(encoding_name)

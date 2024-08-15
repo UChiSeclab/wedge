@@ -44,28 +44,12 @@ def write_test_generator(
     error: subprocess.CalledProcessError = None,
 ):
     """Prompts llm to write a test generator."""
-    prompt = (
-        "Problem Statement\n"
-        + problem_description
-        + "\n------------------------------\n"
-    )
-    prompt += (
-        "\n------------------------------\n".join(solution_codes)
-        + "\n------------------------------\n"
-    )
-    prompt += "\n\nWrite a python script that can generate test cases for a programming problem with the provided problem statement and solution codes. Notice that something like \"10^5\" will be written as \"105\" in most of the time, in this case, you should regard the maxmimum constraint as 100000 instead of 105. The test case should be focus on exhausting the code to get time limit exceeded and should follow the input format. Note that you need to extract the input constraints from the problem statement and encode the constraints into the test case generator. The python script should be able to read an argument (the only argument) which specifies a directory and write all the testcases as 'test_01.in', 'test_02.in', ... into the directory. Please generate 10 test cases. "
+    with open("./prompt_template.txt", "r", encoding="utf-8") as file:
+        prompt = file.read()
 
-    if ill_tests:
-        prompt += "\n------------------------------\n"
-        prompt += "The following previously test generation script is problematic. Please avoid generating problematic tests.\n"
-        prompt += ill_tests
-        assert error is not None
-        prompt += "\n------------------------------\n"
-        prompt += (
-            "The following error occurred during the execution of the above tests.\n"
-        )
-        # append the error message and traceback
-        prompt += error.stderr
+    prompt = prompt.replace("<problem_statement>", problem_description)
+    prompt = prompt.replace("<fast_solution>", solution_codes[0])
+    prompt = prompt.replace("<slow_solution>", solution_codes[1])
 
     gpt_response = request(prompt)
     cost = (

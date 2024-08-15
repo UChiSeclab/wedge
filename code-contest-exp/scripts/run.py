@@ -37,7 +37,7 @@ def compile_solution(language: Language, solution_dir: Path, solution_code: str)
         with open(file_path, "w", encoding="utf-8") as file:
             file.write(solution_code)
         compile_process = subprocess.run(
-            ["g++", "-std=c++14", file_path, "-o", solution_dir / "solution"],
+            ["g++", "-std=c++17", "-O3", file_path, "-o", solution_dir / "solution"],
             capture_output=True,
             check=False,
         )
@@ -176,17 +176,18 @@ def main(
 
     for problem in tqdm(filtered_problems):
         problem_id = problem["name"].split(".")[0]
-        if (
-            config["specified_problem"]
-            and problem_id not in config["specified_problem"]
-        ):
+
+        specified_problem = config["specified_problem"]
+        if specified_problem and problem_id not in specified_problem:
             continue
 
         problem_dir = problem_root_dir / problem["name"].split(".")[0]
         if experiment_name == "none":
             experiment_dir = problem_dir
+            result_path = Path(f"results/alphacode/{problem_id}.json")
         else:
             experiment_dir = problem_dir / experiment_name
+            result_path = Path(f"results/{experiment_name}/{problem_id}.json")
         solution_dir = problem_dir / "solutions"
         input_dir = experiment_dir / "input"
         output_dir = experiment_dir / "output"
@@ -194,6 +195,8 @@ def main(
             problem["time_limit"]["seconds"] + problem["time_limit"]["nanos"] / 10**9
         )
 
+        if os.path.isfile(result_path):
+            continue
         problem_res = {}
 
         print(problem["name"])
@@ -254,17 +257,8 @@ def main(
                 solution_res["time_dict"][test_name].append(
                     res[idx]["time_dict"][test_name]
                 )
-        if config["experiment_name"] == "none":
-            with open(
-                f"results/alphacode/{problem_id}.json", "w", encoding="utf-8"
-            ) as file:
-                file.write(json.dumps(problem_res, indent=4))
-        else:
-            exp_folder = config["experiment_name"]
-            with open(
-                f"results/{exp_folder}/{problem_id}.json", "w", encoding="utf-8"
-            ) as file:
-                file.write(json.dumps(problem_res, indent=4))
+        with open(result_path, "w", encoding="utf-8") as file:
+            file.write(json.dumps(problem_res, indent=4))
 
 
 if __name__ == "__main__":
