@@ -187,6 +187,7 @@ def main(
             result_path = Path(f"results/alphacode/{problem_id}.json")
         else:
             experiment_dir = problem_dir / experiment_name
+            experiment_dir.mkdir(exist_ok=True, parents=True)
             result_path = Path(f"results/{experiment_name}/{problem_id}.json")
         solution_dir = problem_dir / "solutions"
         input_dir = experiment_dir / "input"

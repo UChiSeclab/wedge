@@ -1,14 +1,36 @@
 ### Setup
+
 ```sh
-export PYTHONPATH=path/to/code-contest-exp
+cd code-contest-exp
+pip install requirements.txt
+python ./scripts/add_problem.py
 ```
 
-### To run test driver generation:
-```sh
-python scripts/gen_tests.py --experiment_name debug_exp --problem_root_dir debug_temp --run_tests True # enabling the "--run_tests" flag will execute the generated tests, otherwise the generated tests won't be executed
+### Test manually created test generator
+
+Setup the config file (`./scripts/config.py`)
+
+```python
+config = {
+    "problem_root_dir": "./problems",
+    "max_time_limit": 20,
+    "experiment_name": "none",             # add experiment name
+    "solution_selection": "time_contrast", # doesn't matter
+    "manual_prompt": True,                 # set to True
+    "prompt_language": Language.JAVA,      # doesn't matter
+    "repeat_test": 3,
+    "specified_problem": []                # ex. ["133_E", "128_D"]
+}
 ```
 
-### To run test execution, e.g., Java solutions
+Follow the instruction in the script to put the test generator into the correct place.
 ```sh
-python scripts/run_java.py --experiment_name debug_exp --problem_root_dir debug_temp
+python ./scripts/gen_tests.py
 ```
+
+Run all the solutions for specified problems with generated tests.
+```sh
+python ./scripts/run.py
+```
+
+The results will be put in `./results/<experiment_name>`
