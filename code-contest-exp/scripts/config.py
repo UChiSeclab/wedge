@@ -31,6 +31,7 @@ config = {
         "1331_D",
         "273_B",
     ],
+    "use_specified_problem": True,
 }
 
 # Manual Test
