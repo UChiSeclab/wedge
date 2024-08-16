@@ -13,44 +13,45 @@ def load_data(file_path):
     return data
 
 
-def compare_solutions(problem_name, data1, data2):
-    time1 = []
-    time2 = []
-    for solution_key in data1.keys():
-        if solution_key in data2:
-            if solution_key == "time_limit":
-                continue
-            if (
-                "WA" in data1[solution_key]["verdict"]
-                or "WA" in data2[solution_key]["verdict"]
-            ):
-                continue
-            if (
-                "KILL" in data1[solution_key]["verdict"]
-                or "KILL" in data2[solution_key]["verdict"]
-            ):
-                continue
-            time1.append(mean(data1[solution_key]["average_time"]))
-            time2.append(mean(data2[solution_key]["average_time"]))
+def compare_solutions(problem_name, alphacode_data, gpt_tests_data):
+    alphacode_time = {"java": [], "cpp": [], "python": []}
+    gpt_tests_time = {"java": [], "cpp": [], "python": []}
 
-    # Combine time1 and time2 into a single list
-    combined_times = time1 + time2
-    print(len(time1), len(time2))
-    # Create labels for the times
-    labels = ["AlphaCode Test"] * len(time1) + ["Our Test"] * len(time2)
+    for solution, data in alphacode_data.items():
+        if solution == "time_limit":
+            continue
+        if "WA" in data["verdict"] or "KILL" in data["verdict"]:
+            continue
+        language = data["language"].lower()
+        if language == "python3":
+            language = "python"
+        alphacode_time[language].append(mean(data["average_time"]))
 
-    # Draw the histogram
-    fig = px.histogram(
-        x=combined_times,
-        color=labels,
-        labels={"x": "Average Time", "color": "Test"},
-        title=f"Comparison of Average Solution Times for {problem_name}",
-    )
-    # Overlay both histograms
-    fig.update_layout(barmode="overlay")
-    # Reduce opacity to see both histograms
-    fig.update_traces(opacity=0.5)
-    fig.write_image(f"analysis/time_contrast/{problem_name}.png")
+    for solution, data in gpt_tests_data.items():
+        if solution == "time_limit":
+            continue
+        if "WA" in data["verdict"] or "KILL" in data["verdict"]:
+            continue
+        language = data["language"].lower()
+        if language == "python3":
+            language = "python"
+        gpt_tests_time[language].append(mean(data["average_time"]))
+
+    for language in ["java", "cpp", "python"]:
+        combined_times = alphacode_time[language] + gpt_tests_time[language]
+        print(len(alphacode_time[language]), len(gpt_tests_time[language]))
+        labels = ["AlphaCode Test"] * len(alphacode_time[language]) + [
+            "Our Test"
+        ] * len(gpt_tests_time[language])
+        fig = px.histogram(
+            x=combined_times,
+            color=labels,
+            labels={"x": "Average Time", "color": "Test"},
+            title=f"Comparison of Average Solution Times for {problem_name}",
+        )
+        fig.update_layout(barmode="overlay")
+        fig.update_traces(opacity=0.5)
+        fig.write_image(f"analysis/time_contrast/{language}/{problem_name}.png")
 
 
 def main():

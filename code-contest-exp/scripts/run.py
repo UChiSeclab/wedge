@@ -239,7 +239,7 @@ def main(
             problem_res["time_limit"] = test_arg[6]
             if test_arg[1].split(".")[0] not in problem_res.keys():
                 problem_res[test_arg[1].split(".")[0]] = {
-                    "language": language.name.lower(),
+                    "language": str(test_arg[2]),
                     "online_judge_verdict": online_judge_verdict,
                     "verdict": [],
                     "average_time": [],
@@ -247,8 +247,6 @@ def main(
                     "time_dict": {},
                 }
             solution_res = problem_res[test_arg[1].split(".")[0]]
-            solution_res["language"] = language.name
-            solution_res["online_judge_verdict"] = online_judge_verdict
             solution_res["verdict"].append(res[idx]["verdict"])
             solution_res["average_time"].append(res[idx]["average_time"])
             solution_res["max_time"].append(res[idx]["max_time"])
