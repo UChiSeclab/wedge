@@ -6,7 +6,7 @@ import tiktoken
 from typing import Dict
 from pathlib import Path
 
-from config import abandoned_list
+from config import abandoned_list, config
 from common import Language
 
 
@@ -21,7 +21,7 @@ def num_tokens_from_string(string: str, encoding_name: str = "cl100k_base") -> i
     return num_tokens
 
 
-def get_cf_problems():
+def get_cf_problems(use_specified_problem: bool = False):
     """Get Codeforces datasets
 
     Load the datasets from dataset.pkl (if existed) or code_contests
@@ -31,17 +31,33 @@ def get_cf_problems():
     - A list of all codeforces problems
     """
     # Load the dataset
-    if os.path.exists("dataset.pkl"):
-        with open("dataset.pkl", "rb") as file:
-            cf_problems = pickle.load(file)
-    else:
-        dataset = load_dataset("deepmind/code_contests")
-        all_problems = dataset["train"]
+    if not use_specified_problem:
+        if os.path.exists("dataset.pkl"):
+            with open("dataset.pkl", "rb") as file:
+                cf_problems = pickle.load(file)
+        else:
+            dataset = load_dataset("deepmind/code_contests")
+            all_problems = dataset["train"]
 
-        # Filter codeforces data
-        cf_problems = all_problems.filter(lambda example: example["source"] == 2)
-        with open(r"dataset.pkl", "wb") as file:
-            pickle.dump(cf_problems, file)
+            # Filter codeforces data
+            cf_problems = all_problems.filter(lambda example: example["source"] == 2)
+            with open(r"dataset.pkl", "wb") as file:
+                pickle.dump(cf_problems, file)
+    else:
+        if os.path.exists("specified_problem_dataset.pkl"):
+            with open(r"specified_problems_dataset.pkl", "rb") as file:
+                cf_problems = pickle.load(file)
+        else:
+            dataset = load_dataset("deepmind/code_contests")
+            all_problems = dataset["train"]
+
+            # Filter codeforces data
+            cf_problems = all_problems.filter(lambda example: example["source"] == 2)
+            cf_problems = cf_problems.filter(
+                lambda example: example["problem_id"] in config["specified_problem"]
+            )
+            with open(r"specified_problem_dataset.pkl", "wb") as file:
+                pickle.dump(cf_problems, file)
 
     return cf_problems
 

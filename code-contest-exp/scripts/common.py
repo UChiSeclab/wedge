@@ -44,3 +44,16 @@ class Language(Enum):
         if self == Language.JAVA:
             return "java"
         return "unknown"
+
+    @staticmethod
+    def str_to_lang(lang: str) -> "Language":
+        lang = lang.lower()
+        if lang == "python":
+            return Language.PYTHON
+        if lang == "cpp":
+            return Language.CPP
+        if lang == "python3":
+            return Language.PYTHON3
+        if lang == "java":
+            return Language.JAVA
+        return Language.UNKNOWN_LANGUAGE

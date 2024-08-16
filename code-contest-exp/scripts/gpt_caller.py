@@ -39,7 +39,7 @@ def cut_string(input_string: str, begin_token="```python\n", end_token="```") ->
 def write_test_generator(
     experiment_dir: Path,
     problem_description: str,
-    solution_codes: List[str],
+    solution_codes: List[str],  # List of [fast_solution, slow_solution]
     ill_tests: str = None,
     error: subprocess.CalledProcessError = None,
 ):
