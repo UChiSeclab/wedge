@@ -85,7 +85,7 @@ def select_solutions(
         ]
         selected_solution_idxs = [fast_solution_id, slow_solution_id]
 
-    return selected_solutions, selected_solution_idxs
+    return selected_solution_idxs, selected_solutions
 
 
 def main(
@@ -110,7 +110,7 @@ def main(
         problem_dir = problem_root_dir / problem_id
         experiment_dir = problem_dir / experiment_name
         experiment_dir.mkdir(exist_ok=True, parents=True)
-        selected_solutions = select_solutions(
+        _, selected_solutions = select_solutions(
             problem_id, problem, config["prompt_language"]
         )
 
