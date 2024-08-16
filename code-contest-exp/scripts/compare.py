@@ -4,6 +4,8 @@ from pathlib import Path
 
 import plotly.express as px
 
+from utils import mean
+
 
 def load_data(file_path):
     with open(file_path, "r") as file:
@@ -28,14 +30,8 @@ def compare_solutions(problem_name, data1, data2):
                 or "KILL" in data2[solution_key]["verdict"]
             ):
                 continue
-            time1.append(
-                sum(data1[solution_key]["average_time"])
-                / len(data1[solution_key]["average_time"])
-            )
-            time2.append(
-                sum(data2[solution_key]["average_time"])
-                / len(data2[solution_key]["average_time"])
-            )
+            time1.append(mean(data1[solution_key]["average_time"]))
+            time2.append(mean(data2[solution_key]["average_time"]))
 
     # Combine time1 and time2 into a single list
     combined_times = time1 + time2
@@ -54,13 +50,13 @@ def compare_solutions(problem_name, data1, data2):
     fig.update_layout(barmode="overlay")
     # Reduce opacity to see both histograms
     fig.update_traces(opacity=0.5)
-    fig.write_image(f"analysis/{problem_name}.png")
+    fig.write_image(f"analysis/time_contrast/{problem_name}.png")
 
 
 def main():
     # Load data from two files
     alphacode_dir = Path("./results/alphacode")
-    gpt_dir = Path("./results/manual_contrast")
+    gpt_dir = Path("./results/time_contrast")
 
     for file_name in os.listdir(gpt_dir):
         alphacode_result = load_data(alphacode_dir / file_name)
