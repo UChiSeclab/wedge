@@ -44,8 +44,9 @@ def get_cf_problems(use_specified_problem: bool = False):
             with open(r"dataset.pkl", "wb") as file:
                 pickle.dump(cf_problems, file)
     else:
+        assert len(config["specified_problem"]) > 0, "No specified problem is provided."
         if os.path.exists("specified_problem_dataset.pkl"):
-            with open(r"specified_problems_dataset.pkl", "rb") as file:
+            with open(r"specified_problem_dataset.pkl", "rb") as file:
                 cf_problems = pickle.load(file)
         else:
             dataset = load_dataset("deepmind/code_contests")
@@ -54,7 +55,8 @@ def get_cf_problems(use_specified_problem: bool = False):
             # Filter codeforces data
             cf_problems = all_problems.filter(lambda example: example["source"] == 2)
             cf_problems = cf_problems.filter(
-                lambda example: example["problem_id"] in config["specified_problem"]
+                lambda example: example["name"].split(".")[0]
+                in config["specified_problem"]
             )
             with open(r"specified_problem_dataset.pkl", "wb") as file:
                 pickle.dump(cf_problems, file)

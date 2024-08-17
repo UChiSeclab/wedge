@@ -11,7 +11,9 @@ from utils import get_cf_problems, filter_problems
 def main(problem_root_dir: str = config["problem_root_dir"]):
     """Inits necessary data for specified problems."""
     problem_root_dir = Path(problem_root_dir)
-    filtered_problems = filter_problems(get_cf_problems())
+    filtered_problems = filter_problems(
+        get_cf_problems(use_specified_problem=config["use_specified_problem"])
+    )
 
     for problem in tqdm(filtered_problems):
         problem_dir = problem_root_dir / str(problem["name"].split(".")[0])

@@ -18,26 +18,27 @@ from run import run_solution
 
 def get_solutions_in_language(
     problem: Dict, sol_language: Language
-) -> Tuple[List[str], List[int]]:
+) -> Tuple[List[int], List[str]]:
     """Selects all solutions for a given language."""
     solutions = [
-        (solution, idx)
+        (idx, solution)
         for idx, (solution, language) in enumerate(
             zip(problem["solutions"]["solution"], problem["solutions"]["language"])
         )
         if language == sol_language.value
     ]
 
-    raw_solutions, solution_idxs = zip(*solutions) if solutions else ([], [])
+    solution_idxs, raw_solutions = zip(*solutions) if solutions else ([], [])
 
-    return list(raw_solutions), list(solution_idxs)
+    return list(solution_idxs), list(raw_solutions)
 
 
 def select_solutions(
     problem_id: str, problem: Dict, prompt_language: Language
 ) -> Tuple[List[int], List[str]]:
     """Selects solutions for feeding to the llm."""
-    raw_solutions, solution_idxs = get_solutions_in_language(problem, prompt_language)
+    solution_idxs, raw_solutions = get_solutions_in_language(problem, prompt_language)
+    print("solution idxs:", solution_idxs)
     selected_solutions = []
     selected_solution_idxs = []
 

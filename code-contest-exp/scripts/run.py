@@ -21,7 +21,9 @@ def compile_solution(language: Language, solution_dir: Path, solution_code: str)
     if language == Language.JAVA:
         class_match = re.search(r"public\s+class\s+(\w+)", solution_code)
         if not class_match:
-            return "error"
+            class_match = re.search(r"class\s+(\w+)", solution_code)
+            if not class_match:
+                return "error"
         class_name = class_match.group(1)
         file_path = solution_dir / f"{class_name}.java"
         with open(file_path, "w", encoding="utf-8") as file:
@@ -172,14 +174,12 @@ def main(
 ):
     """Runs all java solutions in the folder"""
     problem_root_dir = Path(problem_root_dir)
-    filtered_problems = filter_problems(get_cf_problems())
+    filtered_problems = filter_problems(
+        get_cf_problems(use_specified_problem=config["use_specified_problem"])
+    )
 
     for problem in tqdm(filtered_problems):
         problem_id = problem["name"].split(".")[0]
-
-        specified_problem = config["specified_problem"]
-        if specified_problem and problem_id not in specified_problem:
-            continue
 
         problem_dir = problem_root_dir / problem["name"].split(".")[0]
         if experiment_name == "none":
