@@ -1,0 +1,110 @@
+/* line 1 */ import java.io.PrintWriter;
+/* line 2 */ import java.util.ArrayList;
+/* line 3 */ import java.util.Arrays;
+/* line 4 */ import java.util.Collections;
+/* line 5 */ import java.util.HashMap;
+/* line 6 */ import java.util.HashSet;
+/* line 7 */ import java.util.Iterator;
+/* line 8 */ import java.util.List;
+/* line 9 */ import java.util.Map;
+/* line 10 */ import java.util.Scanner;
+/* line 11 */ import java.util.Set;
+/* line 12 */ import java.util.TreeSet;
+/* line 13 */ 
+/* line 14 */ public class Main {
+/* line 15 */ 	int work(int x){
+/* line 16 NOT_COVERED */ 		if(x%2==0)return x+1;
+/* line 17 NOT_COVERED */ 		else return x-1;
+/* line 18 */ 	}
+/* line 19 COVERED, hit count: 1 */ 	static int N = 200050;
+/* line 20 */ 	class Node implements Comparable <Node>{
+/* line 21 */ 		int x, id;
+/* line 22 NOT_COVERED */ 		Node(int x, int id){
+/* line 23 NOT_COVERED */ 			this.x = x; this.id = id;
+/* line 24 NOT_COVERED */ 		}
+/* line 25 */ 		public int compareTo(Node o){
+/* line 26 NOT_COVERED */ 			return Integer.compare(x, o.x);
+/* line 27 */ 		}
+/* line 28 */ 		public String toString(){
+/* line 29 NOT_COVERED */ 			return id + "=" + x;
+/* line 30 */ 		}
+/* line 31 */ 	}
+/* line 32 */ 	class Edge{
+/* line 33 */ 		int from, to, nex;
+/* line 34 NOT_COVERED */ 		Edge (int from, int to, int nex){
+/* line 35 NOT_COVERED */ 			this.from = from;
+/* line 36 NOT_COVERED */ 			this.to = to;
+/* line 37 NOT_COVERED */ 			this.nex = nex;
+/* line 38 NOT_COVERED */ 		}
+/* line 39 */ 	}
+/* line 40 COVERED, hit count: 1 */ 	Edge[] edge = new Edge[N*10];
+/* line 41 COVERED, hit count: 1 */ 	int[] head = new int[N];
+/* line 42 */ 	int edgenum;  
+/* line 43 */ 	void addedge(int u, int v){  
+/* line 44 NOT_COVERED */ 	    Edge E = new Edge(u, v, head[u]);  
+/* line 45 NOT_COVERED */ 	    edge[edgenum] = E;  
+/* line 46 NOT_COVERED */ 	    head[u] = edgenum ++;  
+/* line 47 NOT_COVERED */ 	}  
+/* line 48 */ 	
+/* line 49 */ 	int n;
+/* line 50 COVERED, hit count: 1 */ 	int[] p = new int[N], ans = new int[N];
+/* line 51 */ 	int a, b, max;
+/* line 52 COVERED, hit count: 1 */     Map<Integer, Integer> map = new HashMap();
+/* line 53 */     boolean match(int x, int y, int col){
+/* line 54 COVERED, hit count: 2 */     	int P = map.get(x);
+/* line 55 COVERED, hit count: 2 */     	if(map.containsKey(y-x) == false)
+/* line 56 COVERED, hit count: 2 */     		return false;
+/* line 57 NOT_COVERED */     	int Q = map.get(y - x);
+/* line 58 NOT_COVERED */     	if(ans[Q] == -1 || x * 2 == y){
+/* line 59 NOT_COVERED */     		ans[Q] = ans[P] = col;
+/* line 60 */     	}
+/* line 61 */     	else {
+/* line 62 NOT_COVERED */     		if(match(a+b-2*y+x, y, col))
+/* line 63 NOT_COVERED */     			ans[Q] = ans[P] = col; 		
+/* line 64 NOT_COVERED */     		else return false;
+/* line 65 */     	}
+/* line 66 NOT_COVERED */     	return true;
+/* line 67 */     }
+/* line 68 */     boolean solve(){
+/* line 69 PARTIALLY_COVERED, hit count: 1 */     	if(max >= a && max >= b)return false;
+/* line 70 COVERED, hit count: 1 */     	for(int i = 1; i <= n; i++)
+/* line 71 COVERED, hit count: 1 */     		if(ans[i] == -1)
+/* line 72 */     		{
+/* line 73 COVERED, hit count: 1 */     			if(match(p[i], a, 0)==false && match(p[i], b, 1) == false)
+/* line 74 COVERED, hit count: 1 */     				return false;
+/* line 75 */     		}    	
+/* line 76 NOT_COVERED */     	return true;
+/* line 77 */     }
+/* line 78 */ 	void init(){
+/* line 79 COVERED, hit count: 1 */ 		n = cin.nextInt();
+/* line 80 COVERED, hit count: 1 */ 		a = cin.nextInt(); b = cin.nextInt();
+/* line 81 COVERED, hit count: 1 */ 		max = 0;
+/* line 82 PARTIALLY_COVERED, hit count: 2 */ 		for(int i = 1; i <= n; i++){
+/* line 83 COVERED, hit count: 1 */ 			ans[i] = -1;
+/* line 84 COVERED, hit count: 1 */ 			p[i] = cin.nextInt();
+/* line 85 COVERED, hit count: 1 */ 			map.put(p[i], i);
+/* line 86 COVERED, hit count: 1 */ 			if(p[i] > max) max = p[i];
+/* line 87 */ 		}
+/* line 88 COVERED, hit count: 1 */ 	}
+/* line 89 */ 	public void work(){
+/* line 90 COVERED, hit count: 1 */ 		init();
+/* line 91 COVERED, hit count: 1 */ 		if(solve()){
+/* line 92 NOT_COVERED */ 			out.println("YES");
+/* line 93 NOT_COVERED */ 			for(int i = 1; i <= n; i++)out.print(ans[i]+" "); out.println();
+/* line 94 */ 		}
+/* line 95 */ 		else 
+/* line 96 COVERED, hit count: 1 */ 			out.println("NO");
+/* line 97 COVERED, hit count: 1 */ 	}
+/* line 98 COVERED, hit count: 1 */ 	Main() {
+/* line 99 COVERED, hit count: 1 */         cin = new Scanner(System.in);  
+/* line 100 COVERED, hit count: 1 */         out = new PrintWriter(System.out);
+/* line 101 COVERED, hit count: 1 */     }  
+/* line 102 */     public static void main(String[] args) {
+/* line 103 COVERED, hit count: 1 */         Main e = new Main();  
+/* line 104 COVERED, hit count: 1 */         e.work();
+/* line 105 COVERED, hit count: 1 */         out.close();
+/* line 106 COVERED, hit count: 1 */     }
+/* line 107 */     public Scanner cin;
+/* line 108 */     public static PrintWriter out;
+/* line 109 */ }
+/* line 110 */ 		  	 		   	 	    	 		  	   		

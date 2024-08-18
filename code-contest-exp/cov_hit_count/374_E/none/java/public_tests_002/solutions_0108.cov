@@ -1,0 +1,415 @@
+/* line 1 */ 
+/* line 2 */ import java.io.BufferedReader;
+/* line 3 */ import java.io.IOException;
+/* line 4 */ import java.io.InputStream;
+/* line 5 */ import java.io.InputStreamReader;
+/* line 6 */ 
+/* line 7 NOT_COVERED */ public class E {
+/* line 8 */ 
+/* line 9 COVERED, hit count: 1 */     static int MAX=4000, BIGTIME=2000000;
+/* line 10 */     static int[] 
+/* line 11 COVERED, hit count: 1 */             x=new int[MAX],
+/* line 12 COVERED, hit count: 1 */             y=new int[MAX],
+/* line 13 COVERED, hit count: 1 */             i2c=new int[MAX];
+/* line 14 */     
+/* line 15 COVERED, hit count: 1 */     static double[][] i2j=new double[MAX][];
+/* line 16 */     static {
+/* line 17 PARTIALLY_COVERED, hit count: 4001 */         for (int i=0; i<MAX; i++) {
+/* line 18 COVERED, hit count: 4000 */             i2j[i]=new double[i+1];
+/* line 19 */             //ij2t[i]=new double[MAX];
+/* line 20 */         }
+/* line 21 */     }
+/* line 22 */     
+/* line 23 */     static int n, m;
+/* line 24 */     
+/* line 25 COVERED, hit count: 1 */     static int ecnt=0;
+/* line 26 COVERED, hit count: 1 */     static int[] evt=new int[MAX*(MAX-1)>>1];
+/* line 27 */     
+/* line 28 */     static int p(int i) {
+/* line 29 PARTIALLY_COVERED, hit count: 50 */         if(i2c[i]==i) {
+/* line 30 COVERED, hit count: 40 */             return i;
+/* line 31 */         }
+/* line 32 COVERED, hit count: 10 */         int ret=p(i2c[i]);
+/* line 33 COVERED, hit count: 10 */         i2c[i]=ret;
+/* line 34 COVERED, hit count: 10 */         return ret;
+/* line 35 */     }
+/* line 36 */     
+/* line 37 */     static float t(int i, int j) {
+/* line 38 COVERED, hit count: 10 */         float t=BIGTIME;
+/* line 39 PARTIALLY_COVERED, hit count: 10 */         if(j<n) { //both blue
+/* line 40 COVERED, hit count: 1 */             if(x[i]+y[i]==x[j]+y[j]) {
+/* line 41 NOT_COVERED */                 t=(float)Math.abs(y[i]-y[j])/2;
+/* line 42 */             }
+/* line 43 PARTIALLY_COVERED, hit count: 9 */         } else if(i>=n) { //both red
+/* line 44 COVERED, hit count: 1 */             if(y[i]-x[i]==y[j]-x[j]) {
+/* line 45 NOT_COVERED */                 t=(float)Math.abs(x[i]-x[j])/2;
+/* line 46 */             }
+/* line 47 */         } else {
+/* line 48 COVERED, hit count: 8 */             float t1=Math.abs((x[i]-y[i])-(x[j]-y[j]));
+/* line 49 COVERED, hit count: 8 */             float t2=Math.abs((x[i]+y[i])-(x[j]+y[j]));
+/* line 50 COVERED, hit count: 8 */             t=Math.max(t1, t2)/2;
+/* line 51 */         }
+/* line 52 */         
+/* line 53 COVERED, hit count: 10 */         return t;
+/* line 54 */     }
+/* line 55 */     
+/* line 56 */     static double t2(int i, int j) {
+/* line 57 COVERED, hit count: 16 */         if(i<j) {
+/* line 58 COVERED, hit count: 16 */             return i2j[j][i];
+/* line 59 */         }
+/* line 60 NOT_COVERED */         return i2j[i][j];
+/* line 61 */     }
+/* line 62 */     
+/* line 63 */     static float x(int i, int j, float t) {
+/* line 64 COVERED, hit count: 7 */         if(Math.max(i,j)<n||Math.min(i,j)>=n) {
+/* line 65 NOT_COVERED */             return (float)Math.min(x[i], x[j])+t;
+/* line 66 */         } else {
+/* line 67 COVERED, hit count: 7 */             float t1=((x[i]-y[i])-(x[j]-y[j]));
+/* line 68 COVERED, hit count: 7 */             float t2=((x[i]+y[i])-(x[j]+y[j]));
+/* line 69 PARTIALLY_COVERED, hit count: 7 */             if(Math.abs(t1)>Math.abs(t2)) {
+/* line 70 COVERED, hit count: 2 */                 return (float)x[i]-t1/2;
+/* line 71 */             } else {
+/* line 72 COVERED, hit count: 5 */                 return (float)x[j]+t2/2;
+/* line 73 */             }
+/* line 74 */         }
+/* line 75 */     }
+/* line 76 */ 
+/* line 77 */     static float y(int i, int j, float t) {
+/* line 78 COVERED, hit count: 7 */         if(Math.max(i,j)<n||Math.min(i,j)>=n) {
+/* line 79 NOT_COVERED */             return (float)Math.min(y[i], y[j])+t;
+/* line 80 */         } else {
+/* line 81 COVERED, hit count: 7 */             float t1=((x[i]-y[i])-(x[j]-y[j]));
+/* line 82 COVERED, hit count: 7 */             float t2=((x[i]+y[i])-(x[j]+y[j]));
+/* line 83 PARTIALLY_COVERED, hit count: 7 */             if(Math.abs(t1)>Math.abs(t2)) {
+/* line 84 COVERED, hit count: 2 */                 return (float)y[i]+t1/2;
+/* line 85 */             } else {
+/* line 86 COVERED, hit count: 5 */                 return (float)y[j]+t2/2;
+/* line 87 */             }
+/* line 88 */         }
+/* line 89 */     }
+/* line 90 */ 
+/* line 91 */     static int 
+/* line 92 COVERED, hit count: 1 */         c1cnt=0,
+/* line 93 COVERED, hit count: 1 */         c2cnt=0;
+/* line 94 */     static int[] 
+/* line 95 COVERED, hit count: 1 */             c1=new int[MAX], 
+/* line 96 COVERED, hit count: 1 */             c2=new int[MAX];
+/* line 97 */     
+/* line 98 */     static double s(int i, int j, float t) {
+/* line 99 PARTIALLY_COVERED, hit count: 7 */         float x0=i<j? x(i,j,t): x(j,i,t), y0=i<j? y(i,j,t): y(j,i,t);
+/* line 100 */         
+/* line 101 COVERED, hit count: 7 */         double ret=(double)(y0+y[i])*(double)(x0-x[i]);
+/* line 102 COVERED, hit count: 7 */         ret+=(double)(y[j]+y0)*(double)(x[j]-x0);
+/* line 103 COVERED, hit count: 7 */         return ret;
+/* line 104 */     }
+/* line 105 */     
+/* line 106 */     static double gets(int i, int j) {
+/* line 107 PARTIALLY_COVERED, hit count: 13 */         if(i<j) {
+/* line 108 COVERED, hit count: 1 */             return -i2j[j][i];
+/* line 109 */         }
+/* line 110 COVERED, hit count: 12 */         return i2j[i][j];
+/* line 111 */     }
+/* line 112 */ 
+/* line 113 */     static void sets(int i, int j, double s) {
+/* line 114 PARTIALLY_COVERED, hit count: 6 */         if(i<j) {
+/* line 115 COVERED, hit count: 4 */             i2j[j][i]=-s;
+/* line 116 */         } else {
+/* line 117 COVERED, hit count: 2 */             i2j[i][j]=s;
+/* line 118 */         }
+/* line 119 COVERED, hit count: 6 */     }
+/* line 120 */     
+/* line 121 */     static int compute() {
+/* line 122 COVERED, hit count: 1 */         prepare_events();
+/* line 123 */         
+/* line 124 COVERED, hit count: 4 */         for (int i=0; i<ecnt; i++) {
+/* line 125 COVERED, hit count: 4 */             int ei=evt[i]>>16, ej=(short)evt[i];
+/* line 126 COVERED, hit count: 4 */             float t=t(ei,ej);
+/* line 127 PARTIALLY_COVERED, hit count: 4 */             if(p(ei)==p(ej)) { //cycle
+/* line 128 */                 //check the cycle
+/* line 129 COVERED, hit count: 1 */                 double s=gets(ei,ej);
+/* line 130 */                 
+/* line 131 COVERED, hit count: 1 */                 s+=s(ej, ei, t);
+/* line 132 */                 
+/* line 133 COVERED, hit count: 1 */                 if(s!=0) {
+/* line 134 COVERED, hit count: 1 */                     return (int)Math.ceil(t);
+/* line 135 */                 }
+/* line 136 NOT_COVERED */             } else {
+/* line 137 COVERED, hit count: 3 */                 c1cnt=0; c2cnt=0;
+/* line 138 COVERED, hit count: 3 */                 int pi=p(ei), pj=p(ej);
+/* line 139 PARTIALLY_COVERED, hit count: 15 */                 for (int j=0; j<n+m; j++) {
+/* line 140 PARTIALLY_COVERED, hit count: 12 */                     if(p(j)==pi) {
+/* line 141 COVERED, hit count: 4 */                         c1[c1cnt++]=j;
+/* line 142 PARTIALLY_COVERED, hit count: 8 */                     } else if(p(j)==pj) {
+/* line 143 COVERED, hit count: 4 */                         c2[c2cnt++]=j;
+/* line 144 */                     }
+/* line 145 */                 }
+/* line 146 */                 
+/* line 147 PARTIALLY_COVERED, hit count: 7 */                 for (int j=0; j<c1cnt; j++) {
+/* line 148 PARTIALLY_COVERED, hit count: 10 */                     for (int k=0; k<c2cnt; k++) {
+/* line 149 COVERED, hit count: 6 */                         int l=c1[j], o=c2[k];
+/* line 150 */                         
+/* line 151 COVERED, hit count: 6 */                         double s=gets(l,ei)+gets(ej,o);
+/* line 152 COVERED, hit count: 6 */                         s+=s(ei, ej, t);
+/* line 153 COVERED, hit count: 6 */                         sets(l,o,s);
+/* line 154 */                     }
+/* line 155 */                 }
+/* line 156 COVERED, hit count: 3 */                 i2c[p(ej)]=p(ei);
+/* line 157 */             }
+/* line 158 */         }
+/* line 159 */         
+/* line 160 NOT_COVERED */         return -1;
+/* line 161 */     }
+/* line 162 */ 
+/* line 163 */     static void sort_events() {
+/* line 164 COVERED, hit count: 2 */         sort1(evt, 0, ecnt);
+/* line 165 COVERED, hit count: 2 */     }
+/* line 166 */     
+/* line 167 */     static void prepare_events() {
+/* line 168 PARTIALLY_COVERED, hit count: 5 */         for (int i=0; i<n+m; i++) {
+/* line 169 PARTIALLY_COVERED, hit count: 10 */             for (int j=i+1; j<n+m; j++) {
+/* line 170 COVERED, hit count: 6 */                 float t=t(i, j);
+/* line 171 COVERED, hit count: 6 */                 i2j[j][i]=t;
+/* line 172 PARTIALLY_COVERED, hit count: 6 */                 if(t<BIGTIME) {
+/* line 173 COVERED, hit count: 4 */                     evt[ecnt++]=(i<<16)+j;
+/* line 174 */                 }
+/* line 175 */             }
+/* line 176 */         }
+/* line 177 */         
+/* line 178 COVERED, hit count: 1 */         sort_events();
+/* line 179 */         
+/* line 180 PARTIALLY_COVERED, hit count: 5 */         for (int i=0; i<n+m; i++) {
+/* line 181 COVERED, hit count: 4 */             i2c[i]=i;
+/* line 182 */         }
+/* line 183 */         
+/* line 184 PARTIALLY_COVERED, hit count: 5 */         for (int i=0; i<ecnt; i++) {
+/* line 185 COVERED, hit count: 4 */             int ei=evt[i]>>16, ej=(short)evt[i];
+/* line 186 COVERED, hit count: 4 */             if(ej<n||ei>=n) { //both blue or both red
+/* line 187 NOT_COVERED */                 if(p(ei)==p(ej)) { //cycle
+/* line 188 NOT_COVERED */                     i2j[ej][ei]=BIGTIME;
+/* line 189 */                 } else {
+/* line 190 NOT_COVERED */                     i2c[p(ej)]=p(ei);
+/* line 191 */                 }
+/* line 192 */             }
+/* line 193 */         }
+/* line 194 */         
+/* line 195 COVERED, hit count: 1 */         sort_events();
+/* line 196 */         
+/* line 197 PARTIALLY_COVERED, hit count: 5 */         for (int i=0; i<n+m; i++) {
+/* line 198 COVERED, hit count: 4 */             i2c[i]=i;
+/* line 199 */         }
+/* line 200 COVERED, hit count: 1 */     }
+/* line 201 */     
+/* line 202 */     
+/* line 203 */     
+/* line 204 */     
+/* line 205 */     
+/* line 206 */     
+/* line 207 */     
+/* line 208 */     static void sort1(int x[], int off, int len) {
+/* line 209 */         // Insertion sort on smallest arrays
+/* line 210 COVERED, hit count: 2 */         if (len<7) {
+/* line 211 PARTIALLY_COVERED, hit count: 10 */             for (int i=off; i<len+off; i++) {
+/* line 212 PARTIALLY_COVERED, hit count: 11 */                 for (int j=i; j>off; j--) {
+/* line 213 PARTIALLY_COVERED, hit count: 8 */                     if(t2(x[j-1]>>16,(short)x[j-1])>t2(x[j]>>16,(short)x[j])) {
+/* line 214 COVERED, hit count: 3 */                         swap(x, j, j-1);
+/* line 215 */                     } else {
+/* line 216 */                         break;
+/* line 217 */                     }
+/* line 218 */                 }
+/* line 219 */             }
+/* line 220 COVERED, hit count: 2 */             return;
+/* line 221 */         }
+/* line 222 */ 
+/* line 223 */         // Choose a partition element, v
+/* line 224 NOT_COVERED */         int m=off+(len>>1); // Small arrays, middle element
+/* line 225 NOT_COVERED */         if (len>7) {
+/* line 226 NOT_COVERED */             int l=off;
+/* line 227 NOT_COVERED */             int n=off+len-1;
+/* line 228 NOT_COVERED */             if (len>40) { // Big arrays, pseudomedian of 9
+/* line 229 NOT_COVERED */                 int s=len/8;
+/* line 230 NOT_COVERED */                 l=med3(x, l, l+s, l+2*s);
+/* line 231 NOT_COVERED */                 m=med3(x, m-s, m, m+s);
+/* line 232 NOT_COVERED */                 n=med3(x, n-2*s, n-s, n);
+/* line 233 */             }
+/* line 234 NOT_COVERED */             m=med3(x, l, m, n); // Mid-size, med of 3
+/* line 235 */         }
+/* line 236 NOT_COVERED */         double v=t2(x[m]>>16,(short)x[m]);
+/* line 237 */ 
+/* line 238 */         // Establish Invariant: v* (<v)* (>v)* v*
+/* line 239 NOT_COVERED */         int a=off, b=a, c=off+len-1, d=c;
+/* line 240 */         while (true) {
+/* line 241 NOT_COVERED */             while (b<=c&&t2(x[b]>>16,(short)x[b])<=v) {
+/* line 242 NOT_COVERED */                 if (t2(x[b]>>16,(short)x[b])==v)
+/* line 243 NOT_COVERED */                     swap(x, a++, b);
+/* line 244 NOT_COVERED */                 b++;
+/* line 245 */             }
+/* line 246 NOT_COVERED */             while (c>=b&&t2(x[c]>>16,(short)x[c])>=v) {
+/* line 247 NOT_COVERED */                 if (t2(x[c]>>16,(short)x[c])==v)
+/* line 248 NOT_COVERED */                     swap(x, c, d--);
+/* line 249 NOT_COVERED */                 c--;
+/* line 250 */             }
+/* line 251 NOT_COVERED */             if (b>c)
+/* line 252 NOT_COVERED */                 break;
+/* line 253 NOT_COVERED */             swap(x, b++, c--);
+/* line 254 */         }
+/* line 255 */ 
+/* line 256 */         // Swap partition elements back to middle
+/* line 257 NOT_COVERED */         int s, n=off+len;
+/* line 258 NOT_COVERED */         s=Math.min(a-off, b-a);
+/* line 259 NOT_COVERED */         vecswap(x, off, b-s, s);
+/* line 260 NOT_COVERED */         s=Math.min(d-c, n-d-1);
+/* line 261 NOT_COVERED */         vecswap(x, b, n-s, s);
+/* line 262 */ 
+/* line 263 */         // Recursively sort non-partition-elements
+/* line 264 NOT_COVERED */         if ((s=b-a)>1)
+/* line 265 NOT_COVERED */             sort1(x, off, s);
+/* line 266 NOT_COVERED */         if ((s=d-c)>1)
+/* line 267 NOT_COVERED */             sort1(x, n-s, s);
+/* line 268 NOT_COVERED */     }
+/* line 269 */ 
+/* line 270 */     private static void swap(int x[], int a, int b) {
+/* line 271 COVERED, hit count: 3 */         int t=x[a];
+/* line 272 COVERED, hit count: 3 */         x[a]=x[b];
+/* line 273 COVERED, hit count: 3 */         x[b]=t;
+/* line 274 COVERED, hit count: 3 */     }
+/* line 275 */ 
+/* line 276 */     /**
+/* line 277 */      * Swaps x[a .. (a+n-1)] with x[b .. (b+n-1)].
+/* line 278 */      */
+/* line 279 */     private static void vecswap(int x[], int a, int b, int n) {
+/* line 280 NOT_COVERED */         for (int i=0; i<n; i++, a++, b++)
+/* line 281 NOT_COVERED */             swap(x, a, b);
+/* line 282 NOT_COVERED */     }
+/* line 283 */ 
+/* line 284 */     /**
+/* line 285 */      * Returns the index of the median of the three indexed integers.
+/* line 286 */      */
+/* line 287 */     private static int med3(int x[], int a, int b, int c) {
+/* line 288 NOT_COVERED */         double xa=t2(x[a]>>16,(short)x[a]), xb=t2(x[b]>>16,(short)x[b]), xc=t2(x[c]>>16,(short)x[c]);
+/* line 289 NOT_COVERED */         return (xa<xb? (xb<xc? b: xa<xc? c: a): (xb>xc? b: xa>xc? c: a));
+/* line 290 */     }
+/* line 291 */     
+/* line 292 */     
+/* line 293 */     
+/* line 294 */     
+/* line 295 */     
+/* line 296 */     
+/* line 297 */     
+/* line 298 */     static void run_stream(InputStream ins) throws IOException {
+/* line 299 COVERED, hit count: 1 */         BufferedReader r=new BufferedReader(new InputStreamReader(System.in));
+/* line 300 COVERED, hit count: 1 */         String l=r.readLine();
+/* line 301 COVERED, hit count: 1 */         String[] s=l.split(" ");
+/* line 302 COVERED, hit count: 1 */         n=Integer.parseInt(s[0]);
+/* line 303 COVERED, hit count: 1 */         m=Integer.parseInt(s[1]);
+/* line 304 */         
+/* line 305 PARTIALLY_COVERED, hit count: 3 */         for (int i=0; i<n; i++) {
+/* line 306 COVERED, hit count: 2 */             l=r.readLine();
+/* line 307 COVERED, hit count: 2 */             int space=l.indexOf(' ');
+/* line 308 COVERED, hit count: 2 */             x[i]=Integer.parseInt(l.substring(0, space));
+/* line 309 COVERED, hit count: 2 */             y[i]=Integer.parseInt(l.substring(space+1, l.length()));
+/* line 310 */         }
+/* line 311 PARTIALLY_COVERED, hit count: 3 */         for (int i=0; i<m; i++) {
+/* line 312 COVERED, hit count: 2 */             l=r.readLine();
+/* line 313 COVERED, hit count: 2 */             int space=l.indexOf(' ');
+/* line 314 COVERED, hit count: 2 */             x[n+i]=Integer.parseInt(l.substring(0, space));
+/* line 315 COVERED, hit count: 2 */             y[n+i]=Integer.parseInt(l.substring(space+1, l.length()));
+/* line 316 */         }
+/* line 317 */         
+/* line 318 COVERED, hit count: 1 */         int ret=compute();
+/* line 319 COVERED, hit count: 1 */         if(ret!=-2) {
+/* line 320 COVERED, hit count: 1 */             System.out.println(ret>0? ret: "Poor Sereja!");
+/* line 321 */         }
+/* line 322 COVERED, hit count: 1 */     }
+/* line 323 */     
+/* line 324 */     public static void main(String[] args) throws IOException {
+/* line 325 COVERED, hit count: 1 */         run_stream(System.in);
+/* line 326 */         
+/* line 327 */         //run();
+/* line 328 COVERED, hit count: 1 */     }
+/* line 329 */     
+/* line 330 */     
+/* line 331 */     
+/* line 332 */     
+/* line 333 */     
+/* line 334 */     
+/* line 335 */ 
+/* line 336 */     
+/* line 337 */ //    private static void print_path() {
+/* line 338 */ //        for (int j=0; j<pathl; j++) {
+/* line 339 */ //            if (j>0) {
+/* line 340 */ //                System.out.print(":");
+/* line 341 */ //            }
+/* line 342 */ //            System.out.print(x[path[j]]+","+y[path[j]]+","+(path[j]<n? "b": "r"));
+/* line 343 */ //        }
+/* line 344 */ //        System.out.println();
+/* line 345 */ //    }
+/* line 346 */ //    
+/* line 347 */ //    static int pathl=0;
+/* line 348 */ //    static int[] path=new int[MAX];
+/* line 349 */ //    
+/* line 350 */ //    static boolean find_path(int c, int p, int to, float t) {
+/* line 351 */ //        for (int k=0; k<n+m; k++) {
+/* line 352 */ //            if(k!=p&&t(c,k)<=t) {
+/* line 353 */ //                path[pathl++]=k;
+/* line 354 */ //                if(k==to) {
+/* line 355 */ //                    return true;
+/* line 356 */ //                }
+/* line 357 */ //                if(find_path(k, c, to, t)) {
+/* line 358 */ //                    return true;
+/* line 359 */ //                }
+/* line 360 */ //                pathl--;
+/* line 361 */ //            }
+/* line 362 */ //        }
+/* line 363 */ //        return false;
+/* line 364 */ //    }
+/* line 365 */ //    
+/* line 366 */ //    static int compute() {
+/* line 367 */ //        prepare_events();
+/* line 368 */ //        
+/* line 369 */ //        for (int i=0; i<ecnt; i++) {
+/* line 370 */ //            int ei=evt[i]>>16, ej=(short)evt[i];
+/* line 371 */ //            if(p(ei)==p(ej)) { //cycle
+/* line 372 */ //                //check the cycle
+/* line 373 */ //                pathl=0;
+/* line 374 */ //                if(!find_path(ei, -1, ej, t(ei,ej))) {
+/* line 375 */ //                    throw new IllegalStateException();
+/* line 376 */ //                }
+/* line 377 */ //                
+/* line 378 */ //                float s=0;
+/* line 379 */ //                for (int j=1; j<pathl; j++) {
+/* line 380 */ //                    int k1=path[j-1], k2=path[j];
+/* line 381 */ //                    
+/* line 382 */ //                    float t=t(k1,k2);
+/* line 383 */ //                    float x0=x(k1,k2,t), y0=y(k1,k2,t);
+/* line 384 */ //                    
+/* line 385 */ //                    s+=(y0+y[k1])*(x0-x[k1]);
+/* line 386 */ //                    s+=(y[k2]+y0)*(x[k2]-x0);
+/* line 387 */ //                }
+/* line 388 */ //                float t=t(ei,ej);
+/* line 389 */ //                float x0=x(ei,ej,t), y0=y(ei,ej,t);
+/* line 390 */ //                
+/* line 391 */ //                s+=(y0+y[ej])*(x0-x[ej]);
+/* line 392 */ //                s+=(y[ei]+y0)*(x[ei]-x0);
+/* line 393 */ //                
+/* line 394 */ //                if(s!=0) {
+/* line 395 */ //                    return (int)Math.ceil(t);
+/* line 396 */ //                }
+/* line 397 */ //            } else {
+/* line 398 */ //                i2c[p(ej)]=p(ei);
+/* line 399 */ //            }
+/* line 400 */ //        }
+/* line 401 */ //        
+/* line 402 */ //        return -1;
+/* line 403 */ //    }
+/* line 404 */ //    
+/* line 405 */ //    static void run() {
+/* line 406 */ //        int _x=1000000, _y=_x;
+/* line 407 */ //        for (int i=0; i<MAX; i++) {
+/* line 408 */ //            x[i]=_x; y[i]=_y;
+/* line 409 */ //            _x--; _y--;
+/* line 410 */ //        }
+/* line 411 */ //        n=2000; m=2000;
+/* line 412 */ //        
+/* line 413 */ //        System.out.println(compute2());
+/* line 414 */ //    }
+/* line 415 */ }

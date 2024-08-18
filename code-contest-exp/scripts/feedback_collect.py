@@ -4,7 +4,7 @@ from common import Language
 from tempdir import TempDir
 import subprocess
 import shutil
-from typing import Literal, Dict
+from typing import Literal, Dict, List
 import json
 from fire import Fire
 from tqdm import tqdm
@@ -22,7 +22,9 @@ COVERAGE_HIT_COUNT_OUTPUT_DIR = (
 debug = False
 
 
-def __squeeze_time_dict(time_dict: Dict, use_max_or_avg: Literal["max", "avg"]):
+def __squeeze_time_dict(
+    time_dict: Dict[str, List[float]], use_max_or_avg: Literal["max", "avg"]
+):
     result = {}
     for input_name, time_list in time_dict.items():
         if use_max_or_avg == "max":
@@ -33,15 +35,28 @@ def __squeeze_time_dict(time_dict: Dict, use_max_or_avg: Literal["max", "avg"]):
     return result
 
 
-def __filter_input(slow_time_stat: Dict, fast_time_stat: Dict):
+def __filter_input(
+    slow_time_stat: Dict[str, float],
+    fast_time_stat: Dict[str, float],
+    only_existing_inputs=True,
+):
     """there might be some corner cases where the input is not present in both solutions"""
+    """we only include existing inputs"""
     only_in_slow = set(slow_time_stat.keys()) - set(fast_time_stat.keys())
     only_in_fast = set(fast_time_stat.keys()) - set(slow_time_stat.keys())
     if debug and only_in_slow:
         print("only in slow inputs:", only_in_slow)
     if debug and only_in_fast:
         print("only in fast inputs:", only_in_fast)
-    return {k: v for k, v in slow_time_stat.items() if k in fast_time_stat}
+    if only_existing_inputs:
+        return {
+            k: v
+            for k, v in slow_time_stat.items()
+            if k in fast_time_stat
+            and (k.startswith("public_tests_") or k.startswith("private_tests_"))
+        }
+    else:
+        return {k: v for k, v in slow_time_stat.items() if k in fast_time_stat}
 
 
 def select_most_differentiating_input(
@@ -50,6 +65,7 @@ def select_most_differentiating_input(
     slow_solution_id: str,
     use_max_or_avg: Literal["max", "avg"] = "avg",
 ) -> str:
+    # To discuss with Casper: we may need to focus on the existing inputs (not generated ones)
     data = json.loads(solutions_stat_file.read_text())
     slow_solution_stat, fast_solution_stat = (
         data[slow_solution_id],
@@ -88,6 +104,8 @@ def collect_coverage_hit_count(
         / "coverage_with_hit_count.sh"
     )
     with TempDir() as work_dir:
+        if debug:
+            work_dir = "./temp/" + str(work_dir)
         output_dir = Path(work_dir) / "output"
         output_dir.mkdir(parents=True)
         command = f"{feedback_script_file} {solution_file} {input_file} {work_dir} {output_dir}"

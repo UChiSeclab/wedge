@@ -31,7 +31,3 @@ python ${SCRIPTS_DIR}/instrument_line_profiler.py --ori_code_file_path "$wd_solu
 
 cd "$cwd"
 cp "${work_dir}/${wd_solution_file}.cov" "$output_dir"
-
-if [ "$DEBUG" != "true" ]; then
-    rm -rf "$work_dir"
-fi

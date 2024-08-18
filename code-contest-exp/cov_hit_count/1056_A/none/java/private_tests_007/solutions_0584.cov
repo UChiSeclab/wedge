@@ -1,0 +1,39 @@
+/* line 1 */ import java.util.*;
+/* line 2 NOT_COVERED */ public class DetermineLine {
+/* line 3 */ 
+/* line 4 */ 	public static void main(String[] args) {	
+/* line 5 COVERED, hit count: 1 */ 		Scanner scan = new Scanner(System.in);
+/* line 6 COVERED, hit count: 1 */ 		int n = scan.nextInt(); 
+/* line 7 COVERED, hit count: 1 */ 		int[] A = new int[10001]; 
+/* line 8 COVERED, hit count: 1 */ 		int x = 0;
+/* line 9 PARTIALLY_COVERED, hit count: 3 */ 		for(int i = 0; i < n; i++) {
+/* line 10 COVERED, hit count: 2 */ 			scan.nextLine();
+/* line 11 COVERED, hit count: 2 */ 			int m = scan.nextInt();
+/* line 12 PARTIALLY_COVERED, hit count: 6 */ 			for(int j = 0; j < m; j ++) {
+/* line 13 COVERED, hit count: 4 */ 				A[x] = scan.nextInt(); 
+/* line 14 COVERED, hit count: 4 */ 				x++;
+/* line 15 */ 			}
+/* line 16 */ 		}
+/* line 17 COVERED, hit count: 1 */ 		Arrays.sort(A);
+/* line 18 */ 	//	System.out.println(Arrays.toString(A));
+/* line 19 */  		
+/* line 20 COVERED, hit count: 1 */ 		String res = "";
+/* line 21 */ 		
+/* line 22 COVERED, hit count: 1 */ 		int y = 1; 
+/* line 23 PARTIALLY_COVERED, hit count: 10001 */ 		for(int i = 1; i < 10001; i++) {
+/* line 24 PARTIALLY_COVERED, hit count: 10000 */ 			if(A[i] != 0 && A[i] == A[i-1]) {
+/* line 25 COVERED, hit count: 1 */ 				y++; 
+/* line 26 COVERED, hit count: 1 */ 				if(y == n) {
+/* line 27 COVERED, hit count: 1 */ 					y = 0;
+/* line 28 COVERED, hit count: 1 */ 					res += A[i] + " "; 
+/* line 29 */ 				}
+/* line 30 */ 			}
+/* line 31 */ 			else {
+/* line 32 COVERED, hit count: 9999 */ 				y = 1;
+/* line 33 */ 			}
+/* line 34 */ 		}
+/* line 35 COVERED, hit count: 1 */ 		System.out.println(res);
+/* line 36 */ 		
+/* line 37 COVERED, hit count: 1 */ 	}
+/* line 38 */ 
+/* line 39 */ }

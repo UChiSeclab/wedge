@@ -55,6 +55,3 @@ ${COBERTURA_REPORT_SH} --destination . --format xml
 python ${SCRIPTS_DIR}/cov_xml_parser.py --src_file_path "$class_name.java" --jacoco_xml_path xml_report.xml --cobertura_xml_path coverage.xml --output_path "$class_name.java.cov"
 cd "$cwd"
 cp "${work_dir}/${class_name}.java.cov" "$output_dir"
-if [ "$DEBUG" != "true" ]; then
-    rm -rf "$work_dir"
-fi

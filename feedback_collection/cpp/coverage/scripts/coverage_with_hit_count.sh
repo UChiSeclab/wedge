@@ -38,6 +38,3 @@ gcovr --root . --cobertura-pretty --cobertura cobertura.xml
 python ${SCRIPTS_DIR}/cov_xml_parser.py --src_file_path "$wd_solution_file" --cobertura_xml_path cobertura.xml --output_path "$wd_solution_file.cov"
 cd "$cwd"
 cp "${work_dir}/${wd_solution_file}.cov" "$output_dir"
-if [ "$DEBUG" != "true" ]; then
-    rm -rf "$work_dir"
-fi

@@ -1,0 +1,160 @@
+/* line 1 */ /**
+/* line 2 */  * author: derrick20
+/* line 3 */  * created: 6/7/21 1:54 PM
+/* line 4 */  */
+/* line 5 */ import java.io.*;
+/* line 6 */ import java.util.*;
+/* line 7 */ import static java.lang.Math.*;
+/* line 8 */ 
+/* line 9 NOT_COVERED */ public class F_Akmar {
+/* line 10 COVERED, hit count: 1 */     static FastScanner sc = new FastScanner();
+/* line 11 COVERED, hit count: 1 */     static PrintWriter out = new PrintWriter(System.out);
+/* line 12 */     
+/* line 13 */     public static void main(String[] args) {
+/* line 14 COVERED, hit count: 1 */         int n = sc.nextInt();
+/* line 15 COVERED, hit count: 1 */         setupCombo(n);
+/* line 16 COVERED, hit count: 1 */         long ans = 0;
+/* line 17 PARTIALLY_COVERED, hit count: 17357 */         for (int k = n % 2; k <= n - k; k += 2) {
+/* line 18 COVERED, hit count: 17356 */             long waysInFront = choose(n - k, k) * fact[n - k] % mod;
+/* line 19 COVERED, hit count: 17356 */             long waysLast = choose(n - k - 1, k - 1) * fact[n - k] % mod;
+/* line 20 COVERED, hit count: 17356 */             ans = (ans + waysInFront + waysLast) % mod;
+/* line 21 */         }
+/* line 22 COVERED, hit count: 1 */         ans = 2 * ans % mod;
+/* line 23 COVERED, hit count: 1 */         out.println(ans);
+/* line 24 COVERED, hit count: 1 */         out.close();
+/* line 25 COVERED, hit count: 1 */     }
+/* line 26 */ 
+/* line 27 COVERED, hit count: 1 */     static long mod = (long) 1e9 + 7;
+/* line 28 */     static long[] fact, invFact, inv;
+/* line 29 */ 
+/* line 30 */     static void setupCombo(int MAX) {
+/* line 31 COVERED, hit count: 1 */         fact = new long[MAX + 1];
+/* line 32 COVERED, hit count: 1 */         invFact = new long[MAX + 1];
+/* line 33 COVERED, hit count: 1 */         inv = new long[MAX + 1];
+/* line 34 COVERED, hit count: 1 */         fact[0] = invFact[0] = inv[1] = 1;
+/* line 35 PARTIALLY_COVERED, hit count: 69421 */         for (int i = 1; i <= MAX; i++) {
+/* line 36 COVERED, hit count: 69420 */             fact[i] = ((long) i * fact[i - 1]) % mod;
+/* line 37 PARTIALLY_COVERED, hit count: 69420 */             if (i >= 2)
+/* line 38 COVERED, hit count: 69419 */                 inv[i] = (mod - mod / i) * inv[(int) mod % i] % mod;
+/* line 39 COVERED, hit count: 69420 */             invFact[i] = (inv[i] * invFact[i - 1]) % mod;
+/* line 40 */         }
+/* line 41 COVERED, hit count: 1 */     }
+/* line 42 */ 
+/* line 43 */     static long choose(int n, int k) {
+/* line 44 PARTIALLY_COVERED, hit count: 34712 */         if (k < 0 || (n >= 0 && k > n)) {
+/* line 45 COVERED, hit count: 1 */             return 0;
+/* line 46 COVERED, hit count: 34711 */         } else if (n >= 0) {
+/* line 47 COVERED, hit count: 34711 */             return fact[n] * invFact[n - k] % mod * invFact[k] % mod;
+/* line 48 */         } else {
+/* line 49 NOT_COVERED */             n = -n;
+/* line 50 NOT_COVERED */             long ans = fact[n + k - 1] * invFact[k] % mod * invFact[n - 1] % mod;
+/* line 51 NOT_COVERED */             return k % 2 == 0 ? ans : -ans;
+/* line 52 */         }
+/* line 53 */     }
+/* line 54 */ 
+/* line 55 */     static class FastScanner {
+/* line 56 COVERED, hit count: 1 */         private int BS = 1 << 16;
+/* line 57 COVERED, hit count: 1 */         private char NC = (char) 0;
+/* line 58 COVERED, hit count: 1 */         private byte[] buf = new byte[BS];
+/* line 59 COVERED, hit count: 1 */         private int bId = 0, size = 0;
+/* line 60 COVERED, hit count: 1 */         private char c = NC;
+/* line 61 COVERED, hit count: 1 */         private double cnt = 1;
+/* line 62 */         private BufferedInputStream in;
+/* line 63 */     
+/* line 64 COVERED, hit count: 1 */         public FastScanner() {
+/* line 65 COVERED, hit count: 1 */             in = new BufferedInputStream(System.in, BS);
+/* line 66 COVERED, hit count: 1 */         }
+/* line 67 */     
+/* line 68 NOT_COVERED */         public FastScanner(String s) {
+/* line 69 */             try {
+/* line 70 NOT_COVERED */                 in = new BufferedInputStream(new FileInputStream(new File(s)), BS);
+/* line 71 NOT_COVERED */             } catch (Exception e) {
+/* line 72 NOT_COVERED */                 in = new BufferedInputStream(System.in, BS);
+/* line 73 NOT_COVERED */             }
+/* line 74 NOT_COVERED */         }
+/* line 75 */     
+/* line 76 */         char getChar() {
+/* line 77 PARTIALLY_COVERED, hit count: 7 */             while (bId == size) {
+/* line 78 */                 try {
+/* line 79 COVERED, hit count: 1 */                     size = in.read(buf);
+/* line 80 NOT_COVERED */                 } catch (Exception e) {
+/* line 81 NOT_COVERED */                     return NC;
+/* line 82 COVERED, hit count: 1 */                 }
+/* line 83 COVERED, hit count: 1 */                 if (size == -1) return NC;
+/* line 84 COVERED, hit count: 1 */                 bId = 0;
+/* line 85 */             }
+/* line 86 COVERED, hit count: 6 */             return (char) buf[bId++];
+/* line 87 */         }
+/* line 88 */     
+/* line 89 */         int nextInt() {
+/* line 90 COVERED, hit count: 1 */             return (int) nextLong();
+/* line 91 */         }
+/* line 92 */     
+/* line 93 */         long nextLong() {
+/* line 94 COVERED, hit count: 1 */             cnt = 1;
+/* line 95 COVERED, hit count: 1 */             boolean neg = false;
+/* line 96 COVERED, hit count: 1 */             if (c == NC) c = getChar();
+/* line 97 COVERED, hit count: 1 */             for (; (c < '0' || c > '9'); c = getChar()) {
+/* line 98 NOT_COVERED */                 if (c == '-') neg = true;
+/* line 99 */             }
+/* line 100 COVERED, hit count: 1 */             long res = 0;
+/* line 101 PARTIALLY_COVERED, hit count: 11 */             for (; c >= '0' && c <= '9'; c = getChar()) {
+/* line 102 COVERED, hit count: 5 */                 res = (res << 3) + (res << 1) + c - '0';
+/* line 103 COVERED, hit count: 5 */                 cnt *= 10;
+/* line 104 */             }
+/* line 105 COVERED, hit count: 1 */             return neg ? -res : res;
+/* line 106 */         }
+/* line 107 */     
+/* line 108 */         double nextDouble() {
+/* line 109 NOT_COVERED */             boolean neg = false;
+/* line 110 NOT_COVERED */             if (c == NC) c = getChar();
+/* line 111 NOT_COVERED */             for (; (c < '0' || c > '9'); c = getChar()) {
+/* line 112 NOT_COVERED */                 if (c == '-') neg = true;
+/* line 113 */             }
+/* line 114 NOT_COVERED */             double cur = nextLong();
+/* line 115 NOT_COVERED */             if (c != '.') {
+/* line 116 NOT_COVERED */                 return neg ? -cur : cur;
+/* line 117 */             } else {
+/* line 118 NOT_COVERED */                 double frac = nextLong() / cnt;
+/* line 119 NOT_COVERED */                 return neg ? -cur - frac : cur + frac;
+/* line 120 */             }
+/* line 121 */         }
+/* line 122 */     
+/* line 123 */         String next() {
+/* line 124 NOT_COVERED */             StringBuilder res = new StringBuilder();
+/* line 125 NOT_COVERED */             while (c <= 32) c = getChar();
+/* line 126 NOT_COVERED */             while (c > 32) {
+/* line 127 NOT_COVERED */                 res.append(c);
+/* line 128 NOT_COVERED */                 c = getChar();
+/* line 129 */             }
+/* line 130 NOT_COVERED */             return res.toString();
+/* line 131 */         }
+/* line 132 */     
+/* line 133 */         String nextLine() {
+/* line 134 NOT_COVERED */             StringBuilder res = new StringBuilder();
+/* line 135 NOT_COVERED */             while (c <= 32) c = getChar();
+/* line 136 NOT_COVERED */             while (c != '\n') {
+/* line 137 NOT_COVERED */                 res.append(c);
+/* line 138 NOT_COVERED */                 c = getChar();
+/* line 139 */             }
+/* line 140 NOT_COVERED */             return res.toString();
+/* line 141 */         }
+/* line 142 */     
+/* line 143 */         boolean hasNext() {
+/* line 144 NOT_COVERED */             if (c > 32) return true;
+/* line 145 */             while (true) {
+/* line 146 NOT_COVERED */                 c = getChar();
+/* line 147 NOT_COVERED */                 if (c == NC) return false;
+/* line 148 NOT_COVERED */                 else if (c > 32) return true;
+/* line 149 */             }
+/* line 150 */         }
+/* line 151 */     }
+/* line 152 */     
+/* line 153 */     static void ASSERT(boolean assertion, String message) {
+/* line 154 NOT_COVERED */         if (!assertion) throw new AssertionError(message);
+/* line 155 NOT_COVERED */     }
+/* line 156 */     
+/* line 157 */     static void ASSERT(boolean assertion) {
+/* line 158 NOT_COVERED */         if (!assertion) throw new AssertionError();
+/* line 159 NOT_COVERED */     }
+/* line 160 */ }

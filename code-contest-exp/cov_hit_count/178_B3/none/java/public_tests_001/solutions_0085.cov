@@ -1,0 +1,134 @@
+/* line 1 */ // practice with kaiboy
+/* line 2 */ import java.io.*;
+/* line 3 */ import java.util.*;
+/* line 4 */ 
+/* line 5 */ public class CF178B3 extends PrintWriter {
+/* line 6 COVERED, hit count: 2 */ 	CF178B3() { super(System.out); }
+/* line 7 COVERED, hit count: 1 */ 	Scanner sc = new Scanner(System.in);
+/* line 8 */ 	public static void main(String[] $) {
+/* line 9 COVERED, hit count: 1 */ 		CF178B3 o = new CF178B3(); o.main(); o.flush();
+/* line 10 COVERED, hit count: 1 */ 	}
+/* line 11 */ 
+/* line 12 */ 	int[] ds;
+/* line 13 */ 	int find(int i) {
+/* line 14 PARTIALLY_COVERED, hit count: 34 */ 		return ds[i] < 0 ? i : (ds[i] = find(ds[i]));
+/* line 15 */ 	}
+/* line 16 */ 	void join(int i, int j) {
+/* line 17 COVERED, hit count: 5 */ 		i = find(i);
+/* line 18 COVERED, hit count: 5 */ 		j = find(j);
+/* line 19 PARTIALLY_COVERED, hit count: 5 */ 		if (i == j)
+/* line 20 COVERED, hit count: 2 */ 			return;
+/* line 21 COVERED, hit count: 3 */ 		if (ds[i] > ds[j])
+/* line 22 NOT_COVERED */ 			ds[i] = j;
+/* line 23 */ 		else {
+/* line 24 PARTIALLY_COVERED, hit count: 3 */ 			if (ds[i] == ds[j])
+/* line 25 COVERED, hit count: 1 */ 				ds[i]--;
+/* line 26 COVERED, hit count: 3 */ 			ds[j] = i;
+/* line 27 */ 		}
+/* line 28 COVERED, hit count: 3 */ 	}
+/* line 29 */ 
+/* line 30 */ 	int[] eo; int[][] ex;
+/* line 31 */ 	void append(int i, int x) {
+/* line 32 COVERED, hit count: 22 */ 		int o = eo[i]++;
+/* line 33 PARTIALLY_COVERED, hit count: 22 */ 		if (o >= 2 && (o & o - 1) == 0)
+/* line 34 COVERED, hit count: 3 */ 			ex[i] = Arrays.copyOf(ex[i], o << 1);
+/* line 35 COVERED, hit count: 22 */ 		ex[i][o] = x;
+/* line 36 COVERED, hit count: 22 */ 	}
+/* line 37 */ 	int[] ii, jj; boolean[] bridge;
+/* line 38 */ 	int[] ta, tb;
+/* line 39 */ 	int[] dd, pp, qq, sz;
+/* line 40 */ 	void init(int n, int m) {
+/* line 41 COVERED, hit count: 1 */ 		eo = new int[n]; ex = new int[n][2];
+/* line 42 COVERED, hit count: 1 */ 		ii = new int[m]; jj = new int[m]; bridge = new boolean[m];
+/* line 43 COVERED, hit count: 1 */ 		ta = new int[n]; tb = new int[n];
+/* line 44 COVERED, hit count: 1 */ 		ds = new int[n]; Arrays.fill(ds, -1);
+/* line 45 COVERED, hit count: 1 */ 		dd = new int[n]; pp = ta; qq = sz = tb;
+/* line 46 COVERED, hit count: 1 */ 	}
+/* line 47 */ 	void dfs(int h_, int i, int t) {
+/* line 48 COVERED, hit count: 7 */ 		ta[i] = tb[i] = t++;
+/* line 49 PARTIALLY_COVERED, hit count: 7 */ 		for (int o = eo[i]; o-- > 0; ) {
+/* line 50 COVERED, hit count: 16 */ 			int h = ex[i][o];
+/* line 51 PARTIALLY_COVERED, hit count: 16 */ 			if (h == h_)
+/* line 52 COVERED, hit count: 6 */ 				continue;
+/* line 53 COVERED, hit count: 10 */ 			int j = i ^ ii[h] ^ jj[h];
+/* line 54 PARTIALLY_COVERED, hit count: 10 */ 			if (ta[j] == 0) {
+/* line 55 COVERED, hit count: 6 */ 				dfs(h, j, t);
+/* line 56 COVERED, hit count: 6 */ 				tb[i] = Math.min(tb[i], tb[j]);
+/* line 57 */ 			} else
+/* line 58 COVERED, hit count: 4 */ 				tb[i] = Math.min(tb[i], ta[j]);
+/* line 59 COVERED, hit count: 10 */ 		}
+/* line 60 PARTIALLY_COVERED, hit count: 7 */ 		if (ta[i] == tb[i] && h_ >= 0)
+/* line 61 COVERED, hit count: 3 */ 			bridge[h_] = true;
+/* line 62 COVERED, hit count: 7 */ 	}
+/* line 63 */ 	void dfs1(int p, int i, int d) {
+/* line 64 COVERED, hit count: 4 */ 		dd[i] = d++;
+/* line 65 COVERED, hit count: 4 */ 		sz[i] = 1;
+/* line 66 PARTIALLY_COVERED, hit count: 4 */ 		for (int o = eo[i]; o-- > 0; ) {
+/* line 67 COVERED, hit count: 6 */ 			int j = ex[i][o];
+/* line 68 PARTIALLY_COVERED, hit count: 6 */ 			if (j != p) {
+/* line 69 COVERED, hit count: 3 */ 				dfs1(i, j, d);
+/* line 70 COVERED, hit count: 3 */ 				sz[i] += sz[j];
+/* line 71 */ 			}
+/* line 72 COVERED, hit count: 6 */ 		}
+/* line 73 COVERED, hit count: 4 */ 	}
+/* line 74 */ 	void dfs2(int p, int i, int q) {
+/* line 75 COVERED, hit count: 4 */ 		pp[i] = p;
+/* line 76 COVERED, hit count: 4 */ 		qq[i] = q;
+/* line 77 COVERED, hit count: 4 */ 		int j_ = -1;
+/* line 78 PARTIALLY_COVERED, hit count: 4 */ 		for (int o = eo[i]; o-- > 0; ) {
+/* line 79 COVERED, hit count: 6 */ 			int j = ex[i][o];
+/* line 80 PARTIALLY_COVERED, hit count: 6 */ 			if (j != p)
+/* line 81 PARTIALLY_COVERED, hit count: 3 */ 				if (j_ == -1 || sz[j_] < sz[j])
+/* line 82 COVERED, hit count: 3 */ 					j_ = j;
+/* line 83 COVERED, hit count: 6 */ 		}
+/* line 84 PARTIALLY_COVERED, hit count: 4 */ 		for (int o = eo[i]; o-- > 0; ) {
+/* line 85 COVERED, hit count: 6 */ 			int j = ex[i][o];
+/* line 86 PARTIALLY_COVERED, hit count: 6 */ 			if (j != p)
+/* line 87 COVERED, hit count: 3 */ 				dfs2(i, j, j == j_ ? q : j);
+/* line 88 COVERED, hit count: 6 */ 		}
+/* line 89 COVERED, hit count: 4 */ 	}
+/* line 90 */ 	int lca(int i, int j) {
+/* line 91 COVERED, hit count: 4 */ 		while (qq[i] != qq[j])
+/* line 92 NOT_COVERED */ 			if (dd[qq[i]] > dd[qq[j]])
+/* line 93 NOT_COVERED */ 				i = pp[qq[i]];
+/* line 94 */ 			else
+/* line 95 NOT_COVERED */ 				j = pp[qq[j]];
+/* line 96 PARTIALLY_COVERED, hit count: 4 */ 		return dd[i] < dd[j] ? i : j;
+/* line 97 */ 	}
+/* line 98 */ 	void main() {
+/* line 99 COVERED, hit count: 1 */ 		int n = sc.nextInt();
+/* line 100 COVERED, hit count: 1 */ 		int m = sc.nextInt();
+/* line 101 COVERED, hit count: 1 */ 		init(n, m);
+/* line 102 PARTIALLY_COVERED, hit count: 9 */ 		for (int h = 0; h < m; h++) {
+/* line 103 COVERED, hit count: 8 */ 			int i = ii[h] = sc.nextInt() - 1;
+/* line 104 COVERED, hit count: 8 */ 			int j = jj[h] = sc.nextInt() - 1;
+/* line 105 COVERED, hit count: 8 */ 			append(i, h);
+/* line 106 COVERED, hit count: 8 */ 			append(j, h);
+/* line 107 */ 		}
+/* line 108 COVERED, hit count: 1 */ 		dfs(-1, 0, 1);
+/* line 109 COVERED, hit count: 1 */ 		Arrays.fill(eo, 0);
+/* line 110 PARTIALLY_COVERED, hit count: 9 */ 		for (int h = 0; h < m; h++)
+/* line 111 PARTIALLY_COVERED, hit count: 8 */ 			if (!bridge[h])
+/* line 112 COVERED, hit count: 5 */ 				join(ii[h], jj[h]);
+/* line 113 PARTIALLY_COVERED, hit count: 9 */ 		for (int h = 0; h < m; h++)
+/* line 114 PARTIALLY_COVERED, hit count: 8 */ 			if (bridge[h]) {
+/* line 115 COVERED, hit count: 3 */ 				int i = find(ii[h]), j = find(jj[h]);
+/* line 116 COVERED, hit count: 3 */ 				append(i, j);
+/* line 117 COVERED, hit count: 3 */ 				append(j, i);
+/* line 118 */ 			}
+/* line 119 COVERED, hit count: 1 */ 		int r = 0;
+/* line 120 COVERED, hit count: 1 */ 		while (ds[r] >= 0)
+/* line 121 NOT_COVERED */ 			r++;
+/* line 122 COVERED, hit count: 1 */ 		dfs1(-1, r, 0);
+/* line 123 COVERED, hit count: 1 */ 		dfs2(-1, r, r);
+/* line 124 COVERED, hit count: 1 */ 		int q = sc.nextInt();
+/* line 125 PARTIALLY_COVERED, hit count: 5 */ 		while (q-- > 0) {
+/* line 126 COVERED, hit count: 4 */ 			int i = sc.nextInt() - 1;
+/* line 127 COVERED, hit count: 4 */ 			int j = sc.nextInt() - 1;
+/* line 128 COVERED, hit count: 4 */ 			i = find(i);
+/* line 129 COVERED, hit count: 4 */ 			j = find(j);
+/* line 130 COVERED, hit count: 4 */ 			int a = lca(i, j);
+/* line 131 COVERED, hit count: 4 */ 			println(dd[i] + dd[j] - dd[a] * 2);
+/* line 132 COVERED, hit count: 4 */ 		}
+/* line 133 COVERED, hit count: 1 */ 	}
+/* line 134 */ }
