@@ -32,6 +32,7 @@ config = {
         "273_B",
     ],
     "use_specified_problem": True,
+    "coverage_hit_count_output_dir": "cov_hit_count",
 }
 
 # Manual Test

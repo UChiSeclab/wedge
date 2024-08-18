@@ -160,13 +160,14 @@ def main(
             )
 
         # collect coverage and hit count
-        for solution_id in selected_solution_ids:
+        for solution_id in [fast_solution_id, slow_solution_id]:
             cov_hit_count_file = (
                 COVERAGE_HIT_COUNT_OUTPUT_DIR
                 / problem_id
                 / experiment_name
                 / solution_language
                 / (most_differentiating_input_file_name.split(".")[0])
+                / ("fast" if solution_id == fast_solution_id else "slow")
                 / f"{solution_id}.cov"
             )
             cov_hit_count_file.parent.mkdir(exist_ok=True, parents=True)
