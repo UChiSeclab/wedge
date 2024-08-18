@@ -12,12 +12,17 @@ find_main_class() {
         return 1
     fi
 
-    class_name=$(grep -E 'public\s+class\s+([a-zA-Z_][a-zA-Z0-9_]*)' "${file_path}" | awk '{for(i=1;i<=NF;i++){if($i=="class"){print $(i+1)}}}')
+    class_name=$(grep -E 'public\s+class\s+([a-zA-Z_][a-zA-Z0-9_]*)' "${file_path}" | awk '{for(i=1;i<=NF;i++){if($i=="class"){print $(i+1)}}}' | head -n 1 | sed 's/{//g')
 
     # Output the main class if found
     if [ -n "$class_name" ]; then
         echo "$class_name"
     else
-        echo "No main class found."
+        class_name=$(grep -E 'class\s+([a-zA-Z_][a-zA-Z0-9_]*)' "${file_path}" | awk '{for(i=1;i<=NF;i++){if($i=="class"){print $(i+1)}}}' | head -n 1 | sed 's/{//g')
+        if [ -n "$class_name" ]; then
+            echo "$class_name"
+        else
+            echo "No main class found."
+        fi
     fi
 }

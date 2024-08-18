@@ -19,7 +19,7 @@ from run import run_solution
 def get_solutions_in_language(
     problem: Dict, sol_language: Language
 ) -> Tuple[List[int], List[str]]:
-    """Selects all solutions for a given language."""
+    """Selects all solutions for a given language. Note that only correct solutions are considered."""
     solutions = [
         (idx, solution)
         for idx, (solution, language) in enumerate(
@@ -33,12 +33,39 @@ def get_solutions_in_language(
     return list(solution_idxs), list(raw_solutions)
 
 
+def __filter_solution_idx(
+    problem_id: str, language: str, result: Dict, solution_idxs: List[int]
+) -> List[int]:
+    """Filter out the solution idxs that are not in the result (corner case).\
+        Also filter out the solution idxs that are not AC."""
+    black_listed_solution_ids = [
+        "1056_A_java_0607",  # This solution's format is in a mess
+        "484_B_java_0260",  # This solution does not work with cobertura
+    ]
+
+    filtered_solution_idxs = []
+    for solution_idx in solution_idxs:
+        if f"{problem_id}_{language}_{solution_idx:04}" in black_listed_solution_ids:
+            print(f"{problem_id}_{language}_{solution_idx:04} is blacklisted")
+            continue
+        if f"solutions_{solution_idx:04}" in result:
+            if all(
+                v == "AC" for v in result[f"solutions_{solution_idx:04}"]["verdict"]
+            ):
+                filtered_solution_idxs.append(solution_idx)
+            else:
+                print(f"solutions_{solution_idx:04} is not AC")
+        else:
+            print(f"Solution {solution_idx} is not in the result")
+
+    return filtered_solution_idxs
+
+
 def select_solutions(
     problem_id: str, problem: Dict, prompt_language: Language
-) -> Tuple[List[int], List[str]]:
-    """Selects solutions for feeding to the llm."""
+) -> Tuple[List[str], List[str]]:
+    """Selects solutions for feeding to the llm. Note that only correct solutions are considered."""
     solution_idxs, raw_solutions = get_solutions_in_language(problem, prompt_language)
-    print("solution idxs:", solution_idxs)
     selected_solutions = []
     selected_solution_idxs = []
 
@@ -75,18 +102,24 @@ def select_solutions(
         alphacode_dir = Path("./results/alphacode")
         with open(alphacode_dir / f"{problem_id}.json", "r", encoding="utf-8") as file:
             result = json.load(file)
-        solution_idxs.sort(
+        filtered_solution_idxs = __filter_solution_idx(
+            problem_id, prompt_language, result, solution_idxs
+        )
+        if len(filtered_solution_idxs) < 2:
+            return selected_solution_idxs, selected_solutions
+        filtered_solution_idxs.sort(
             key=lambda idx: mean(result[f"solutions_{idx:04}"]["average_time"])
         )
-        fast_solution_id = solution_idxs[0]
-        slow_solution_id = solution_idxs[-1]
+        fast_solution_idx = filtered_solution_idxs[0]
+        slow_solution_idx = filtered_solution_idxs[-1]
         selected_solutions = [
-            problem["solutions"]["solution"][fast_solution_id],
-            problem["solutions"]["solution"][slow_solution_id],
+            problem["solutions"]["solution"][fast_solution_idx],
+            problem["solutions"]["solution"][slow_solution_idx],
         ]
-        selected_solution_idxs = [fast_solution_id, slow_solution_id]
+        selected_solution_idxs = [fast_solution_idx, slow_solution_idx]
 
-    return selected_solution_idxs, selected_solutions
+    selected_solution_ids = [f"solutions_{idx:04}" for idx in selected_solution_idxs]
+    return selected_solution_ids, selected_solutions
 
 
 def main(

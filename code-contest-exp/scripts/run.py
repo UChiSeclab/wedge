@@ -23,6 +23,7 @@ def compile_solution(language: Language, solution_dir: Path, solution_code: str)
         if not class_match:
             class_match = re.search(r"class\s+(\w+)", solution_code)
             if not class_match:
+                print("Error: No class name found in the solution.")
                 return "error"
         class_name = class_match.group(1)
         file_path = solution_dir / f"{class_name}.java"
@@ -32,6 +33,7 @@ def compile_solution(language: Language, solution_dir: Path, solution_code: str)
             ["javac", file_path], capture_output=True, check=False
         )
         if compile_process.returncode != 0:
+            print("Error: Compilation failed.")
             return "error"
         return class_name
     if language == Language.CPP:
@@ -44,6 +46,7 @@ def compile_solution(language: Language, solution_dir: Path, solution_code: str)
             check=False,
         )
         if compile_process.returncode != 0:
+            print("Error: Compilation failed.")
             return "error"
         return "solution"
     if language in [Language.PYTHON, Language.PYTHON3]:
@@ -51,6 +54,7 @@ def compile_solution(language: Language, solution_dir: Path, solution_code: str)
         with open(file_path, "w", encoding="utf-8") as file:
             file.write(solution_code)
         return "solution.py"
+    print("Error: Unsupported language.")
     return "error"
 
 
@@ -92,6 +96,7 @@ def run_solution(
         tmp_dir = Path(tmp_dir)
         executable_name = compile_solution(language, tmp_dir, solution_code)
         if executable_name == "error":
+            print("Error: Compilation failed.")
             return
 
         max_time = 0
