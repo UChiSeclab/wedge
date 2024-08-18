@@ -16,6 +16,20 @@ Slow program #1:
 
 <slow_solution>
 
+The below information may help you better understand the performance difference between the fast and slow programs:
+1. Input data: The input data that leads to significant performance differences between the fast and slow programs.
+2. Coverage and hit count: The source code with coverage and hit count of the fast and slow programs for the given input data.
+
+<input>
+
+Fast program #1 source with coverage and hit count:
+
+<fast_coverage>
+
+Slow program #1 source with coverage and hit count:
+
+<slow_coverage>
+
 Based on the above information, you will work in phases:
 
 Phase 1: Analyze the given programs.
@@ -30,7 +44,10 @@ Phase 2: Define Stress Test Specifications.
     Don't just limit the generator into generating tests that maximize input size, but suggest specific values or patterns for inputs that can stress the slow programs (e.g., sorted arrays, repeated elements, specific edge cases).
     Explain how the inputs should be designed to exploit algorithmic inefficiencies or implementation anti-patterns.
 
-Phase 3: Implement Test Generator
+Phase 3: Reason the performance difference between fast and slow programs.
+    Based on the given input and the coverage and hit count information of the fast and slow programs, reason why the input can make the slow program and fast program show significant performance differences. The insights would be helpful for the generator to create tests that stress the slow programs.
+
+Phase 4: Implement Test Generator
     Write a Python script to generate the tests described in the previous phase.
     The script should:
         -- Follow the input format specified in the problem statement.
