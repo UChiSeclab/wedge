@@ -1,0 +1,285 @@
+/* line 1 */ //package abbyy2.hard;
+/* line 2 */ import java.io.ByteArrayInputStream;
+/* line 3 */ import java.io.IOException;
+/* line 4 */ import java.io.InputStream;
+/* line 5 */ import java.io.PrintWriter;
+/* line 6 */ import java.util.Arrays;
+/* line 7 */ 
+/* line 8 COVERED, hit count: 1 */ public class BM {
+/* line 9 */ 	InputStream is;
+/* line 10 */ 	PrintWriter out;
+/* line 11 COVERED, hit count: 1 */ 	String INPUT = "";
+/* line 12 */ 	
+/* line 13 */ 	void solve()
+/* line 14 */ 	{
+/* line 15 NOT_COVERED */ 		int n = ni(), m = ni();
+/* line 16 NOT_COVERED */ 		int[] from = new int[m];
+/* line 17 NOT_COVERED */ 		int[] to = new int[m];
+/* line 18 NOT_COVERED */ 		for(int i = 0;i < m;i++){
+/* line 19 NOT_COVERED */ 			from[i] = ni()-1;
+/* line 20 NOT_COVERED */ 			to[i] = ni()-1;
+/* line 21 */ 		}
+/* line 22 NOT_COVERED */ 		int[][] g = packU(n, from, to);
+/* line 23 */ 		// 全域森の作成
+/* line 24 NOT_COVERED */ 		int[] ord = new int[n]; // preorder
+/* line 25 NOT_COVERED */ 		int[] stack = new int[n];
+/* line 26 NOT_COVERED */ 		int[] par = new int[n]; // parent
+/* line 27 NOT_COVERED */ 		int[] depth = new int[n];
+/* line 28 NOT_COVERED */ 		boolean[] ved = new boolean[n];
+/* line 29 NOT_COVERED */ 		int r = 0;
+/* line 30 NOT_COVERED */ 		for(int i = 0;i < n;i++){
+/* line 31 NOT_COVERED */ 			if(!ved[i]){
+/* line 32 NOT_COVERED */ 				stack[0] = i;
+/* line 33 NOT_COVERED */ 				par[i] = -1;
+/* line 34 NOT_COVERED */ 				ved[i] = true;
+/* line 35 NOT_COVERED */ 				int p = 1; // stack pointer
+/* line 36 NOT_COVERED */ 				while(p > 0){
+/* line 37 NOT_COVERED */ 					int cur = stack[p-1];
+/* line 38 NOT_COVERED */ 					ord[r++] = cur;
+/* line 39 NOT_COVERED */ 					p--;
+/* line 40 NOT_COVERED */ 					for(int e : g[cur]){
+/* line 41 NOT_COVERED */ 						if(!ved[e]){
+/* line 42 NOT_COVERED */ 							stack[p++] = e;
+/* line 43 NOT_COVERED */ 							depth[e] = depth[cur]+1;
+/* line 44 NOT_COVERED */ 							par[e] = cur;
+/* line 45 NOT_COVERED */ 							ved[e] = true;
+/* line 46 */ 						}
+/* line 47 */ 					}
+/* line 48 NOT_COVERED */ 				}
+/* line 49 */ 			}
+/* line 50 */ 		}
+/* line 51 */ 		
+/* line 52 NOT_COVERED */ 		int[] iord = new int[n];
+/* line 53 NOT_COVERED */ 		for(int i = 0;i < n;i++)iord[ord[i]] = i;
+/* line 54 */ 		
+/* line 55 NOT_COVERED */ 		int[] ND = new int[n];
+/* line 56 NOT_COVERED */ 		int[] L = new int[n];
+/* line 57 NOT_COVERED */ 		int[] H = new int[n];
+/* line 58 NOT_COVERED */ 		boolean[] br = new boolean[n];
+/* line 59 NOT_COVERED */ 		for(int i = n-1;i >= 0;i--){
+/* line 60 NOT_COVERED */ 			int cur = ord[i];
+/* line 61 NOT_COVERED */ 			if(par[cur] == -1)continue;
+/* line 62 NOT_COVERED */ 			int ll = i;
+/* line 63 NOT_COVERED */ 			int lh = i;
+/* line 64 NOT_COVERED */ 			int pe = -1;
+/* line 65 NOT_COVERED */ 			ND[cur]++;
+/* line 66 NOT_COVERED */ 			for(int e : g[cur]){
+/* line 67 */ 				// 最初の親はフラグを立てて脱出
+/* line 68 NOT_COVERED */ 				if(par[cur] == e && pe == -1){
+/* line 69 NOT_COVERED */ 					pe = 1;
+/* line 70 NOT_COVERED */ 					continue;
+/* line 71 */ 				}
+/* line 72 */ 				
+/* line 73 NOT_COVERED */ 				if(par[e] == cur){
+/* line 74 */ 					// 親が自分であるようなノードはL,Hを渡す
+/* line 75 NOT_COVERED */ 					ll = Math.min(ll, L[e]);
+/* line 76 NOT_COVERED */ 					lh = Math.max(lh, H[e]);
+/* line 77 */ 				}else{
+/* line 78 */ 					// 親が自分でないようなノードは自身のみ渡す
+/* line 79 NOT_COVERED */ 					ll = Math.min(ll, iord[e]);
+/* line 80 NOT_COVERED */ 					lh = Math.max(lh, iord[e]);
+/* line 81 */ 				}
+/* line 82 */ 			}
+/* line 83 NOT_COVERED */ 			L[cur] = ll;
+/* line 84 NOT_COVERED */ 			H[cur] = lh;
+/* line 85 NOT_COVERED */ 			if(L[cur] == i && H[cur] < i+ND[cur]){
+/* line 86 */ 				// 条件を満たしていたら、親ノードと結んでいる辺が橋
+/* line 87 NOT_COVERED */ 				br[cur] = true;
+/* line 88 */ 			}
+/* line 89 NOT_COVERED */ 			ND[par[cur]] += ND[cur];
+/* line 90 */ 		}
+/* line 91 */ 		
+/* line 92 NOT_COVERED */ 		int[] nbr = new int[n];
+/* line 93 NOT_COVERED */ 		for(int i = 0;i < n;i++){
+/* line 94 NOT_COVERED */ 			if(br[ord[i]])nbr[ord[i]]++;
+/* line 95 NOT_COVERED */ 			for(int e : g[ord[i]]){
+/* line 96 NOT_COVERED */ 				if(par[e] == ord[i]){
+/* line 97 NOT_COVERED */ 					nbr[e] += nbr[ord[i]];
+/* line 98 */ 				}
+/* line 99 */ 			}
+/* line 100 */ 		}
+/* line 101 */ 		
+/* line 102 NOT_COVERED */ 		int[][] sp = sparseParents(par, iord);
+/* line 103 */ 		
+/* line 104 NOT_COVERED */ 		int K = ni();
+/* line 105 NOT_COVERED */ 		for(int i = 0;i < K;i++){
+/* line 106 NOT_COVERED */ 			int f = ni()-1, t = ni()-1;
+/* line 107 NOT_COVERED */ 			int l = lca(f, t, sp, depth);
+/* line 108 NOT_COVERED */ 			out.println(nbr[f] + nbr[t] - nbr[l]*2);
+/* line 109 */ 		}
+/* line 110 NOT_COVERED */ 	}
+/* line 111 */ 	
+/* line 112 */ 	public static int lca(int a, int b, int[][] spar, int[] depth)
+/* line 113 */ 	{
+/* line 114 NOT_COVERED */ 		if(depth[a] < depth[b]){
+/* line 115 NOT_COVERED */ 			b = ancestor(b, depth[b]-depth[a], spar);
+/* line 116 NOT_COVERED */ 		}else if(depth[a] > depth[b]){
+/* line 117 NOT_COVERED */ 			a = ancestor(a, depth[a]-depth[b], spar);
+/* line 118 */ 		}
+/* line 119 */ 		
+/* line 120 NOT_COVERED */ 		int low = -1;
+/* line 121 NOT_COVERED */ 		int high = depth[a];
+/* line 122 NOT_COVERED */ 		while(high - low > 1){
+/* line 123 NOT_COVERED */ 			int x = (low + high) / 2;
+/* line 124 NOT_COVERED */ 			if(ancestor(a, x, spar) == ancestor(b, x, spar)){
+/* line 125 NOT_COVERED */ 				high = x;
+/* line 126 */ 			}else{
+/* line 127 NOT_COVERED */ 				low = x;
+/* line 128 */ 			}
+/* line 129 NOT_COVERED */ 		}
+/* line 130 NOT_COVERED */ 		return ancestor(a, high, spar);
+/* line 131 */ 	}
+/* line 132 */ 	
+/* line 133 */ 	protected static int ancestor(int a, int m, int[][] spar)
+/* line 134 */ 	{
+/* line 135 NOT_COVERED */ 		for(int i = 0;m > 0 && a != -1;m>>>=1,i++){
+/* line 136 NOT_COVERED */ 			if(m%2==1)a = spar[i][a];
+/* line 137 */ 		}
+/* line 138 NOT_COVERED */ 		return a;
+/* line 139 */ 	}
+/* line 140 */ 	
+/* line 141 */ 	/**
+/* line 142 */ 	 * 2^k個上の先祖を格納
+/* line 143 */ 	 * @param par
+/* line 144 */ 	 * @param iord
+/* line 145 */ 	 * @return
+/* line 146 */ 	 */
+/* line 147 */ 	public static int[][] sparseParents(int[] par, int[] iord)
+/* line 148 */ 	{
+/* line 149 NOT_COVERED */ 		int n = par.length;
+/* line 150 NOT_COVERED */ 		int m = Integer.numberOfTrailingZeros(Integer.highestOneBit(n-1))+1;
+/* line 151 NOT_COVERED */ 		int[][] pars = new int[m][n];
+/* line 152 NOT_COVERED */ 		pars[0] = par;
+/* line 153 NOT_COVERED */ 		for(int j = 1;j < m;j++){
+/* line 154 NOT_COVERED */ 			for(int i = n-1;i >= 0;i--){
+/* line 155 NOT_COVERED */ 				pars[j][iord[i]] = pars[j-1][iord[i]] == -1 ? -1 : pars[j-1][pars[j-1][iord[i]]];
+/* line 156 */ 			}
+/* line 157 */ 		}
+/* line 158 NOT_COVERED */ 		return pars;
+/* line 159 */ 	}
+/* line 160 */ 	
+/* line 161 */ 	public static int[][] packU(int n, int[] from, int[] to)
+/* line 162 */ 	{
+/* line 163 NOT_COVERED */ 		int[][] g = new int[n][];
+/* line 164 NOT_COVERED */ 		int[] p = new int[n];
+/* line 165 NOT_COVERED */ 		for(int f : from)p[f]++;
+/* line 166 NOT_COVERED */ 		for(int t : to)p[t]++;
+/* line 167 NOT_COVERED */ 		for(int i = 0;i < n;i++)g[i] = new int[p[i]];
+/* line 168 NOT_COVERED */ 		for(int i = 0;i < from.length;i++){
+/* line 169 NOT_COVERED */ 			g[from[i]][--p[from[i]]] = to[i];
+/* line 170 NOT_COVERED */ 			g[to[i]][--p[to[i]]] = from[i];
+/* line 171 */ 		}
+/* line 172 NOT_COVERED */ 		return g;
+/* line 173 */ 	}
+/* line 174 */ 	
+/* line 175 */ 	void run() throws Exception
+/* line 176 */ 	{
+/* line 177 COVERED, hit count: 1 */ 		is = oj ? System.in : new ByteArrayInputStream(INPUT.getBytes());
+/* line 178 COVERED, hit count: 1 */ 		out = new PrintWriter(System.out);
+/* line 179 */ 		
+/* line 180 COVERED, hit count: 1 */ 		long s = System.currentTimeMillis();
+/* line 181 NOT_COVERED */ 		solve();
+/* line 182 NOT_COVERED */ 		out.flush();
+/* line 183 NOT_COVERED */ 		tr(System.currentTimeMillis()-s+"ms");
+/* line 184 NOT_COVERED */ 	}
+/* line 185 */ 	
+/* line 186 */ 	public static void main(String[] args) throws Exception
+/* line 187 */ 	{
+/* line 188 NOT_COVERED */ 		new BM().run();
+/* line 189 NOT_COVERED */ 	}
+/* line 190 */ 	
+/* line 191 */ 	public int ni()
+/* line 192 */ 	{
+/* line 193 */ 		try {
+/* line 194 COVERED, hit count: 2 */ 			int num = 0;
+/* line 195 COVERED, hit count: 2 */ 			boolean minus = false;
+/* line 196 PARTIALLY_COVERED, hit count: 2 */ 			while((num = is.read()) != -1 && !((num >= '0' && num <= '9') || num == '-'));
+/* line 197 COVERED, hit count: 2 */ 			if(num == '-'){
+/* line 198 NOT_COVERED */ 				num = 0;
+/* line 199 NOT_COVERED */ 				minus = true;
+/* line 200 */ 			}else{
+/* line 201 COVERED, hit count: 2 */ 				num -= '0';
+/* line 202 */ 			}
+/* line 203 */ 			
+/* line 204 */ 			while(true){
+/* line 205 COVERED, hit count: 2 */ 				int b = is.read();
+/* line 206 PARTIALLY_COVERED, hit count: 2 */ 				if(b >= '0' && b <= '9'){
+/* line 207 NOT_COVERED */ 					num = num * 10 + (b - '0');
+/* line 208 */ 				}else{
+/* line 209 COVERED, hit count: 2 */ 					return minus ? -num : num;
+/* line 210 */ 				}
+/* line 211 NOT_COVERED */ 			}
+/* line 212 NOT_COVERED */ 		} catch (IOException e) {
+/* line 213 */ 		}
+/* line 214 NOT_COVERED */ 		return -1;
+/* line 215 */ 	}
+/* line 216 */ 	
+/* line 217 */ 	public long nl()
+/* line 218 */ 	{
+/* line 219 */ 		try {
+/* line 220 NOT_COVERED */ 			long num = 0;
+/* line 221 NOT_COVERED */ 			boolean minus = false;
+/* line 222 NOT_COVERED */ 			while((num = is.read()) != -1 && !((num >= '0' && num <= '9') || num == '-'));
+/* line 223 NOT_COVERED */ 			if(num == '-'){
+/* line 224 NOT_COVERED */ 				num = 0;
+/* line 225 NOT_COVERED */ 				minus = true;
+/* line 226 */ 			}else{
+/* line 227 NOT_COVERED */ 				num -= '0';
+/* line 228 */ 			}
+/* line 229 */ 			
+/* line 230 */ 			while(true){
+/* line 231 NOT_COVERED */ 				int b = is.read();
+/* line 232 NOT_COVERED */ 				if(b >= '0' && b <= '9'){
+/* line 233 NOT_COVERED */ 					num = num * 10 + (b - '0');
+/* line 234 */ 				}else{
+/* line 235 NOT_COVERED */ 					return minus ? -num : num;
+/* line 236 */ 				}
+/* line 237 NOT_COVERED */ 			}
+/* line 238 NOT_COVERED */ 		} catch (IOException e) {
+/* line 239 */ 		}
+/* line 240 NOT_COVERED */ 		return -1;
+/* line 241 */ 	}
+/* line 242 */ 	
+/* line 243 */ 	public String ns()
+/* line 244 */ 	{
+/* line 245 */ 		try{
+/* line 246 NOT_COVERED */ 			int b = 0;
+/* line 247 NOT_COVERED */ 			StringBuilder sb = new StringBuilder();
+/* line 248 NOT_COVERED */ 			while((b = is.read()) != -1 && (b == '\r' || b == '\n' || b == ' '));
+/* line 249 NOT_COVERED */ 			if(b == -1)return "";
+/* line 250 NOT_COVERED */ 			sb.append((char)b);
+/* line 251 */ 			while(true){
+/* line 252 NOT_COVERED */ 				b = is.read();
+/* line 253 NOT_COVERED */ 				if(b == -1)return sb.toString();
+/* line 254 NOT_COVERED */ 				if(b == '\r' || b == '\n' || b == ' ')return sb.toString();
+/* line 255 NOT_COVERED */ 				sb.append((char)b);
+/* line 256 */ 			}
+/* line 257 NOT_COVERED */ 		} catch (IOException e) {
+/* line 258 */ 		}
+/* line 259 NOT_COVERED */ 		return "";
+/* line 260 */ 	}
+/* line 261 */ 	
+/* line 262 */ 	public char[] ns(int n)
+/* line 263 */ 	{
+/* line 264 NOT_COVERED */ 		char[] buf = new char[n];
+/* line 265 */ 		try{
+/* line 266 NOT_COVERED */ 			int b = 0, p = 0;
+/* line 267 NOT_COVERED */ 			while((b = is.read()) != -1 && (b == ' ' || b == '\r' || b == '\n'));
+/* line 268 NOT_COVERED */ 			if(b == -1)return null;
+/* line 269 NOT_COVERED */ 			buf[p++] = (char)b;
+/* line 270 NOT_COVERED */ 			while(p < n){
+/* line 271 NOT_COVERED */ 				b = is.read();
+/* line 272 NOT_COVERED */ 				if(b == -1 || b == ' ' || b == '\r' || b == '\n')break;
+/* line 273 NOT_COVERED */ 				buf[p++] = (char)b;
+/* line 274 */ 			}
+/* line 275 NOT_COVERED */ 			return Arrays.copyOf(buf, p);
+/* line 276 NOT_COVERED */ 		} catch (IOException e) {
+/* line 277 */ 		}
+/* line 278 NOT_COVERED */ 		return null;
+/* line 279 */ 	}
+/* line 280 */ 	
+/* line 281 */ 	
+/* line 282 NOT_COVERED */ 	double nd() { return Double.parseDouble(ns()); }
+/* line 283 COVERED, hit count: 1 */ 	boolean oj = System.getProperty("ONLINE_JUDGE") != null;
+/* line 284 NOT_COVERED */ 	void tr(Object... o) { if(!oj)System.out.println(Arrays.deepToString(o)); }
+/* line 285 */ }

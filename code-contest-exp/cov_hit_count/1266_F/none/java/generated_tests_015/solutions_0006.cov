@@ -1,0 +1,175 @@
+/* line 1 */ import java.util.*;
+/* line 2 */     import java.io.*;
+/* line 3 */     public class F{
+/* line 4 */         static PrintWriter out;
+/* line 5 */         static InputReader in;
+/* line 6 */         public static void main(String args[]){
+/* line 7 COVERED, hit count: 1 */             out = new PrintWriter(System.out);
+/* line 8 COVERED, hit count: 1 */             in = new InputReader();
+/* line 9 COVERED, hit count: 1 */             new F();
+/* line 10 COVERED, hit count: 1 */             out.flush(); out.close();
+/* line 11 COVERED, hit count: 1 */         }
+/* line 12 */ //Java code   
+/* line 13 COVERED, hit count: 1 */         F(){
+/* line 14 COVERED, hit count: 1 */             solve();
+/* line 15 COVERED, hit count: 1 */         }
+/* line 16 */         class pair{
+/* line 17 */             int F, S;
+/* line 18 COVERED, hit count: 15 */             pair(int a, int b){
+/* line 19 COVERED, hit count: 15 */                 F = a; S = b;
+/* line 20 COVERED, hit count: 15 */             }
+/* line 21 */             public String toString(){
+/* line 22 NOT_COVERED */                 return "(" + F + "-" + S + ")";
+/* line 23 */             }
+/* line 24 */         }
+/* line 25 */         pair base;
+/* line 26 COVERED, hit count: 1 */         final int max = 500010;
+/* line 27 */         int n;
+/* line 28 */         int ja[][], from[], to[], c[], d[], bd[], parent[];
+/* line 29 COVERED, hit count: 1 */         ArrayList<pair> al[] = new ArrayList[max];
+/* line 30 COVERED, hit count: 1 */         int ans[] = new int[2 * max], ans2[] = new int[2 * max];
+/* line 31 */         void dfs(int u, int pa){
+/* line 32 PARTIALLY_COVERED, hit count: 22 */             for(int v : ja[u]){
+/* line 33 PARTIALLY_COVERED, hit count: 14 */                 if(v == pa)continue;
+/* line 34 COVERED, hit count: 7 */                 dfs(v, u);
+/* line 35 COVERED, hit count: 7 */                 parent[v] = u;
+/* line 36 COVERED, hit count: 7 */                 d[u] = Math.max(d[v] + 1, d[u]);
+/* line 37 */             }
+/* line 38 COVERED, hit count: 8 */         }
+/* line 39 */         void bdfs(int u, int pa){
+/* line 40 COVERED, hit count: 8 */             int max1 = bd[u], n1 = pa, max2 = 0, n2 = 0;
+/* line 41 PARTIALLY_COVERED, hit count: 22 */             for(int v : ja[u]){
+/* line 42 PARTIALLY_COVERED, hit count: 14 */                 if(v == pa)continue;
+/* line 43 COVERED, hit count: 7 */                 int val = d[v] + 1;
+/* line 44 PARTIALLY_COVERED, hit count: 7 */                 if(val > max1){
+/* line 45 COVERED, hit count: 2 */                     max2 = max1; n2 = n1;
+/* line 46 COVERED, hit count: 2 */                     max1 = val; n1 = v;
+/* line 47 PARTIALLY_COVERED, hit count: 5 */                 }else if(val > max2){
+/* line 48 COVERED, hit count: 4 */                     max2 = val; n2 = v;
+/* line 49 */                 }
+/* line 50 */             }
+/* line 51 PARTIALLY_COVERED, hit count: 22 */             for(int v : ja[u]){
+/* line 52 PARTIALLY_COVERED, hit count: 14 */                 if(v == pa)continue;
+/* line 53 PARTIALLY_COVERED, hit count: 7 */                 bd[v] = (v == n1 ? max2 : max1) + 1;
+/* line 54 COVERED, hit count: 7 */                 bdfs(v, u);
+/* line 55 */             }
+/* line 56 COVERED, hit count: 8 */         }
+/* line 57 */         ArrayList<pair> merge(ArrayList<pair> a){
+/* line 58 COVERED, hit count: 8 */             ArrayList<pair> m = new ArrayList<>();
+/* line 59 PARTIALLY_COVERED, hit count: 22 */             for(int i = 0; i < a.size(); i++){
+/* line 60 COVERED, hit count: 14 */                 pair p = a.get(i);
+/* line 61 PARTIALLY_COVERED, hit count: 14 */                 if(m.size() == 0)m.add(p);
+/* line 62 */                 else{
+/* line 63 COVERED, hit count: 6 */                     pair p1 = m.get(m.size() - 1);
+/* line 64 PARTIALLY_COVERED, hit count: 6 */                     if(p1.F == p.F)p1.S++;
+/* line 65 COVERED, hit count: 5 */                     else m.add(p);
+/* line 66 */                 }
+/* line 67 */             }
+/* line 68 COVERED, hit count: 8 */             m.add(base);
+/* line 69 COVERED, hit count: 8 */             a.clear();
+/* line 70 COVERED, hit count: 8 */             return m;
+/* line 71 */         }
+/* line 72 */         void solve(){
+/* line 73 COVERED, hit count: 1 */             base = new pair(0, 0);
+/* line 74 COVERED, hit count: 1 */             Arrays.fill(ans, 1);
+/* line 75 COVERED, hit count: 1 */             n = in.nextInt();
+/* line 76 COVERED, hit count: 1 */             ja = new int[n + 1][]; from = new int[n - 1]; to = new int[n - 1]; c = new int[n + 1];
+/* line 77 PARTIALLY_COVERED, hit count: 8 */             for(int i = 0; i < n - 1; i++){
+/* line 78 COVERED, hit count: 7 */                 int u = in.nextInt(), v = in.nextInt();
+/* line 79 COVERED, hit count: 7 */                 from[i] = u; to[i] = v; c[u]++; c[v]++;
+/* line 80 */             }
+/* line 81 PARTIALLY_COVERED, hit count: 9 */             for(int i = 1; i <= n; i++){
+/* line 82 COVERED, hit count: 8 */                 ja[i] = new int[c[i]]; c[i] = 0;
+/* line 83 */             }
+/* line 84 PARTIALLY_COVERED, hit count: 8 */             for(int i = 0; i < n - 1; i++){
+/* line 85 COVERED, hit count: 7 */                 ja[from[i]][c[from[i]]++] = to[i];
+/* line 86 COVERED, hit count: 7 */                 ja[to[i]][c[to[i]]++] = from[i];
+/* line 87 */             }
+/* line 88 COVERED, hit count: 1 */             d = new int[n + 1]; bd = new int[n + 1]; parent = new int[n + 1];
+/* line 89 COVERED, hit count: 1 */             dfs(1, 0);
+/* line 90 COVERED, hit count: 1 */             bdfs(1, 0);
+/* line 91 PARTIALLY_COVERED, hit count: 9 */             for(int nd = 1; nd <= n; nd++){
+/* line 92 COVERED, hit count: 8 */                 int u = nd;
+/* line 93 COVERED, hit count: 8 */                 al[u] = new ArrayList<>();
+/* line 94 PARTIALLY_COVERED, hit count: 22 */                 for(int v : ja[u]){
+/* line 95 PARTIALLY_COVERED, hit count: 14 */                     if(v == parent[u])al[u].add(new pair(bd[u], 1));
+/* line 96 */                     else{
+/* line 97 COVERED, hit count: 7 */                         al[u].add(new pair(d[v] + 1, 1));
+/* line 98 */                     }
+/* line 99 */                 }
+/* line 100 COVERED, hit count: 15 */                 Collections.sort(al[u], (A, B) -> B.F - A.F);
+/* line 101 COVERED, hit count: 8 */                 al[u] = merge(al[u]);
+/* line 102 */             }
+/* line 103 PARTIALLY_COVERED, hit count: 9 */             for(int nd = 1; nd <= n; nd++){
+/* line 104 COVERED, hit count: 8 */                 int u = nd;
+/* line 105 */                 //point
+/* line 106 COVERED, hit count: 8 */                 int tot = 0;
+/* line 107 PARTIALLY_COVERED, hit count: 21 */                 for(int i = 1; i < al[u].size(); i++){
+/* line 108 COVERED, hit count: 13 */                     pair p1 = al[u].get(i), p = al[u].get(i - 1);
+/* line 109 COVERED, hit count: 13 */                     tot += p.S;
+/* line 110 COVERED, hit count: 13 */                     int key = 2 * p.F;
+/* line 111 COVERED, hit count: 13 */                     ans[key] = Math.max(ans[key], tot);
+/* line 112 COVERED, hit count: 13 */                     key = 2 * p1.F + 1; 
+/* line 113 COVERED, hit count: 13 */                     ans[key] = Math.max(ans[key], tot + 1);
+/* line 114 */                 }
+/* line 115 PARTIALLY_COVERED, hit count: 22 */                 for(int v : ja[u]){
+/* line 116 PARTIALLY_COVERED, hit count: 14 */                     if(v == parent[u])continue;
+/* line 117 COVERED, hit count: 7 */                     int szu = al[u].size(), szv = al[v].size(), ptu = 0, ptv = 0;
+/* line 118 COVERED, hit count: 7 */                     boolean cu = false, cv = false;
+/* line 119 COVERED, hit count: 7 */                     tot = 0; int pr = 0;
+/* line 120 PARTIALLY_COVERED, hit count: 39 */                     while(ptu < szu && ptv < szv){
+/* line 121 COVERED, hit count: 32 */                         pair pu = al[u].get(ptu), pv = al[v].get(ptv);
+/* line 122 PARTIALLY_COVERED, hit count: 32 */                         int now = 0, vu = pu.F == d[v] + 1 ? pu.S - 1 : pu.S, vv = pv.F == bd[v] ? pv.S - 1 : pv.S, value = 0;
+/* line 123 COVERED, hit count: 32 */                         boolean can = cu & cv;
+/* line 124 PARTIALLY_COVERED, hit count: 32 */                         if(pu.F > pv.F){
+/* line 125 COVERED, hit count: 14 */                             now = pu.F; value = vu;
+/* line 126 COVERED, hit count: 14 */                             cu = true; ptu++;
+/* line 127 PARTIALLY_COVERED, hit count: 18 */                         }else if(pu.F < pv.F){
+/* line 128 COVERED, hit count: 10 */                             now = pv.F; value = vv;
+/* line 129 COVERED, hit count: 10 */                             cv = true; ptv++;
+/* line 130 */                         }else{
+/* line 131 COVERED, hit count: 8 */                             now = pu.F; value = vu + vv;
+/* line 132 COVERED, hit count: 8 */                             cu = cv = true; ptu++; ptv++;
+/* line 133 */                         }
+/* line 134 PARTIALLY_COVERED, hit count: 32 */                         if(can){
+/* line 135 COVERED, hit count: 18 */                             int key = 2 * pr;
+/* line 136 COVERED, hit count: 18 */                             ans2[key] = Math.max(ans2[key], tot);
+/* line 137 */                         }
+/* line 138 COVERED, hit count: 32 */                         tot += value; pr = now;
+/* line 139 COVERED, hit count: 32 */                     }
+/* line 140 */                 }
+/* line 141 */             }
+/* line 142 PARTIALLY_COVERED, hit count: 8 */             for(int i = n; i >= 2; i--){
+/* line 143 COVERED, hit count: 7 */                 ans[i - 1] = Math.max(ans[i - 1], ans[i]);
+/* line 144 COVERED, hit count: 7 */                 ans2[i - 2] = Math.max(ans2[i - 2], ans2[i]);
+/* line 145 */             }
+/* line 146 PARTIALLY_COVERED, hit count: 9 */             for(int i = 1; i <= n; i++){
+/* line 147 COVERED, hit count: 8 */                 out.print(Math.max(ans[i], ans2[i]) + " ");
+/* line 148 */             }
+/* line 149 COVERED, hit count: 1 */         }
+/* line 150 */         public static class InputReader{
+/* line 151 */             BufferedReader br;
+/* line 152 */             StringTokenizer st;
+/* line 153 COVERED, hit count: 1 */             InputReader(){
+/* line 154 COVERED, hit count: 1 */                 br = new BufferedReader(new InputStreamReader(System.in));
+/* line 155 COVERED, hit count: 1 */             }
+/* line 156 */             public int nextInt(){
+/* line 157 COVERED, hit count: 15 */                 return Integer.parseInt(next());
+/* line 158 */             }
+/* line 159 */             public long nextLong(){
+/* line 160 NOT_COVERED */                 return Long.parseLong(next());
+/* line 161 */             }
+/* line 162 */             public double nextDouble(){
+/* line 163 NOT_COVERED */                 return Double.parseDouble(next());
+/* line 164 */             }
+/* line 165 */             public String next(){
+/* line 166 PARTIALLY_COVERED, hit count: 23 */                 while(st == null || !st.hasMoreTokens()){
+/* line 167 */                     try{
+/* line 168 COVERED, hit count: 8 */                         st = new StringTokenizer(br.readLine());
+/* line 169 COVERED, hit count: 8 */                     }catch(IOException e){}
+/* line 170 */                 }
+/* line 171 COVERED, hit count: 15 */                 return st.nextToken();
+/* line 172 */             }
+/* line 173 */         }
+/* line 174 */     }
+/* line 175 */ 	  					  			 	    				 			 	

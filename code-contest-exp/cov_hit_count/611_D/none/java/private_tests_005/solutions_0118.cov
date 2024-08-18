@@ -1,0 +1,125 @@
+/* line 1 */ import java.io.*;
+/* line 2 */ import java.util.*;
+/* line 3 NOT_COVERED */ public final class ancient_prop
+/* line 4 */ {
+/* line 5 COVERED, hit count: 1 */     static BufferedReader br=new BufferedReader(new InputStreamReader(System.in));
+/* line 6 COVERED, hit count: 1 */ 	static FastScanner sc=new FastScanner(br);
+/* line 7 COVERED, hit count: 1 */     static PrintWriter out=new PrintWriter(System.out);
+/* line 8 COVERED, hit count: 1 */ 	static Random rnd=new Random();
+/* line 9 COVERED, hit count: 1 */ 	static int maxn=(int)(5e3)+10;
+/* line 10 COVERED, hit count: 1 */ 	static long[][] dp=new long[maxn][maxn],sum=new long[maxn][maxn];
+/* line 11 COVERED, hit count: 1 */ 	static long mod=(long)(1e9+7);
+/* line 12 COVERED, hit count: 1 */ 	static int[][] pre=new int[maxn][maxn];
+/* line 13 */ 	static char[] a;
+/* line 14 */ 	
+/* line 15 */ 	static boolean isGreater(int s1,int e1,int s2,int e2) throws Exception
+/* line 16 */ 	{
+/* line 17 NOT_COVERED */ 		if(s2==0)
+/* line 18 */ 		{
+/* line 19 NOT_COVERED */ 			return true;
+/* line 20 */ 		}
+/* line 21 */ 		
+/* line 22 NOT_COVERED */ 		if((e1-s1+1)!=(e2-s2+1))
+/* line 23 */ 		{
+/* line 24 NOT_COVERED */ 			throw new Exception("Wrong!");
+/* line 25 */ 		}
+/* line 26 */ 		
+/* line 27 NOT_COVERED */ 		int len=(e1-s1+1);
+/* line 28 */ 		
+/* line 29 NOT_COVERED */ 		int curr=pre[s2][s1];
+/* line 30 */ 		
+/* line 31 NOT_COVERED */ 		if(curr>=len)
+/* line 32 */ 		{
+/* line 33 NOT_COVERED */ 			return false;
+/* line 34 */ 		}
+/* line 35 */ 		
+/* line 36 NOT_COVERED */ 		return (a[s1-1+curr]>a[s2-1+curr]);
+/* line 37 */ 	}
+/* line 38 */ 	
+/* line 39 */     public static void main(String args[]) throws Exception
+/* line 40 */     {
+/* line 41 COVERED, hit count: 1 */ 		int n=sc.nextInt();a=sc.next().toCharArray();
+/* line 42 */ 		
+/* line 43 PARTIALLY_COVERED, hit count: 2 */ 		for(int i=n;i>=1;i--)
+/* line 44 */ 		{
+/* line 45 PARTIALLY_COVERED, hit count: 2 */ 			for(int j=n;j>=1;j--)
+/* line 46 */ 			{
+/* line 47 COVERED, hit count: 1 */ 				if(a[i-1]==a[j-1])
+/* line 48 */ 				{
+/* line 49 COVERED, hit count: 1 */ 					pre[i][j]=pre[i+1][j+1]+1;
+/* line 50 */ 				}
+/* line 51 */ 			}
+/* line 52 */ 		}
+/* line 53 */ 		
+/* line 54 */ 		
+/* line 55 */ 		// dp[i][j]=first 'i' chars, start of last part being j...
+/* line 56 */ 		
+/* line 57 COVERED, hit count: 1 */ 		dp[0][0]=sum[0][0]=1;
+/* line 58 */ 		
+/* line 59 PARTIALLY_COVERED, hit count: 2 */ 		for(int i=1;i<=n;i++)
+/* line 60 */ 		{
+/* line 61 PARTIALLY_COVERED, hit count: 2 */ 			for(int j=i;j>=1;j--)
+/* line 62 */ 			{
+/* line 63 COVERED, hit count: 1 */ 				int len=(i-j+1);
+/* line 64 */ 				
+/* line 65 COVERED, hit count: 1 */ 				if(a[j-1]=='0')
+/* line 66 */ 				{
+/* line 67 NOT_COVERED */ 					continue;
+/* line 68 */ 				}
+/* line 69 */ 				
+/* line 70 COVERED, hit count: 1 */ 				long curr=sum[j-1][j-1];
+/* line 71 */ 				
+/* line 72 COVERED, hit count: 1 */ 				if(j-1>=len)
+/* line 73 */ 				{
+/* line 74 NOT_COVERED */ 					curr=(curr-sum[j-1][j-len]+mod)%mod;
+/* line 75 */ 					
+/* line 76 NOT_COVERED */ 					if(isGreater(j,i,j-len,j-1))
+/* line 77 */ 					{
+/* line 78 NOT_COVERED */ 						curr=(curr+dp[j-1][j-len])%mod;
+/* line 79 */ 					}
+/* line 80 */ 				}
+/* line 81 */ 				
+/* line 82 COVERED, hit count: 1 */ 				dp[i][j]=curr;
+/* line 83 */ 			}
+/* line 84 */ 			
+/* line 85 PARTIALLY_COVERED, hit count: 2 */ 			for(int j=1;j<=n;j++)
+/* line 86 */ 			{
+/* line 87 COVERED, hit count: 1 */ 				sum[i][j]=(sum[i][j-1]+dp[i][j])%mod;
+/* line 88 */ 			}
+/* line 89 */ 		}
+/* line 90 */ 		
+/* line 91 COVERED, hit count: 1 */ 		out.println(sum[n][n]);out.close();
+/* line 92 COVERED, hit count: 1 */     }
+/* line 93 */ }
+/* line 94 */ class FastScanner
+/* line 95 */ {
+/* line 96 */     BufferedReader in;
+/* line 97 */     StringTokenizer st;
+/* line 98 */ 
+/* line 99 COVERED, hit count: 1 */     public FastScanner(BufferedReader in) {
+/* line 100 COVERED, hit count: 1 */         this.in = in;
+/* line 101 COVERED, hit count: 1 */     }
+/* line 102 */ 	
+/* line 103 */     public String nextToken() throws Exception {
+/* line 104 PARTIALLY_COVERED, hit count: 4 */         while (st == null || !st.hasMoreTokens()) {
+/* line 105 COVERED, hit count: 2 */             st = new StringTokenizer(in.readLine());
+/* line 106 */         }
+/* line 107 COVERED, hit count: 2 */         return st.nextToken();
+/* line 108 */     }
+/* line 109 */ 	
+/* line 110 */ 	public String next() throws Exception {
+/* line 111 COVERED, hit count: 1 */ 		return nextToken().toString();
+/* line 112 */ 	}
+/* line 113 */ 	
+/* line 114 */     public int nextInt() throws Exception {
+/* line 115 COVERED, hit count: 1 */         return Integer.parseInt(nextToken());
+/* line 116 */     }
+/* line 117 */ 
+/* line 118 */     public long nextLong() throws Exception {
+/* line 119 NOT_COVERED */         return Long.parseLong(nextToken());
+/* line 120 */     }
+/* line 121 */ 
+/* line 122 */     public double nextDouble() throws Exception {
+/* line 123 NOT_COVERED */         return Double.parseDouble(nextToken());
+/* line 124 */     }
+/* line 125 */ }

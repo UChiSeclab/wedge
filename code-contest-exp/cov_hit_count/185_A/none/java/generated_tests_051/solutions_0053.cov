@@ -1,0 +1,79 @@
+/* line 1 */ import java.io.OutputStream;
+/* line 2 */ import java.io.IOException;
+/* line 3 */ import java.io.InputStream;
+/* line 4 */ import java.io.PrintWriter;
+/* line 5 */ import java.util.Scanner;
+/* line 6 */ 
+/* line 7 */ /**
+/* line 8 */  * Built using CHelper plug-in
+/* line 9 */  * Actual solution is at the top
+/* line 10 */  */
+/* line 11 NOT_COVERED */ public class Main {
+/* line 12 */     public static void main(String[] args) {
+/* line 13 COVERED, hit count: 1 */         InputStream inputStream = System.in;
+/* line 14 COVERED, hit count: 1 */         OutputStream outputStream = System.out;
+/* line 15 COVERED, hit count: 1 */         Scanner in = new Scanner(inputStream);
+/* line 16 COVERED, hit count: 1 */         PrintWriter out = new PrintWriter(outputStream);
+/* line 17 COVERED, hit count: 1 */         TaskC solver = new TaskC();
+/* line 18 COVERED, hit count: 1 */         solver.solve(1, in, out);
+/* line 19 COVERED, hit count: 1 */         out.close();
+/* line 20 COVERED, hit count: 1 */     }
+/* line 21 */ 
+/* line 22 COVERED, hit count: 1 */     static class TaskC {
+/* line 23 COVERED, hit count: 1 */         static long MODL = 1_000_000_007L;
+/* line 24 */ 
+/* line 25 */         public void solve(int testNumber, Scanner in, PrintWriter out) {
+/* line 26 */ 
+/* line 27 COVERED, hit count: 1 */             long n = in.nextLong();
+/* line 28 */         /*
+/* line 29 */         children / 4 * 3/4*3
+/* line 30 */ 
+/* line 31 */         up = 3x+y
+/* line 32 */         down = x+3y
+/* line 33 */ 
+/* line 34 */         up + down = 4^i
+/* line 35 */         3x + y + x + 3y = 4^i
+/* line 36 */ 
+/* line 37 */ 
+/* line 38 */         total /4 *3 = up
+/* line 39 */         total /4 /4 = up
+/* line 40 */ 
+/* line 41 */         total/16*9 + total/16 = total * 10/16
+/* line 42 */ 
+/* line 43 */         4^(n/k)*k
+/* line 44 */ 
+/* line 45 */         4^10 = 16^5 = 16^(2*2)*16 = 256^2*16
+/* line 46 */         */
+/* line 47 */ 
+/* line 48 */             //x = (4^i+2^i)/2 => (2^i*2+2^i)/2 = a(a+1)/2
+/* line 49 */ 
+/* line 50 COVERED, hit count: 1 */             long a = pow(2, n);
+/* line 51 */ 
+/* line 52 */ //        System.out.printf("a=%d\n", a);
+/* line 53 */ 
+/* line 54 COVERED, hit count: 1 */             long x = a * (a + 1) / 2 % MODL;
+/* line 55 */ 
+/* line 56 COVERED, hit count: 1 */             out.print(x);
+/* line 57 COVERED, hit count: 1 */         }
+/* line 58 */ 
+/* line 59 */         static long pow(long base, long p) {
+/* line 60 */ 
+/* line 61 COVERED, hit count: 1 */             long r = 1;
+/* line 62 COVERED, hit count: 1 */             if (p == 0) return 1;
+/* line 63 */ 
+/* line 64 PARTIALLY_COVERED, hit count: 60 */             while (p > 1) {
+/* line 65 PARTIALLY_COVERED, hit count: 59 */                 if (p % 2 != 0) {
+/* line 66 COVERED, hit count: 26 */                     r = (r * base) % MODL;
+/* line 67 */                 }
+/* line 68 */ 
+/* line 69 COVERED, hit count: 59 */                 base = (base * base) % MODL;
+/* line 70 COVERED, hit count: 59 */                 p /= 2;
+/* line 71 */ //            System.out.printf("b=%d,r=%d,p=%d\n", base, r, p);
+/* line 72 */             }
+/* line 73 */ 
+/* line 74 COVERED, hit count: 1 */             return (base * r) % MODL;
+/* line 75 */         }
+/* line 76 */ 
+/* line 77 */     }
+/* line 78 */ }
+/* line 79 */ 

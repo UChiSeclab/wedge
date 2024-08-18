@@ -1,0 +1,82 @@
+/* line 1 */ 
+/* line 2 */ 
+/* line 3 */ import java.io.*;
+/* line 4 */ import java.math.*;
+/* line 5 */ import java.util.*;
+/* line 6 */ 
+/* line 7 NOT_COVERED */ public class again {
+/* line 8 */     public static void main(String[] args) throws IOException {
+/* line 9 COVERED, hit count: 1 */         FastScanner scan = new FastScanner();
+/* line 10 COVERED, hit count: 1 */         PrintWriter out = new PrintWriter(System.out);
+/* line 11 */         
+/* line 12 COVERED, hit count: 1 */         String s = scan.nextLine();
+/* line 13 */         
+/* line 14 COVERED, hit count: 1 */         out.println((s.charAt(6)-'0')%2);
+/* line 15 */         
+/* line 16 COVERED, hit count: 1 */         out.close();
+/* line 17 COVERED, hit count: 1 */     }
+/* line 18 */     
+/* line 19 */     public static void shuffle(int[] arr) {
+/* line 20 NOT_COVERED */     	Random rgen = new Random();
+/* line 21 */     	
+/* line 22 NOT_COVERED */     	for (int i = 0; i < arr.length; i++) {
+/* line 23 NOT_COVERED */     		int rPos = rgen.nextInt(arr.length);
+/* line 24 NOT_COVERED */     		int temp = arr[i];
+/* line 25 NOT_COVERED */     		arr[i] = arr[rPos];
+/* line 26 NOT_COVERED */     		arr[rPos]=temp;
+/* line 27 */     	}
+/* line 28 NOT_COVERED */     }
+/* line 29 */ 
+/* line 30 */     public static class FastScanner {
+/* line 31 */         BufferedReader br;
+/* line 32 */         StringTokenizer st;
+/* line 33 */ 
+/* line 34 NOT_COVERED */         public FastScanner(String s) {
+/* line 35 */             try {
+/* line 36 NOT_COVERED */                 br = new BufferedReader(new FileReader(s));
+/* line 37 NOT_COVERED */             } catch (FileNotFoundException e) {
+/* line 38 */                 // TODO Auto-generated catch block
+/* line 39 NOT_COVERED */                 e.printStackTrace();
+/* line 40 NOT_COVERED */             }
+/* line 41 NOT_COVERED */         }
+/* line 42 */ 
+/* line 43 COVERED, hit count: 1 */         public FastScanner() {
+/* line 44 COVERED, hit count: 1 */             br = new BufferedReader(new InputStreamReader(System.in));
+/* line 45 COVERED, hit count: 1 */         }
+/* line 46 */ 
+/* line 47 */         String nextToken() {
+/* line 48 NOT_COVERED */             while (st == null || !st.hasMoreElements()) {
+/* line 49 */                 try {
+/* line 50 NOT_COVERED */                     st = new StringTokenizer(br.readLine());
+/* line 51 NOT_COVERED */                 } catch (IOException e) {
+/* line 52 */                     // TODO Auto-generated catch block
+/* line 53 NOT_COVERED */                     e.printStackTrace();
+/* line 54 NOT_COVERED */                 }
+/* line 55 */             }
+/* line 56 NOT_COVERED */             return st.nextToken();
+/* line 57 */         }
+/* line 58 */ 
+/* line 59 */         String nextLine() {
+/* line 60 COVERED, hit count: 1 */             st = null;
+/* line 61 */             try {
+/* line 62 COVERED, hit count: 1 */                 return br.readLine();
+/* line 63 NOT_COVERED */             } catch (IOException e) {
+/* line 64 */                 // TODO Auto-generated catch block
+/* line 65 NOT_COVERED */                 e.printStackTrace();
+/* line 66 */             }
+/* line 67 NOT_COVERED */             return null;
+/* line 68 */         }
+/* line 69 */ 
+/* line 70 */         int nextInt() {
+/* line 71 NOT_COVERED */             return Integer.parseInt(nextToken());
+/* line 72 */         }
+/* line 73 */ 
+/* line 74 */         long nextLong() {
+/* line 75 NOT_COVERED */             return Long.parseLong(nextToken());
+/* line 76 */         }
+/* line 77 */ 
+/* line 78 */         double nextDouble() {
+/* line 79 NOT_COVERED */             return Double.parseDouble(nextToken());
+/* line 80 */         }
+/* line 81 */     }
+/* line 82 */ }

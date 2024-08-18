@@ -1,0 +1,339 @@
+/* line 1 */ import java.io.*;
+/* line 2 */ import java.util.StringTokenizer;
+/* line 3 */ 
+/* line 4 */ /**
+/* line 5 */  * Created by Hedin on 20-Mar-15.
+/* line 6 */  */
+/* line 7 NOT_COVERED */ public class ProblemE {
+/* line 8 */ 
+/* line 9 */     static final int MAX = 1001000;
+/* line 10 */     static final int MAX_CHAR = 26;
+/* line 11 */ 
+/* line 12 */ //    private static class IntArrayOnShorts {
+/* line 13 */ //        private short[] array;
+/* line 14 */ //
+/* line 15 */ //        private int bitsStart;
+/* line 16 */ //        private int index;
+/* line 17 */ //        private int bitsInAnother;
+/* line 18 */ //
+/* line 19 */ //        public IntArrayOnShorts(int size) {
+/* line 20 */ //            array = new short[size * 20 / 16 + 1];
+/* line 21 */ //        }
+/* line 22 */ //
+/* line 23 */ //        public void setValue(int position, int value) {
+/* line 24 */ //            bitsStart = position * 20;
+/* line 25 */ //            index = bitsStart / 16;
+/* line 26 */ //            switch (bitsStart % 16) {
+/* line 27 */ //                case 0:
+/* line 28 */ //                    array[index] = (short) (value >> 4);
+/* line 29 */ //                    array[index + 1] |= (short) (value & ~(value >> 4));
+/* line 30 */ //                    break;
+/* line 31 */ //                case 4:
+/* line 32 */ //                    array[index] |= (short) (value >> 8);
+/* line 33 */ //                    array[index + 1] |= (short) (value & ~(value >> 8));
+/* line 34 */ //                    break;
+/* line 35 */ //                case 8:
+/* line 36 */ //                    pw.println(Integer.toBinaryString(value));
+/* line 37 */ //                    pw.println(Integer.toBinaryString((short) (value >> 12)));
+/* line 38 */ //                    pw.println(Integer.toBinaryString(value & ~(value >> 12)));
+/* line 39 */ //                    array[index] |= (short) (value >> 12);
+/* line 40 */ //                    array[index + 1] |= (short) (value & ~(value >> 12));
+/* line 41 */ //                    break;
+/* line 42 */ //                case 12:
+/* line 43 */ //                    array[index] |= (short) (value >> 16);
+/* line 44 */ //                    array[index + 1] = (short) (value & ~(value >> 16));
+/* line 45 */ //                    break;
+/* line 46 */ //            }
+/* line 47 */ //        }
+/* line 48 */ //
+/* line 49 */ //        public int getValue(int position) {
+/* line 50 */ //            bitsStart = position * 20;
+/* line 51 */ //            index = bitsStart / 16;
+/* line 52 */ //            switch (bitsStart % 16) {
+/* line 53 */ //                case 0:
+/* line 54 */ //                    return (array[index] << 4) + (array[index + 1] >> 12);
+/* line 55 */ //                case 4:
+/* line 56 */ //                    return ((array[index] & ~(array[index] >> 12)) << 8) + (array[index + 1] >> 8);
+/* line 57 */ //                case 8:
+/* line 58 */ //                    return ((array[index] & ~(array[index] >> 8)) << 12) + (array[index + 1] >> 12);
+/* line 59 */ //                default:
+/* line 60 */ //                    return ((array[index] & ~(array[index] >> 4)) << 16) + (array[index + 1] >> 16);
+/* line 61 */ //            }
+/* line 62 */ //        }
+/* line 63 */ //    }
+/* line 64 */ 
+/* line 65 COVERED, hit count: 1 */     static int edgeNumberBor = 0;
+/* line 66 COVERED, hit count: 1 */     static int[] edgeBorSymbol = new int[MAX];
+/* line 67 COVERED, hit count: 1 */     static int[] edgeBorVertex = new int[MAX];
+/* line 68 COVERED, hit count: 1 */     static int[] nextEdgeBor = new int[MAX];
+/* line 69 COVERED, hit count: 1 */     static int[] firstEdgeBor = new int[MAX];
+/* line 70 */ 
+/* line 71 COVERED, hit count: 1 */     static int[] fail = new int[MAX];
+/* line 72 COVERED, hit count: 1 */     static int[] end = new int[MAX];
+/* line 73 COVERED, hit count: 1 */     static int[] wordEnd = new int[1000000];
+/* line 74 COVERED, hit count: 1 */     static boolean[] active = new boolean[100000];
+/* line 75 COVERED, hit count: 1 */     static int[] queue = new int[MAX];
+/* line 76 */ 
+/* line 77 COVERED, hit count: 1 */     static int edgeNumberEuler = 0;
+/* line 78 COVERED, hit count: 1 */     static int[] edgeEuler = new int[MAX];
+/* line 79 COVERED, hit count: 1 */     static int[] nextEdgeEuler = new int[MAX];
+/* line 80 COVERED, hit count: 1 */     static int[] firstEdgeEuler = new int[MAX];
+/* line 81 */ 
+/* line 82 COVERED, hit count: 1 */     static int treeSize = 1;
+/* line 83 COVERED, hit count: 1 */     static int[] directEncounter = new int[MAX];
+/* line 84 COVERED, hit count: 1 */     static int[] reverseEncounter = new int[MAX];
+/* line 85 */ 
+/* line 86 COVERED, hit count: 1 */     static int fenwickTree[] = new int[2097152];
+/* line 87 */ 
+/* line 88 COVERED, hit count: 1 */     static int counter = 0;
+/* line 89 COVERED, hit count: 1 */     static int fenwickRes = 0;
+/* line 90 */ 
+/* line 91 */     static void addEdgeToEulerTree(int v, int g) {
+/* line 92 COVERED, hit count: 4 */         edgeEuler[edgeNumberEuler] = g;
+/* line 93 COVERED, hit count: 4 */         nextEdgeEuler[edgeNumberEuler] = firstEdgeEuler[v];
+/* line 94 COVERED, hit count: 4 */         firstEdgeEuler[v] = edgeNumberEuler;
+/* line 95 COVERED, hit count: 4 */         edgeNumberEuler++;
+/* line 96 COVERED, hit count: 4 */     }
+/* line 97 */ 
+/* line 98 */     static void addEdgeToBor(int parent, int child, int symbol) {
+/* line 99 COVERED, hit count: 28 */         edgeBorVertex[edgeNumberBor] = child;
+/* line 100 COVERED, hit count: 28 */         edgeBorSymbol[edgeNumberBor] = symbol;
+/* line 101 COVERED, hit count: 28 */         nextEdgeBor[edgeNumberBor] = firstEdgeBor[parent];
+/* line 102 COVERED, hit count: 28 */         firstEdgeBor[parent] = edgeNumberBor;
+/* line 103 COVERED, hit count: 28 */         edgeNumberBor++;
+/* line 104 COVERED, hit count: 28 */     }
+/* line 105 */ 
+/* line 106 */     static void buildFenwickTree(int v) {
+/* line 107 COVERED, hit count: 5 */         int edgeIndex = firstEdgeEuler[v];
+/* line 108 */         int g;
+/* line 109 */ 
+/* line 110 PARTIALLY_COVERED, hit count: 9 */         while (edgeIndex != -1) {
+/* line 111 COVERED, hit count: 4 */             g = edgeEuler[edgeIndex];
+/* line 112 COVERED, hit count: 4 */             edgeIndex = nextEdgeEuler[edgeIndex];
+/* line 113 COVERED, hit count: 4 */             directEncounter[g] = treeSize;
+/* line 114 COVERED, hit count: 4 */             addToFenwickTree(treeSize++, end[g]);
+/* line 115 COVERED, hit count: 4 */             buildFenwickTree(g);
+/* line 116 COVERED, hit count: 4 */             reverseEncounter[g] = treeSize;
+/* line 117 COVERED, hit count: 4 */             addToFenwickTree(treeSize++, -end[g]);
+/* line 118 */         }
+/* line 119 COVERED, hit count: 5 */     }
+/* line 120 */ 
+/* line 121 */     public static void addToFenwickTree(int index, int value) {
+/* line 122 */ //        pw.println(value);
+/* line 123 PARTIALLY_COVERED, hit count: 297 */         for (counter = index; counter < fenwickTree.length; counter |= counter + 1) {
+/* line 124 COVERED, hit count: 283 */             fenwickTree[counter] += value;
+/* line 125 */         }
+/* line 126 COVERED, hit count: 14 */     }
+/* line 127 */ 
+/* line 128 */     public static int getSumFromFenwickTree(int index) {
+/* line 129 COVERED, hit count: 18 */         fenwickRes = 0;
+/* line 130 PARTIALLY_COVERED, hit count: 57 */         for (counter = index; counter >= 0; counter = (counter & (counter + 1)) - 1) {
+/* line 131 COVERED, hit count: 39 */             fenwickRes += fenwickTree[counter];
+/* line 132 */         }
+/* line 133 COVERED, hit count: 18 */         return fenwickRes;
+/* line 134 */     }
+/* line 135 */ 
+/* line 136 */     private static int getBorEdgeForChar(int state, int symbol) {
+/* line 137 COVERED, hit count: 211 */         int edgeIndexBor = firstEdgeBor[state];
+/* line 138 */ 
+/* line 139 PARTIALLY_COVERED, hit count: 1412 */         while (edgeIndexBor != -1) {
+/* line 140 PARTIALLY_COVERED, hit count: 1272 */             if (edgeBorSymbol[edgeIndexBor] == symbol) {
+/* line 141 COVERED, hit count: 71 */                 return edgeBorVertex[edgeIndexBor];
+/* line 142 */             }
+/* line 143 COVERED, hit count: 1201 */             edgeIndexBor = nextEdgeBor[edgeIndexBor];
+/* line 144 */         }
+/* line 145 COVERED, hit count: 140 */         return -1;
+/* line 146 */     }
+/* line 147 */ 
+/* line 148 */     static void buildAhoKorasik(int wordsNumber) {
+/* line 149 PARTIALLY_COVERED, hit count: 1001001 */         for (int i = 0; i < MAX; i++) {
+/* line 150 COVERED, hit count: 1001000 */             fail[i] = -1;
+/* line 151 COVERED, hit count: 1001000 */             firstEdgeEuler[i] = -1;
+/* line 152 COVERED, hit count: 1001000 */             firstEdgeBor[i] = -1;
+/* line 153 COVERED, hit count: 1001000 */             edgeBorSymbol[i] = -1;
+/* line 154 */         }
+/* line 155 */ 
+/* line 156 COVERED, hit count: 1 */         int states = 1;
+/* line 157 COVERED, hit count: 1 */         int currentState = 0;
+/* line 158 */         int nextState;
+/* line 159 */ 
+/* line 160 PARTIALLY_COVERED, hit count: 4 */         for (int i = 0; i < wordsNumber; i++) {
+/* line 161 COVERED, hit count: 3 */             String word = sc.next();
+/* line 162 COVERED, hit count: 3 */             currentState = 0;
+/* line 163 PARTIALLY_COVERED, hit count: 8 */             for (char c : word.toCharArray()) {
+/* line 164 COVERED, hit count: 5 */                 nextState = getBorEdgeForChar(currentState, c - 'a');
+/* line 165 PARTIALLY_COVERED, hit count: 5 */                 if (nextState == -1) {
+/* line 166 COVERED, hit count: 4 */                     addEdgeToBor(currentState, states, c - 'a');
+/* line 167 COVERED, hit count: 4 */                     currentState = states++;
+/* line 168 */                 } else {
+/* line 169 COVERED, hit count: 1 */                     currentState = nextState;
+/* line 170 */                 }
+/* line 171 */             }
+/* line 172 COVERED, hit count: 3 */             end[currentState]++;
+/* line 173 COVERED, hit count: 3 */             wordEnd[i] = currentState;
+/* line 174 COVERED, hit count: 3 */             active[i] = true;
+/* line 175 */         }
+/* line 176 */ 
+/* line 177 PARTIALLY_COVERED, hit count: 27 */         for (int c = 0; c < MAX_CHAR; c++) {
+/* line 178 PARTIALLY_COVERED, hit count: 26 */             if (getBorEdgeForChar(0, c) == -1) {
+/* line 179 COVERED, hit count: 24 */                 addEdgeToBor(0, 0, c);
+/* line 180 */             }
+/* line 181 */         }
+/* line 182 */ 
+/* line 183 COVERED, hit count: 1 */         int queuePointer = 0;
+/* line 184 COVERED, hit count: 1 */         int queueEnd = 0;
+/* line 185 */         int childState;
+/* line 186 */ 
+/* line 187 PARTIALLY_COVERED, hit count: 27 */         for (int c = 0; c < MAX_CHAR; c++) {
+/* line 188 COVERED, hit count: 26 */             childState = getBorEdgeForChar(0, c);
+/* line 189 PARTIALLY_COVERED, hit count: 26 */             if (childState != -1 && childState != 0) {
+/* line 190 COVERED, hit count: 2 */                 fail[childState] = 0;
+/* line 191 COVERED, hit count: 2 */                 addEdgeToEulerTree(0, childState);
+/* line 192 COVERED, hit count: 2 */                 queue[queueEnd++] = childState;
+/* line 193 */             }
+/* line 194 */         }
+/* line 195 */ 
+/* line 196 PARTIALLY_COVERED, hit count: 5 */         while (queuePointer != queueEnd) {
+/* line 197 COVERED, hit count: 4 */             int state = queue[queuePointer++];
+/* line 198 PARTIALLY_COVERED, hit count: 108 */             for (int c = 0; c < MAX_CHAR; c++) {
+/* line 199 COVERED, hit count: 104 */                 childState = getBorEdgeForChar(state, c);
+/* line 200 PARTIALLY_COVERED, hit count: 104 */                 if (childState != -1) {
+/* line 201 COVERED, hit count: 2 */                     int failure = fail[state];
+/* line 202 COVERED, hit count: 2 */                     while (getBorEdgeForChar(failure, c) == -1) {
+/* line 203 NOT_COVERED */                         failure = fail[failure];
+/* line 204 */                     }
+/* line 205 COVERED, hit count: 2 */                     failure = getBorEdgeForChar(failure, c);
+/* line 206 COVERED, hit count: 2 */                     fail[childState] = failure;
+/* line 207 COVERED, hit count: 2 */                     addEdgeToEulerTree(failure, childState);
+/* line 208 COVERED, hit count: 2 */                     queue[queueEnd++] = childState;
+/* line 209 */                 }
+/* line 210 */             }
+/* line 211 COVERED, hit count: 4 */         }
+/* line 212 */ 
+/* line 213 COVERED, hit count: 1 */         queue = null;
+/* line 214 COVERED, hit count: 1 */         System.gc();
+/* line 215 COVERED, hit count: 1 */     }
+/* line 216 */ 
+/* line 217 */     private static int getNextState(int currentState, char nextInput) {
+/* line 218 COVERED, hit count: 18 */         int answer = currentState;
+/* line 219 COVERED, hit count: 18 */         int c = nextInput - 'a';
+/* line 220 PARTIALLY_COVERED, hit count: 28 */         while (getBorEdgeForChar(answer, c) == -1) {
+/* line 221 COVERED, hit count: 10 */             answer = fail[answer];
+/* line 222 */         }
+/* line 223 */ 
+/* line 224 COVERED, hit count: 18 */         return getBorEdgeForChar(answer, c);
+/* line 225 */     }
+/* line 226 */ 
+/* line 227 */     private static void addMember(int index) {
+/* line 228 COVERED, hit count: 1 */         if (active[index]) {
+/* line 229 NOT_COVERED */             return;
+/* line 230 */         }
+/* line 231 COVERED, hit count: 1 */         active[index] = true;
+/* line 232 COVERED, hit count: 1 */         end[wordEnd[index]]++;
+/* line 233 COVERED, hit count: 1 */         addToFenwickTree(directEncounter[wordEnd[index]], 1);
+/* line 234 COVERED, hit count: 1 */         addToFenwickTree(reverseEncounter[wordEnd[index]], -1);
+/* line 235 COVERED, hit count: 1 */     }
+/* line 236 */ 
+/* line 237 */     private static void removeMember(int index) {
+/* line 238 COVERED, hit count: 2 */         if (!active[index]) {
+/* line 239 NOT_COVERED */             return;
+/* line 240 */         }
+/* line 241 COVERED, hit count: 2 */         active[index] = false;
+/* line 242 COVERED, hit count: 2 */         end[wordEnd[index]]--;
+/* line 243 COVERED, hit count: 2 */         addToFenwickTree(directEncounter[wordEnd[index]], -1);
+/* line 244 COVERED, hit count: 2 */         addToFenwickTree(reverseEncounter[wordEnd[index]], 1);
+/* line 245 COVERED, hit count: 2 */     }
+/* line 246 */ 
+/* line 247 */     private static void solve() {
+/* line 248 COVERED, hit count: 1 */         int n = sc.nextInt();
+/* line 249 COVERED, hit count: 1 */         int k = sc.nextInt();
+/* line 250 COVERED, hit count: 1 */         buildAhoKorasik(k);
+/* line 251 COVERED, hit count: 1 */         buildFenwickTree(0);
+/* line 252 COVERED, hit count: 1 */         pw.flush();
+/* line 253 PARTIALLY_COVERED, hit count: 8 */         for (int i = 0; i < n; i++) {
+/* line 254 COVERED, hit count: 7 */             String query = sc.next();
+/* line 255 PARTIALLY_COVERED, hit count: 7 */             if (query.startsWith("+")) {
+/* line 256 COVERED, hit count: 1 */                 addMember(Integer.parseInt(query.substring(1)) - 1);
+/* line 257 PARTIALLY_COVERED, hit count: 6 */             } else if (query.startsWith("-")) {
+/* line 258 COVERED, hit count: 2 */                 removeMember(Integer.parseInt(query.substring(1)) - 1);
+/* line 259 */             } else {
+/* line 260 COVERED, hit count: 4 */                 int currentState = 0;
+/* line 261 COVERED, hit count: 4 */                 int res = 0;
+/* line 262 PARTIALLY_COVERED, hit count: 22 */                 for (char c : query.substring(1).toCharArray()) {
+/* line 263 COVERED, hit count: 18 */                     currentState = getNextState(currentState, c);
+/* line 264 COVERED, hit count: 18 */                     res += getSumFromFenwickTree(directEncounter[currentState]);
+/* line 265 */                 }
+/* line 266 COVERED, hit count: 4 */                 pw.println(res);
+/* line 267 */             }
+/* line 268 */         }
+/* line 269 COVERED, hit count: 1 */     }
+/* line 270 */ 
+/* line 271 */     static ContestScanner sc;
+/* line 272 */     static PrintWriter pw;
+/* line 273 */ 
+/* line 274 */     public static void main(String[] args) {
+/* line 275 COVERED, hit count: 1 */         sc = new ContestScanner(System.in);
+/* line 276 COVERED, hit count: 1 */         pw = new PrintWriter(System.out);
+/* line 277 */ 
+/* line 278 COVERED, hit count: 1 */         solve();
+/* line 279 */ 
+/* line 280 COVERED, hit count: 1 */         sc.close();
+/* line 281 COVERED, hit count: 1 */         pw.flush();
+/* line 282 COVERED, hit count: 1 */         pw.close();
+/* line 283 COVERED, hit count: 1 */     }
+/* line 284 */ 
+/* line 285 */     static class ContestScanner {
+/* line 286 */         BufferedReader reader;
+/* line 287 */         StringTokenizer tokenizer;
+/* line 288 */ 
+/* line 289 COVERED, hit count: 1 */         public ContestScanner(InputStream stream) {
+/* line 290 COVERED, hit count: 1 */             reader = new BufferedReader(new InputStreamReader(stream));
+/* line 291 COVERED, hit count: 1 */         }
+/* line 292 */ 
+/* line 293 */         public void close() {
+/* line 294 */             try {
+/* line 295 COVERED, hit count: 1 */                 reader.close();
+/* line 296 COVERED, hit count: 1 */             } catch (IOException ignored) {}
+/* line 297 COVERED, hit count: 1 */         }
+/* line 298 */ 
+/* line 299 */         String next() {
+/* line 300 PARTIALLY_COVERED, hit count: 23 */             while (tokenizer == null || !tokenizer.hasMoreTokens()) {
+/* line 301 COVERED, hit count: 11 */                 String s = null;
+/* line 302 */                 try {
+/* line 303 COVERED, hit count: 11 */                     s = reader.readLine();
+/* line 304 COVERED, hit count: 11 */                 } catch (IOException ignored) {}
+/* line 305 COVERED, hit count: 11 */                 if (s == null) {
+/* line 306 NOT_COVERED */                     return null;
+/* line 307 */                 }
+/* line 308 COVERED, hit count: 11 */                 tokenizer = new StringTokenizer(s);
+/* line 309 COVERED, hit count: 11 */             }
+/* line 310 COVERED, hit count: 12 */             return tokenizer.nextToken();
+/* line 311 */         }
+/* line 312 */ 
+/* line 313 */         boolean hasMoreTokens() {
+/* line 314 NOT_COVERED */             while (tokenizer == null || !tokenizer.hasMoreTokens()) {
+/* line 315 NOT_COVERED */                 String s = null;
+/* line 316 */                 try {
+/* line 317 NOT_COVERED */                     s = reader.readLine();
+/* line 318 NOT_COVERED */                 } catch (IOException ignored) {}
+/* line 319 NOT_COVERED */                 if (s == null) {
+/* line 320 NOT_COVERED */                     return false;
+/* line 321 */                 }
+/* line 322 NOT_COVERED */                 tokenizer = new StringTokenizer(s);
+/* line 323 NOT_COVERED */             }
+/* line 324 NOT_COVERED */             return true;
+/* line 325 */         }
+/* line 326 */ 
+/* line 327 */         int nextInt() {
+/* line 328 COVERED, hit count: 2 */             return Integer.parseInt(next());
+/* line 329 */         }
+/* line 330 */ 
+/* line 331 */         long nextLong() {
+/* line 332 NOT_COVERED */             return Long.parseLong(next());
+/* line 333 */         }
+/* line 334 */ 
+/* line 335 */         double nextDouble() {
+/* line 336 NOT_COVERED */             return Double.parseDouble(next());
+/* line 337 */         }
+/* line 338 */     }
+/* line 339 */ }

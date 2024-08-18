@@ -1,0 +1,55 @@
+/* line 1 */ import java.io.OutputStream;
+/* line 2 */ import java.io.IOException;
+/* line 3 */ import java.io.InputStream;
+/* line 4 */ import java.io.PrintWriter;
+/* line 5 */ import java.util.Scanner;
+/* line 6 */ 
+/* line 7 NOT_COVERED */ public class Main {
+/* line 8 */     public static void main(String[] args) {
+/* line 9 COVERED, hit count: 1 */         InputStream inputStream = System.in;
+/* line 10 COVERED, hit count: 1 */         OutputStream outputStream = System.out;
+/* line 11 COVERED, hit count: 1 */         Scanner in = new Scanner(inputStream);
+/* line 12 COVERED, hit count: 1 */         PrintWriter out = new PrintWriter(outputStream);
+/* line 13 COVERED, hit count: 1 */         TaskC solver = new TaskC();
+/* line 14 COVERED, hit count: 1 */         solver.solve(1, in, out);
+/* line 15 COVERED, hit count: 1 */         out.close();
+/* line 16 COVERED, hit count: 1 */     }
+/* line 17 */ 
+/* line 18 COVERED, hit count: 1 */     static class TaskC {
+/* line 19 COVERED, hit count: 1 */         static long MOD = (long) 1e9 + 7;
+/* line 20 */         static long[] fac;
+/* line 21 */         static long[] ifac;
+/* line 22 */         static long[] inv;
+/* line 23 */ 
+/* line 24 */         static {
+/* line 25 COVERED, hit count: 1 */             int N = (int) 1e6;
+/* line 26 COVERED, hit count: 1 */             inv = new long[N + 1];
+/* line 27 COVERED, hit count: 1 */             fac = new long[N + 1];
+/* line 28 COVERED, hit count: 1 */             ifac = new long[N + 1];
+/* line 29 COVERED, hit count: 1 */             inv[1] = 1;
+/* line 30 PARTIALLY_COVERED, hit count: 1000000 */             for (int i = 2; i <= N; ++i) {
+/* line 31 COVERED, hit count: 999999 */                 inv[i] = inv[(int) MOD % i] * (-MOD / i + MOD) % MOD;
+/* line 32 */             }
+/* line 33 COVERED, hit count: 1 */             fac[0] = ifac[0] = 1;
+/* line 34 PARTIALLY_COVERED, hit count: 1000001 */             for (int i = 1; i <= N; ++i) {
+/* line 35 COVERED, hit count: 1000000 */                 fac[i] = fac[i - 1] * i % MOD;
+/* line 36 COVERED, hit count: 1000000 */                 ifac[i] = ifac[i - 1] * inv[i] % MOD;
+/* line 37 */             }
+/* line 38 COVERED, hit count: 1 */         }
+/* line 39 */ 
+/* line 40 */         public void solve(int testNumber, Scanner in, PrintWriter out) {
+/* line 41 COVERED, hit count: 1 */             int n = in.nextInt(), k = in.nextInt();
+/* line 42 COVERED, hit count: 1 */             long ans = 0;
+/* line 43 COVERED, hit count: 1 */             long[] a = new long[n + 1];
+/* line 44 COVERED, hit count: 1 */             long[] s = new long[n + 1];
+/* line 45 PARTIALLY_COVERED, hit count: 500001 */             for (int i = k + 1; i <= n; i++) {
+/* line 46 COVERED, hit count: 500000 */                 a[i] = (s[i - 1] - s[i - k - 1] + i - k - 1 + MOD) * inv[i - 1] % MOD;
+/* line 47 COVERED, hit count: 500000 */                 s[i] = (s[i - 1] + a[i]) % MOD;
+/* line 48 COVERED, hit count: 500000 */                 ans = (ans + a[i] * inv[i]) % MOD;
+/* line 49 */             }
+/* line 50 COVERED, hit count: 1 */             out.print(fac[n - 1] * s[n] % MOD);
+/* line 51 COVERED, hit count: 1 */         }
+/* line 52 */ 
+/* line 53 */     }
+/* line 54 */ }
+/* line 55 */ 

@@ -1,0 +1,258 @@
+/* line 1 */ import java.io.*;
+/* line 2 */ import java.util.*;
+/* line 3 */ 
+/* line 4 NOT_COVERED */ public class gym{
+/* line 5 */ 	// O(E * MaxFlow * log(V))
+/* line 6 */ 	static class Edge {
+/* line 7 */ 		int to, f, cap, cost, rev;
+/* line 8 */ 	
+/* line 9 COVERED, hit count: 7480 */ 		Edge(int to, int cap, int cost, int rev) {
+/* line 10 COVERED, hit count: 7480 */ 		        this.to = to;
+/* line 11 COVERED, hit count: 7480 */ 		        this.cap = cap;
+/* line 12 COVERED, hit count: 7480 */ 		        this.cost = cost;
+/* line 13 COVERED, hit count: 7480 */ 		        this.rev = rev;
+/* line 14 COVERED, hit count: 7480 */ 		}
+/* line 15 */ 	}
+/* line 16 */ 
+/* line 17 */ 	public static void addEdge(List<Edge>[] graph, int s, int t, int cap, int cost) {
+/* line 18 COVERED, hit count: 3740 */ 	        graph[s].add(new Edge(t, cap, cost, graph[t].size()));
+/* line 19 COVERED, hit count: 3740 */ 	        graph[t].add(new Edge(s, 0, -cost, graph[s].size() - 1));
+/* line 20 COVERED, hit count: 3740 */ 	}
+/* line 21 */ 
+/* line 22 */ 	static void bellmanFord(List<Edge>[] graph, int s, int[] dist) {
+/* line 23 COVERED, hit count: 1 */ 	        int n = graph.length;
+/* line 24 COVERED, hit count: 1 */ 	        Arrays.fill(dist, Integer.MAX_VALUE);
+/* line 25 COVERED, hit count: 1 */ 	        dist[s] = 0;
+/* line 26 COVERED, hit count: 1 */ 	        boolean[] inqueue = new boolean[n];
+/* line 27 COVERED, hit count: 1 */ 	        int[] q = new int[n];
+/* line 28 COVERED, hit count: 1 */ 	        int qt = 0;
+/* line 29 COVERED, hit count: 1 */ 	        q[qt++] = s;
+/* line 30 PARTIALLY_COVERED, hit count: 98 */ 	        for (int qh = 0; (qh - qt) % n != 0; qh++) {
+/* line 31 COVERED, hit count: 97 */ 	                int u = q[qh % n];
+/* line 32 COVERED, hit count: 97 */ 	                inqueue[u] = false;
+/* line 33 PARTIALLY_COVERED, hit count: 7574 */ 	                for (int i = 0; i < graph[u].size(); i++) {
+/* line 34 COVERED, hit count: 7477 */ 	                        Edge e = graph[u].get(i);
+/* line 35 PARTIALLY_COVERED, hit count: 7477 */ 	                        if (e.cap <= e.f)
+/* line 36 COVERED, hit count: 3740 */ 	                                continue;
+/* line 37 COVERED, hit count: 3737 */ 	                        int v = e.to;
+/* line 38 COVERED, hit count: 3737 */ 	                        int ndist = dist[u] + e.cost;
+/* line 39 PARTIALLY_COVERED, hit count: 3737 */ 	                        if (dist[v] > ndist) {
+/* line 40 COVERED, hit count: 96 */ 	                                dist[v] = ndist;
+/* line 41 COVERED, hit count: 96 */ 	                                if (!inqueue[v]) {
+/* line 42 COVERED, hit count: 96 */ 	                                        inqueue[v] = true;
+/* line 43 COVERED, hit count: 96 */ 	                                        q[qt++ % n] = v;
+/* line 44 */ 	                                }
+/* line 45 */ 	                        }
+/* line 46 */ 	                }
+/* line 47 */ 	        }
+/* line 48 COVERED, hit count: 1 */ 	}
+/* line 49 */ 
+/* line 50 */ 	public static long[] minCostFlow(List<Edge>[] graph, int s, int t, int maxf) {
+/* line 51 COVERED, hit count: 1 */ 	        int n = graph.length;
+/* line 52 COVERED, hit count: 1 */ 	        int[] prio = new int[n];
+/* line 53 COVERED, hit count: 1 */ 	        int[] curflow = new int[n];
+/* line 54 COVERED, hit count: 1 */ 	        int[] prevedge = new int[n];
+/* line 55 COVERED, hit count: 1 */ 	        int[] prevnode = new int[n];
+/* line 56 COVERED, hit count: 1 */ 	        int[] pot = new int[n];
+/* line 57 */ 
+/* line 58 COVERED, hit count: 1 */ 	        bellmanFord(graph, s, pot); // bellmanFord invocation can be skipped if edges costs are non-negative
+/* line 59 COVERED, hit count: 1 */ 	        long flow = 0;
+/* line 60 COVERED, hit count: 1 */ 	        long flowCost = 0;
+/* line 61 COVERED, hit count: 47 */ 	        while (flow < maxf) {
+/* line 62 COVERED, hit count: 47 */ 	                PriorityQueue<Long> q = new PriorityQueue<>();
+/* line 63 COVERED, hit count: 47 */ 	                q.add((long) s);
+/* line 64 COVERED, hit count: 47 */ 	                Arrays.fill(prio, Integer.MAX_VALUE);
+/* line 65 COVERED, hit count: 47 */ 	                prio[s] = 0;
+/* line 66 COVERED, hit count: 47 */ 	                boolean[] finished = new boolean[n];
+/* line 67 COVERED, hit count: 47 */ 	                curflow[s] = Integer.MAX_VALUE;
+/* line 68 PARTIALLY_COVERED, hit count: 4527 */ 	                while (!finished[t] && !q.isEmpty()) {
+/* line 69 COVERED, hit count: 4480 */ 	                        long cur = q.remove();
+/* line 70 COVERED, hit count: 4480 */ 	                        int u = (int) (cur & 0xFFFF_FFFFL);
+/* line 71 COVERED, hit count: 4480 */ 	                        int priou = (int) (cur >>> 32);
+/* line 72 PARTIALLY_COVERED, hit count: 4480 */ 	                        if (priou != prio[u])
+/* line 73 COVERED, hit count: 156 */ 	                                continue;
+/* line 74 COVERED, hit count: 4324 */ 	                        finished[u] = true;
+/* line 75 PARTIALLY_COVERED, hit count: 350156 */ 	                        for (int i = 0; i < graph[u].size(); i++) {
+/* line 76 COVERED, hit count: 345832 */ 	                                Edge e = graph[u].get(i);
+/* line 77 PARTIALLY_COVERED, hit count: 345832 */ 	                                if (e.f >= e.cap)
+/* line 78 COVERED, hit count: 172501 */ 	                                        continue;
+/* line 79 COVERED, hit count: 173331 */ 	                                int v = e.to;
+/* line 80 COVERED, hit count: 173331 */ 	                                int nprio = prio[u] + e.cost + pot[u] - pot[v];
+/* line 81 PARTIALLY_COVERED, hit count: 173331 */ 	                                if (prio[v] > nprio) {
+/* line 82 COVERED, hit count: 5534 */ 	                                        prio[v] = nprio;
+/* line 83 COVERED, hit count: 5534 */ 	                                        q.add(((long) nprio << 32) + v);
+/* line 84 COVERED, hit count: 5534 */ 	                                        prevnode[v] = u;
+/* line 85 COVERED, hit count: 5534 */ 	                                        prevedge[v] = i;
+/* line 86 COVERED, hit count: 5534 */ 	                                        curflow[v] = Math.min(curflow[u], e.cap - e.f);
+/* line 87 */ 	                                }
+/* line 88 */ 	                        }
+/* line 89 COVERED, hit count: 4324 */ 	                }
+/* line 90 PARTIALLY_COVERED, hit count: 47 */ 	                if (prio[t] == Integer.MAX_VALUE)
+/* line 91 COVERED, hit count: 1 */ 	                        break;
+/* line 92 PARTIALLY_COVERED, hit count: 4738 */ 	                for (int i = 0; i < n; i++)
+/* line 93 PARTIALLY_COVERED, hit count: 4692 */ 	                        if (finished[i])
+/* line 94 COVERED, hit count: 4228 */ 	                                pot[i] += prio[i] - prio[t];
+/* line 95 COVERED, hit count: 46 */ 	                int df = Math.min(curflow[t], maxf - (int)flow);
+/* line 96 COVERED, hit count: 46 */ 	                flow += df;
+/* line 97 PARTIALLY_COVERED, hit count: 186 */ 	                for (int v = t; v != s; v = prevnode[v]) {
+/* line 98 COVERED, hit count: 140 */ 	                        Edge e = graph[prevnode[v]].get(prevedge[v]);
+/* line 99 COVERED, hit count: 140 */ 	                        e.f += df;
+/* line 100 COVERED, hit count: 140 */ 	                        graph[v].get(e.rev).f -= df;
+/* line 101 COVERED, hit count: 140 */ 	                        flowCost += (long)df * e.cost;
+/* line 102 */ 	                }
+/* line 103 COVERED, hit count: 46 */ 	        }
+/* line 104 COVERED, hit count: 1 */ 	        return new long[] {flow,flowCost};
+/* line 105 */ 	}
+/* line 106 */ 	static void main() throws Exception{
+/* line 107 COVERED, hit count: 1 */ 		int n=sc.nextInt(),q=sc.nextInt();
+/* line 108 COVERED, hit count: 1 */ 		boolean[][]can=new boolean[n][n];
+/* line 109 PARTIALLY_COVERED, hit count: 50 */ 		for(int i=0;i<n;i++) {
+/* line 110 PARTIALLY_COVERED, hit count: 49 */ 			for(int j=0;j<n;j++)can[i][j]=true;
+/* line 111 */ 		}
+/* line 112 PARTIALLY_COVERED, hit count: 8 */ 		while(q-->0) {
+/* line 113 PARTIALLY_COVERED, hit count: 7 */ 			if(sc.nextInt()==1) {
+/* line 114 COVERED, hit count: 4 */ 				int l=sc.nextInt()-1,r=sc.nextInt()-1,v=sc.nextInt()-1;
+/* line 115 PARTIALLY_COVERED, hit count: 63 */ 				for(int i=l;i<=r;i++) {
+/* line 116 PARTIALLY_COVERED, hit count: 817 */ 					for(int j=0;j<v;j++) {
+/* line 117 COVERED, hit count: 758 */ 						can[i][j]=false;
+/* line 118 */ 					}
+/* line 119 */ 				}
+/* line 120 COVERED, hit count: 4 */ 			}
+/* line 121 */ 			else {
+/* line 122 COVERED, hit count: 3 */ 				int l=sc.nextInt()-1,r=sc.nextInt()-1,v=sc.nextInt()-1;
+/* line 123 PARTIALLY_COVERED, hit count: 68 */ 				for(int i=l;i<=r;i++) {
+/* line 124 PARTIALLY_COVERED, hit count: 671 */ 					for(int j=v+1;j<n;j++) {
+/* line 125 COVERED, hit count: 606 */ 						can[i][j]=false;
+/* line 126 */ 					}
+/* line 127 */ 				}
+/* line 128 COVERED, hit count: 3 */ 			}
+/* line 129 */ 		}
+/* line 130 COVERED, hit count: 1 */ 		int V=2+n<<1;
+/* line 131 COVERED, hit count: 1 */ 		int s=V-2,t=V-1;
+/* line 132 COVERED, hit count: 1 */ 		List<Edge>[] graph=new LinkedList[V];
+/* line 133 PARTIALLY_COVERED, hit count: 103 */ 		for(int i=0;i<V;i++) {
+/* line 134 COVERED, hit count: 102 */ 			graph[i]=new LinkedList<Edge>();
+/* line 135 */ 		}
+/* line 136 PARTIALLY_COVERED, hit count: 50 */ 		for(int val=0;val<n;val++) {
+/* line 137 PARTIALLY_COVERED, hit count: 2450 */ 			for(int edge=0;edge<n;edge++) {
+/* line 138 COVERED, hit count: 2401 */ 				addEdge(graph, s, val, 1, edge<<1|1);
+/* line 139 */ 			}
+/* line 140 */ 		}
+/* line 141 PARTIALLY_COVERED, hit count: 50 */ 		for(int idx=0;idx<n;idx++) {
+/* line 142 COVERED, hit count: 49 */ 			addEdge(graph, idx+n, t, 1, 0);
+/* line 143 */ 		}
+/* line 144 PARTIALLY_COVERED, hit count: 50 */ 		for(int idx=0;idx<n;idx++) {
+/* line 145 PARTIALLY_COVERED, hit count: 2450 */ 			for(int val=0;val<n;val++) {
+/* line 146 PARTIALLY_COVERED, hit count: 2401 */ 				if(can[idx][val]) {
+/* line 147 COVERED, hit count: 1290 */ 					addEdge(graph, val, idx+n, 1, 0);
+/* line 148 */ 				}
+/* line 149 */ 			}
+/* line 150 */ 		}
+/* line 151 COVERED, hit count: 1 */ 		long[]mcmf=minCostFlow(graph, s, t, n);
+/* line 152 COVERED, hit count: 1 */ 		if(mcmf[0]<n) {
+/* line 153 COVERED, hit count: 1 */ 			pw.println(-1);
+/* line 154 */ 		}
+/* line 155 */ 		else {
+/* line 156 NOT_COVERED */ 			pw.println(mcmf[1]);
+/* line 157 */ 		}
+/* line 158 COVERED, hit count: 1 */ 	}
+/* line 159 */ 	public static void main(String[] args) throws Exception{
+/* line 160 COVERED, hit count: 1 */ 		sc=new MScanner(System.in);
+/* line 161 COVERED, hit count: 1 */ 		pw = new PrintWriter(System.out);
+/* line 162 COVERED, hit count: 1 */ 		int tc=1;
+/* line 163 */ //		tc=sc.nextInt();
+/* line 164 PARTIALLY_COVERED, hit count: 2 */ 		while(tc-->0)
+/* line 165 COVERED, hit count: 1 */ 			main();
+/* line 166 COVERED, hit count: 1 */ 		pw.flush();
+/* line 167 COVERED, hit count: 1 */ 	}
+/* line 168 */ 	static PrintWriter pw;
+/* line 169 */ 	static MScanner  sc;
+/* line 170 */ 	static class MScanner {
+/* line 171 */ 		StringTokenizer st;
+/* line 172 */ 		BufferedReader br;
+/* line 173 COVERED, hit count: 1 */ 		public MScanner(InputStream system) {
+/* line 174 COVERED, hit count: 1 */ 			br = new BufferedReader(new InputStreamReader(system));
+/* line 175 COVERED, hit count: 1 */ 		}
+/* line 176 */  
+/* line 177 NOT_COVERED */ 		public MScanner(String file) throws Exception {
+/* line 178 NOT_COVERED */ 			br = new BufferedReader(new FileReader(file));
+/* line 179 NOT_COVERED */ 		}
+/* line 180 */  
+/* line 181 */ 		public String next() throws IOException {
+/* line 182 PARTIALLY_COVERED, hit count: 38 */ 			while (st == null || !st.hasMoreTokens())
+/* line 183 COVERED, hit count: 8 */ 				st = new StringTokenizer(br.readLine());
+/* line 184 COVERED, hit count: 30 */ 			return st.nextToken();
+/* line 185 */ 		}
+/* line 186 */ 		public int[] intArr(int n) throws IOException {
+/* line 187 NOT_COVERED */ 	        int[]in=new int[n];for(int i=0;i<n;i++)in[i]=nextInt();
+/* line 188 NOT_COVERED */ 	        return in;
+/* line 189 */ 		}
+/* line 190 */ 		public long[] longArr(int n) throws IOException {
+/* line 191 NOT_COVERED */ 	        long[]in=new long[n];for(int i=0;i<n;i++)in[i]=nextLong();
+/* line 192 NOT_COVERED */ 	        return in;
+/* line 193 */ 		}
+/* line 194 */ 		public int[] intSortedArr(int n) throws IOException {
+/* line 195 NOT_COVERED */ 	        int[]in=new int[n];for(int i=0;i<n;i++)in[i]=nextInt();
+/* line 196 NOT_COVERED */ 	        shuffle(in);
+/* line 197 NOT_COVERED */ 	        Arrays.sort(in);
+/* line 198 NOT_COVERED */ 	        return in;
+/* line 199 */ 		}
+/* line 200 */ 		public long[] longSortedArr(int n) throws IOException {
+/* line 201 NOT_COVERED */ 	        long[]in=new long[n];for(int i=0;i<n;i++)in[i]=nextLong();
+/* line 202 NOT_COVERED */ 	        shuffle(in);
+/* line 203 NOT_COVERED */ 	        Arrays.sort(in);
+/* line 204 NOT_COVERED */ 	        return in;
+/* line 205 */ 		}
+/* line 206 */ 		public Integer[] IntegerArr(int n) throws IOException {
+/* line 207 NOT_COVERED */ 	        Integer[]in=new Integer[n];for(int i=0;i<n;i++)in[i]=nextInt();
+/* line 208 NOT_COVERED */ 	        return in;
+/* line 209 */ 		}
+/* line 210 */ 		public Long[] LongArr(int n) throws IOException {
+/* line 211 NOT_COVERED */ 	        Long[]in=new Long[n];for(int i=0;i<n;i++)in[i]=nextLong();
+/* line 212 NOT_COVERED */ 	        return in;
+/* line 213 */ 		}
+/* line 214 */ 		public String nextLine() throws IOException {
+/* line 215 NOT_COVERED */ 			return br.readLine();
+/* line 216 */ 		}
+/* line 217 */  
+/* line 218 */ 		public int nextInt() throws IOException {
+/* line 219 COVERED, hit count: 30 */ 			return Integer.parseInt(next());
+/* line 220 */ 		}
+/* line 221 */  
+/* line 222 */ 		public double nextDouble() throws IOException {
+/* line 223 NOT_COVERED */ 			return Double.parseDouble(next());
+/* line 224 */ 		}
+/* line 225 */  
+/* line 226 */ 		public char nextChar() throws IOException {
+/* line 227 NOT_COVERED */ 			return next().charAt(0);
+/* line 228 */ 		}
+/* line 229 */  
+/* line 230 */ 		public long nextLong() throws IOException {
+/* line 231 NOT_COVERED */ 			return Long.parseLong(next());
+/* line 232 */ 		}
+/* line 233 */  
+/* line 234 */ 		public boolean ready() throws IOException {
+/* line 235 NOT_COVERED */ 			return br.ready();
+/* line 236 */ 		}
+/* line 237 */  
+/* line 238 */ 		public void waitForInput() throws InterruptedException {
+/* line 239 NOT_COVERED */ 			Thread.sleep(3000);
+/* line 240 NOT_COVERED */ 		}
+/* line 241 */ 	}
+/* line 242 */ 	static void shuffle(int[]in) {
+/* line 243 NOT_COVERED */ 		for(int i=0;i<in.length;i++) {
+/* line 244 NOT_COVERED */ 			int idx=(int)(Math.random()*in.length);
+/* line 245 NOT_COVERED */ 			int tmp=in[i];
+/* line 246 NOT_COVERED */ 			in[i]=in[idx];
+/* line 247 NOT_COVERED */ 			in[idx]=tmp;
+/* line 248 */ 		}
+/* line 249 NOT_COVERED */ 	}
+/* line 250 */ 	static void shuffle(long[]in) {
+/* line 251 NOT_COVERED */ 		for(int i=0;i<in.length;i++) {
+/* line 252 NOT_COVERED */ 			int idx=(int)(Math.random()*in.length);
+/* line 253 NOT_COVERED */ 			long tmp=in[i];
+/* line 254 NOT_COVERED */ 			in[i]=in[idx];
+/* line 255 NOT_COVERED */ 			in[idx]=tmp;
+/* line 256 */ 		}
+/* line 257 NOT_COVERED */ 	}
+/* line 258 */ }

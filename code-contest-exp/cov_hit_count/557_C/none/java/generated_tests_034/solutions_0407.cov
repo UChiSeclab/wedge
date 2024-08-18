@@ -1,0 +1,630 @@
+/* line 1 */ import java.io.BufferedReader;
+/* line 2 */ import java.io.IOException;
+/* line 3 */ import java.io.InputStreamReader;
+/* line 4 */ import java.io.OutputStream;
+/* line 5 */ import java.io.PrintWriter;
+/* line 6 */ import java.util.ArrayList;
+/* line 7 */ import java.util.Arrays;
+/* line 8 */ import java.util.Collections;
+/* line 9 */ import java.util.HashMap;
+/* line 10 */ import java.util.HashSet;
+/* line 11 */ import java.util.LinkedList;
+/* line 12 */ import java.util.Map;
+/* line 13 */ import java.util.PriorityQueue;
+/* line 14 */ import java.util.Queue;
+/* line 15 */ import java.util.Stack;
+/* line 16 */ import java.util.StringTokenizer;
+/* line 17 */ 
+/* line 18 */ //import hacker51.FastReader;
+/* line 19 */ 
+/* line 20 NOT_COVERED */ public class two_pointers_method {
+/* line 21 */ 	static class FastReader 
+/* line 22 */     { 
+/* line 23 */         BufferedReader br; 
+/* line 24 */         StringTokenizer st; 
+/* line 25 */         public FastReader() 
+/* line 26 COVERED, hit count: 1 */         { 
+/* line 27 COVERED, hit count: 1 */             br = new BufferedReader(new
+/* line 28 */                      InputStreamReader(System.in)); 
+/* line 29 COVERED, hit count: 1 */         } 
+/* line 30 */         String next() 
+/* line 31 */         { 
+/* line 32 PARTIALLY_COVERED, hit count: 10 */             while (st == null || !st.hasMoreElements()) 
+/* line 33 */             { 
+/* line 34 */                 try
+/* line 35 */                 { 
+/* line 36 COVERED, hit count: 3 */                     st = new StringTokenizer(br.readLine()); 
+/* line 37 */                 } 
+/* line 38 NOT_COVERED */                 catch (IOException  e) 
+/* line 39 */                 { 
+/* line 40 NOT_COVERED */                     e.printStackTrace(); 
+/* line 41 COVERED, hit count: 3 */                 } 
+/* line 42 */             } 
+/* line 43 COVERED, hit count: 7 */             return st.nextToken(); 
+/* line 44 */         } 
+/* line 45 */         int nextInt() 
+/* line 46 */         { 
+/* line 47 COVERED, hit count: 1 */             return Integer.parseInt(next()); 
+/* line 48 */         } 
+/* line 49 */         long nextLong() 
+/* line 50 */         { 
+/* line 51 COVERED, hit count: 6 */             return Long.parseLong(next()); 
+/* line 52 */         } 
+/* line 53 */         double nextDouble() 
+/* line 54 */         { 
+/* line 55 NOT_COVERED */             return Double.parseDouble(next()); 
+/* line 56 */         } 
+/* line 57 */         String nextLine() 
+/* line 58 */         { 
+/* line 59 NOT_COVERED */             String str = ""; 
+/* line 60 */             try
+/* line 61 */             { 
+/* line 62 NOT_COVERED */                 str = br.readLine(); 
+/* line 63 */             } 
+/* line 64 NOT_COVERED */             catch (IOException e) 
+/* line 65 */             { 
+/* line 66 NOT_COVERED */                 e.printStackTrace(); 
+/* line 67 NOT_COVERED */             } 
+/* line 68 NOT_COVERED */             return str; 
+/* line 69 */         }
+/* line 70 */     }
+/* line 71 */ 	
+/* line 72 */ 	public static void main(String[] args) {
+/* line 73 COVERED, hit count: 1 */ 		OutputStream outputStream =System.out;
+/* line 74 COVERED, hit count: 1 */ 	    PrintWriter out =new PrintWriter(outputStream);
+/* line 75 COVERED, hit count: 1 */ 	FastReader s=new FastReader();
+/* line 76 COVERED, hit count: 1 */     PriorityQueue<Long> q=new PriorityQueue<>();
+/* line 77 COVERED, hit count: 1 */     int n=s.nextInt();
+/* line 78 COVERED, hit count: 1 */     pair[] a=new pair[n];
+/* line 79 COVERED, hit count: 1 */     long sum=0;
+/* line 80 PARTIALLY_COVERED, hit count: 4 */     for(int i=0;i<n;i++) {
+/* line 81 COVERED, hit count: 3 */     	a[i]=new pair(s.nextLong(),0);
+/* line 82 */     }
+/* line 83 PARTIALLY_COVERED, hit count: 4 */     for(int i=0;i<n;i++) {
+/* line 84 COVERED, hit count: 3 */     	a[i].time=s.nextLong();    
+/* line 85 COVERED, hit count: 3 */     	sum+=a[i].time;
+/* line 86 */     	}
+/* line 87 COVERED, hit count: 1 */     pair[] b=merge_sort(a,0,n-1);
+/* line 88 COVERED, hit count: 1 */     long[] se=new long[n+1];
+/* line 89 PARTIALLY_COVERED, hit count: 4 */     for(int i=n-1;i>=0;i--) {
+/* line 90 PARTIALLY_COVERED, hit count: 3 */     	if(i==n-1) {
+/* line 91 COVERED, hit count: 1 */     		se[i]=b[n-1].time;
+/* line 92 */     	}else {
+/* line 93 COVERED, hit count: 2 */     		se[i]=se[i+1]+b[i].time;
+/* line 94 */     	}
+/* line 95 */     }
+/* line 96 COVERED, hit count: 1 */     int l=0;
+/* line 97 COVERED, hit count: 1 */     int r=0;
+/* line 98 COVERED, hit count: 1 */     long curr=b[0].len;
+/* line 99 COVERED, hit count: 1 */     int i=0;
+/* line 100 */ //    HashMap<Integer,Integer> e=new HashMap<>();
+/* line 101 COVERED, hit count: 1 */     long en=Long.MAX_VALUE;
+/* line 102 COVERED, hit count: 1 */     int[] p=new int[201];
+/* line 103 COVERED, hit count: 1 */     long sum1=0;
+/* line 104 PARTIALLY_COVERED, hit count: 4 */     while(r<n) {
+/* line 105 COVERED, hit count: 3 */     	sum1=0;
+/* line 106 PARTIALLY_COVERED, hit count: 6 */     	while(r<n && b[r].len==curr ) {
+/* line 107 COVERED, hit count: 3 */     		sum1+=b[r].time;
+/* line 108 COVERED, hit count: 3 */     		r++;
+/* line 109 */     		
+/* line 110 */     	}
+/* line 111 */ //    	System.out.println(sum1+" "+l+" "+r);
+/* line 112 */ //    	long sum1=0;
+/* line 113 */ //    	sum1+=se[r];
+/* line 114 COVERED, hit count: 3 */     	int d=r-l-1;
+/* line 115 COVERED, hit count: 3 */     	int val=200;
+/* line 116 PARTIALLY_COVERED, hit count: 3 */     	while(d>0 && val>0) {
+/* line 117 NOT_COVERED */     		if(p[val]>0) {
+/* line 118 NOT_COVERED */     			int min=Math.min(d, p[val]);
+/* line 119 NOT_COVERED */     			sum1+=min*val;
+/* line 120 NOT_COVERED */     			d-=min;
+/* line 121 */     		}
+/* line 122 NOT_COVERED */     		val--;
+/* line 123 */     	}
+/* line 124 */ //    	System.out.println(sum1+" "+l);
+/* line 125 COVERED, hit count: 3 */     	en=Math.min(en, sum-sum1
+/* line 126 */     			);
+/* line 127 PARTIALLY_COVERED, hit count: 6 */     	for(int j=l;j<r;j++) {
+/* line 128 COVERED, hit count: 3 */     		p[(int) b[j].time]++;
+/* line 129 */     	}
+/* line 130 COVERED, hit count: 3 */     	curr=b[Math.min(n-1,r)].len;
+/* line 131 COVERED, hit count: 3 */     	l=r;
+/* line 132 COVERED, hit count: 3 */     	sum1=0;
+/* line 133 COVERED, hit count: 3 */     }
+/* line 134 COVERED, hit count: 1 */     out.println(en);
+/* line 135 */ //    out.println(en);
+/* line 136 COVERED, hit count: 1 */ 	out.close();
+/* line 137 COVERED, hit count: 1 */ 	}
+/* line 138 COVERED, hit count: 1 */ 	static long mod=1000000007;
+/* line 139 */ 	public static long GCD1(long a,long b) {
+/* line 140 NOT_COVERED */ 		if(b==(long)0) {
+/* line 141 NOT_COVERED */ 			return a;
+/* line 142 */ 		}
+/* line 143 NOT_COVERED */ 		return GCD(b , a%b);
+/* line 144 */ 	}
+/* line 145 COVERED, hit count: 1 */ 	static HashMap<Integer,Integer> um=new HashMap<>();
+/* line 146 */ 	
+/* line 147 */ 	 static class pair implements Comparable<pair> {
+/* line 148 */          private  long len;
+/* line 149 */          private long time;	
+/* line 150 */ //         private  long beauty;
+/* line 151 COVERED, hit count: 3 */          public pair(long len, long time) {
+/* line 152 COVERED, hit count: 3 */              this.len = len;
+/* line 153 COVERED, hit count: 3 */              this.time = time;
+/* line 154 COVERED, hit count: 3 */          }
+/* line 155 */ 
+/* line 156 */          @Override
+/* line 157 */          public int compareTo(pair item) {
+/* line 158 NOT_COVERED */              return Long.compare(item.time, this.time);
+/* line 159 */          }
+/* line 160 */      }
+/* line 161 */ //
+/* line 162 */ // 
+/* line 163 */ 	public static int lower_bound(long[] a ,int n,long x) {
+/* line 164 NOT_COVERED */ 		int l=0;
+/* line 165 NOT_COVERED */ 		int r=n+1;
+/* line 166 NOT_COVERED */ 		while(r>l+1) {
+/* line 167 NOT_COVERED */ 			int mid=(l+r)/2;
+/* line 168 NOT_COVERED */ 			if(a[mid]<=x) {
+/* line 169 NOT_COVERED */ 				l=mid;
+/* line 170 */ 			}else {
+/* line 171 NOT_COVERED */ 				r=mid;
+/* line 172 */ 			}
+/* line 173 NOT_COVERED */ 		}
+/* line 174 NOT_COVERED */ 		return l;
+/* line 175 */ 				
+/* line 176 */ 	}
+/* line 177 */ 	public static int upper_bound(int[] a ,int n,int x) {
+/* line 178 NOT_COVERED */ 		int l=-1;
+/* line 179 NOT_COVERED */ 		int r=n;
+/* line 180 NOT_COVERED */ 		while(r>l+1) {
+/* line 181 NOT_COVERED */ 			int mid=(l+r)/2;
+/* line 182 NOT_COVERED */ 			if(a[mid]<=x) {
+/* line 183 NOT_COVERED */ 				l=mid;
+/* line 184 */ 			}else {
+/* line 185 NOT_COVERED */ 				r=mid;
+/* line 186 */ 			}
+/* line 187 NOT_COVERED */ 		}
+/* line 188 NOT_COVERED */ 		return r;
+/* line 189 */ 				
+/* line 190 */ 	}
+/* line 191 */ //
+/* line 192 */ //	static class pair{
+/* line 193 */ //		private long a;
+/* line 194 */ //		private long b;
+/* line 195 */ //		pair(long a,long b){
+/* line 196 */ //			this.a=a;
+/* line 197 */ //			this.b=b;
+/* line 198 */ //		}
+/* line 199 */ //	}
+/* line 200 */ 	static class pair2 implements Comparable<pair2>{
+/* line 201 */ 		private long a;
+/* line 202 */ 		private int b;
+/* line 203 NOT_COVERED */ 		pair2(long a,int b){
+/* line 204 NOT_COVERED */ 			this.a=a;
+/* line 205 NOT_COVERED */ 			this.b=b;
+/* line 206 NOT_COVERED */ 		}
+/* line 207 */ 		public int compareTo(pair2 p) {
+/* line 208 NOT_COVERED */ 			return Long.compare(this.a,p.a);
+/* line 209 */ 		}
+/* line 210 */ 	}
+/* line 211 */ 	public static int longest_Common_Substring_using_top_down(String str1,String str2,int n,int m) {
+/* line 212 NOT_COVERED */ 		int[][] dp=new int[n+1][m+1];
+/* line 213 NOT_COVERED */ 		int max=Integer.MIN_VALUE;
+/* line 214 NOT_COVERED */ 		for(int i=1;i<=n;i++) {
+/* line 215 NOT_COVERED */ 			for(int j=1;j<=m;j++) {
+/* line 216 NOT_COVERED */ 				if(str1.charAt(i-1)==str2.charAt(j-1)) {
+/* line 217 NOT_COVERED */ 					dp[i][j]=1+dp[i-1][j-1];
+/* line 218 NOT_COVERED */ 					max=Math.max(max, dp[i][j]);
+/* line 219 */ 				}else {
+/* line 220 NOT_COVERED */ 					dp[i][j]=0;//since substring are continuous
+/* line 221 */ 				}
+/* line 222 */ 			}
+/* line 223 */ 		}
+/* line 224 */ 		
+/* line 225 NOT_COVERED */ 		return max;
+/* line 226 */ 	}
+/* line 227 */ 	
+/* line 228 */ 	public static pair[] merge_sort(pair[] A, int start, int end) {
+/* line 229 PARTIALLY_COVERED, hit count: 5 */ 		if (end > start) {
+/* line 230 COVERED, hit count: 2 */ 			int mid = (end + start) / 2;
+/* line 231 COVERED, hit count: 2 */ 			pair[] v = merge_sort(A, start, mid);
+/* line 232 COVERED, hit count: 2 */ 			pair[] o = merge_sort(A, mid + 1, end);
+/* line 233 COVERED, hit count: 2 */ 			return (merge(v, o));
+/* line 234 */ 		} else {
+/* line 235 COVERED, hit count: 3 */ 			pair[] y = new pair[1];
+/* line 236 COVERED, hit count: 3 */ 			y[0] = A[start];
+/* line 237 COVERED, hit count: 3 */ 			return y;
+/* line 238 */ 		}
+/* line 239 */ 	}
+/* line 240 */ 	public static pair[] merge(pair a[], pair b[]) {
+/* line 241 */ //		int count=0;
+/* line 242 COVERED, hit count: 2 */ 		pair[] temp = new pair[a.length + b.length];
+/* line 243 COVERED, hit count: 2 */ 		int m = a.length;
+/* line 244 COVERED, hit count: 2 */ 		int n = b.length;
+/* line 245 COVERED, hit count: 2 */ 		int i = 0;
+/* line 246 COVERED, hit count: 2 */ 		int j = 0;
+/* line 247 COVERED, hit count: 2 */ 		int c = 0;
+/* line 248 PARTIALLY_COVERED, hit count: 5 */ 		while (i < m && j < n) {
+/* line 249 PARTIALLY_COVERED, hit count: 3 */ 			if (a[i].len < b[j].len) {
+/* line 250 COVERED, hit count: 2 */ 				temp[c++] = a[i++];
+/* line 251 */ 			
+/* line 252 */ 			} else {
+/* line 253 COVERED, hit count: 1 */ 				temp[c++] = b[j++];
+/* line 254 */ 			}
+/* line 255 */ 		}
+/* line 256 PARTIALLY_COVERED, hit count: 3 */ 		while (i < m) {
+/* line 257 COVERED, hit count: 1 */ 			temp[c++] = a[i++];
+/* line 258 */ 		}
+/* line 259 PARTIALLY_COVERED, hit count: 3 */ 		while (j < n) {
+/* line 260 COVERED, hit count: 1 */ 			temp[c++] = b[j++];
+/* line 261 */ 		}
+/* line 262 COVERED, hit count: 2 */ 		return temp;
+/* line 263 */ 	}
+/* line 264 */ 	static boolean ok(long n) {
+/* line 265 NOT_COVERED */ 		long sum=0;
+/* line 266 NOT_COVERED */ 		while(n>0) {
+/* line 267 NOT_COVERED */ 			sum+=n%10;
+/* line 268 NOT_COVERED */ 			n/=10;
+/* line 269 */ 		}
+/* line 270 NOT_COVERED */ 		return (sum==10);
+/* line 271 */ 	}
+/* line 272 */ 	static long ok1(long n) {
+/* line 273 NOT_COVERED */ 		long sum=0;
+/* line 274 NOT_COVERED */ 		while(n>0) {
+/* line 275 NOT_COVERED */ 			sum+=n%10;
+/* line 276 NOT_COVERED */ 			n/=10;
+/* line 277 */ 		}
+/* line 278 NOT_COVERED */ 		return sum;
+/* line 279 */ 	}
+/* line 280 */ 	static long get1(long n) {
+/* line 281 NOT_COVERED */ 		long f=0;
+/* line 282 */ //		long f2=9;
+/* line 283 NOT_COVERED */ 		while(n>0) {
+/* line 284 NOT_COVERED */ 			f=Math.max(f, n%10);
+/* line 285 NOT_COVERED */ 			n/=10;
+/* line 286 */ 		}
+/* line 287 NOT_COVERED */ 		return f;
+/* line 288 */ 	}
+/* line 289 */ 	static long get2(long n) {
+/* line 290 NOT_COVERED */ 		long f=9;
+/* line 291 */ //		long f2=9;
+/* line 292 NOT_COVERED */ 		while(n>0) {
+/* line 293 NOT_COVERED */ 			f=Math.min(f, n%10);
+/* line 294 NOT_COVERED */ 			n/=10;
+/* line 295 */ 		}
+/* line 296 NOT_COVERED */ 		return f;
+/* line 297 */ 	}
+/* line 298 */ 	static long get(long n,long k,long count) {
+/* line 299 NOT_COVERED */ 		if(count==k) {
+/* line 300 NOT_COVERED */ 			return n;
+/* line 301 */ 		}else {
+/* line 302 NOT_COVERED */ 			long t1=get1(n);
+/* line 303 NOT_COVERED */ 			long t2=get2(n);
+/* line 304 NOT_COVERED */ 			long y=n+t1*t2;
+/* line 305 NOT_COVERED */ 			return get(y,k,count+1);
+/* line 306 */ 		}
+/* line 307 */ 	}
+/* line 308 */ 	
+/* line 309 */ 	
+/* line 310 */ 	public static int lower_bound(ArrayList<Integer> a ,int n,int x) {
+/* line 311 NOT_COVERED */ 		int l=-1;
+/* line 312 NOT_COVERED */ 		int r=n;
+/* line 313 NOT_COVERED */ 		while(r>l+1) {
+/* line 314 NOT_COVERED */ 			int mid=(l+r)/2;
+/* line 315 NOT_COVERED */ 			if(a.get(mid)<=x) {
+/* line 316 NOT_COVERED */ 				l=mid;
+/* line 317 */ 			}else {
+/* line 318 NOT_COVERED */ 				r=mid;
+/* line 319 */ 			}
+/* line 320 NOT_COVERED */ 		}
+/* line 321 NOT_COVERED */ 		return l;
+/* line 322 */ 				
+/* line 323 */ 	}
+/* line 324 */ 	public static long longest_Segment_sum_less_than_equal_to_S(long[] a,long sum,int n) {
+/* line 325 NOT_COVERED */ 		int l=0;
+/* line 326 NOT_COVERED */ 		long x=0;
+/* line 327 NOT_COVERED */ 		long res=0;
+/* line 328 NOT_COVERED */ 		for(int r=0;r<n;r++) {
+/* line 329 NOT_COVERED */ 			x+=a[r];
+/* line 330 NOT_COVERED */ 			while(x>sum) {
+/* line 331 NOT_COVERED */ 				x-=a[l];
+/* line 332 NOT_COVERED */ 			l++;
+/* line 333 */ 			}
+/* line 334 NOT_COVERED */ 			res=Math.max(r-l+1,res);
+/* line 335 */ 		}
+/* line 336 NOT_COVERED */ 		return res;
+/* line 337 */ 	}
+/* line 338 */ 	public static long shortest_Segment_sum_greater_than_equal_to_S(long[] a,long sum,int n) {
+/* line 339 NOT_COVERED */ 		int l=0;
+/* line 340 NOT_COVERED */ 		long x=0;
+/* line 341 NOT_COVERED */ 		long res=Integer.MAX_VALUE;
+/* line 342 NOT_COVERED */ 		for(int r=0;r<n;r++) {
+/* line 343 NOT_COVERED */ 			x+=a[r];
+/* line 344 NOT_COVERED */ 			while(x-a[l]>=sum) {
+/* line 345 NOT_COVERED */ 				x-=a[l];
+/* line 346 NOT_COVERED */ 				l++;
+/* line 347 */ 			}
+/* line 348 NOT_COVERED */ 			if(x>=sum) {
+/* line 349 NOT_COVERED */ 				res=Math.min(res, r-l+1);
+/* line 350 */ 			}
+/* line 351 */ 		}
+/* line 352 NOT_COVERED */ 		return res;
+/* line 353 */ 	}
+/* line 354 */ 	public static long total_Segment_sum_less_than_equal_to_S(long[] a,long sum,int n) {
+/* line 355 */ 	
+/* line 356 NOT_COVERED */ 		int l=0;
+/* line 357 NOT_COVERED */ 		long x=0;
+/* line 358 NOT_COVERED */ 		long res=0;
+/* line 359 NOT_COVERED */ 		for(int r=0;r<n;r++) {
+/* line 360 NOT_COVERED */ 			x+=a[r];
+/* line 361 NOT_COVERED */ 			while(x>sum) {
+/* line 362 NOT_COVERED */ 				x-=a[l];
+/* line 363 NOT_COVERED */ 				l++;
+/* line 364 */ 			}
+/* line 365 NOT_COVERED */ 			res+=((r-l+1));
+/* line 366 */ 		}
+/* line 367 NOT_COVERED */ 		return res;
+/* line 368 */ 	}
+/* line 369 */ 	public static long total_Segment_sum_greater_than_equal_to_S(long[] a,long sum,int n) {
+/* line 370 */ 		
+/* line 371 NOT_COVERED */ 		int l=0;
+/* line 372 NOT_COVERED */ 		int l1=-1;
+/* line 373 NOT_COVERED */ 		int r1=-1;
+/* line 374 NOT_COVERED */ 		long x=0;
+/* line 375 NOT_COVERED */ 		long res=0;
+/* line 376 NOT_COVERED */ 		for(int r=0;r<n;r++) {
+/* line 377 NOT_COVERED */ 			x+=a[r];
+/* line 378 NOT_COVERED */ 			while(x-a[l]>=sum) {
+/* line 379 NOT_COVERED */ 				x-=a[l];
+/* line 380 NOT_COVERED */ 				l++;
+/* line 381 */ 			}
+/* line 382 NOT_COVERED */ 			if(x>=sum && l!=l1 && r!=r1) {
+/* line 383 NOT_COVERED */ 				res+=(long)(l-l1)*(n-r);
+/* line 384 NOT_COVERED */ 				l1=l;
+/* line 385 */ //				System.out.println(l+" "+l1+" "+r+" "+r1);
+/* line 386 */ 			}
+/* line 387 NOT_COVERED */ 			r1=r;
+/* line 388 */ 		}
+/* line 389 NOT_COVERED */ 		return res;
+/* line 390 */ 	}
+/* line 391 */ 	public static long total_Segment_unique_elements_less_than_equal_to_S(long[] a,long k,int n) {
+/* line 392 NOT_COVERED */ 		int l=0;
+/* line 393 */ //		int r=0;
+/* line 394 NOT_COVERED */ 		int count=0;
+/* line 395 NOT_COVERED */ 		long res=0;
+/* line 396 NOT_COVERED */ 		int[] ct=new int[100001];
+/* line 397 NOT_COVERED */ 		for(int r=0;r<n;r++) {
+/* line 398 NOT_COVERED */ 			ct[(int) a[r]]++;
+/* line 399 NOT_COVERED */ 			if(ct[(int) a[r]]==1) {
+/* line 400 NOT_COVERED */ 				count++;
+/* line 401 */ 			}
+/* line 402 NOT_COVERED */ 				while(count>k) {
+/* line 403 NOT_COVERED */ 					ct[(int) a[l]]--;
+/* line 404 NOT_COVERED */ 					if(ct[(int) a[l]]==0) {
+/* line 405 NOT_COVERED */ 						count--;
+/* line 406 */ 					}
+/* line 407 NOT_COVERED */ 					l++;
+/* line 408 */ 				}
+/* line 409 NOT_COVERED */ 				res+=(r-l+1);
+/* line 410 */ 			
+/* line 411 */ 		}
+/* line 412 NOT_COVERED */ 		return res;
+/* line 413 */ 		
+/* line 414 */ 	}
+/* line 415 */ 	public static long segment_with_maximum_spread(long[] a,int n,long k)
+/* line 416 */ 	{
+/* line 417 NOT_COVERED */ 		int l=0;
+/* line 418 NOT_COVERED */ 		long count=0;
+/* line 419 NOT_COVERED */ 	for(int r=0;r<n;r++) {
+/* line 420 NOT_COVERED */ 		add(a[r]);
+/* line 421 NOT_COVERED */ 		while(!good(k)) {
+/* line 422 NOT_COVERED */ 			remove();
+/* line 423 NOT_COVERED */ 			l++;
+/* line 424 */ 		}
+/* line 425 NOT_COVERED */ 		count+=r-l+1;
+/* line 426 */ //		System.out.println(r+" "+l);
+/* line 427 */ 	}
+/* line 428 NOT_COVERED */ 		return count;
+/* line 429 */ 	}
+/* line 430 */ 	
+/* line 431 */ public static class Stack1{
+/* line 432 */ 	
+/* line 433 */ 	private  Stack<Long> st;
+/* line 434 */ 	private  Stack<Long> smin;
+/* line 435 */ 	private  Stack<Long> smax;
+/* line 436 COVERED, hit count: 2 */ Stack1(){
+/* line 437 COVERED, hit count: 2 */ 	this.st=new Stack<>();
+/* line 438 COVERED, hit count: 2 */ 	this.smin=new Stack<>();
+/* line 439 COVERED, hit count: 2 */ 	this.smax=new Stack<>();
+/* line 440 COVERED, hit count: 2 */ 	this.smin.add(Long.MAX_VALUE);
+/* line 441 COVERED, hit count: 2 */ 	this.smax.add(Long.MIN_VALUE);
+/* line 442 COVERED, hit count: 2 */ }	 
+/* line 443 */ 	
+/* line 444 */ }
+/* line 445 COVERED, hit count: 1 */ static Stack1 st1=new Stack1();
+/* line 446 COVERED, hit count: 1 */ static Stack1 st2=new Stack1();
+/* line 447 */ static void add(long d) {
+/* line 448 NOT_COVERED */ 	st2.st.add(d);
+/* line 449 NOT_COVERED */ 	st2.smin.add(Math.min(d, st2.smin.peek()));
+/* line 450 NOT_COVERED */ 	st2.smax.add(Math.max(st2.smax.peek(),d));
+/* line 451 NOT_COVERED */ }
+/* line 452 */ static void remove() {
+/* line 453 NOT_COVERED */ 	if(st1.st.isEmpty()) {
+/* line 454 NOT_COVERED */ 		while(!st2.st.isEmpty()) {
+/* line 455 NOT_COVERED */ 			st1.st.add(st2.st.pop());
+/* line 456 NOT_COVERED */ 			st2.smin.pop();
+/* line 457 NOT_COVERED */ 			st2.smax.pop();
+/* line 458 NOT_COVERED */ 			st1.smax.add(Math.max(st1.smax.peek(), st1.st.peek()));
+/* line 459 NOT_COVERED */ 			st1.smin.add(Math.min(st1.smin.peek(), st1.st.peek()));
+/* line 460 */ 		}}
+/* line 461 NOT_COVERED */ 		st1.st.pop();
+/* line 462 NOT_COVERED */ 		st1.smax.pop();
+/* line 463 NOT_COVERED */ 		st1.smin.pop();
+/* line 464 */ 	
+/* line 465 NOT_COVERED */ }
+/* line 466 */ static boolean good(long k) {
+/* line 467 NOT_COVERED */ 	long min=Math.min(st1.smin.peek(), st2.smin.peek());
+/* line 468 NOT_COVERED */ 	long max=Math.max(st1.smax.peek(), st2.smax.peek());
+/* line 469 NOT_COVERED */ 	return max-min<=k;
+/* line 470 */ }
+/* line 471 */ 
+/* line 472 */ 
+/* line 473 */ 
+/* line 474 */ public static class Stack2{
+/* line 475 */ 	
+/* line 476 */ 	private  Stack<Long> st;
+/* line 477 */ 	private  Stack<Long> gcd;
+/* line 478 COVERED, hit count: 2 */ Stack2(){
+/* line 479 COVERED, hit count: 2 */ 	this.st=new Stack<>();
+/* line 480 COVERED, hit count: 2 */ 	this.gcd=new Stack<>();
+/* line 481 COVERED, hit count: 2 */ 	gcd.add((long) 0);
+/* line 482 COVERED, hit count: 2 */ }	 
+/* line 483 */ 	
+/* line 484 */ }
+/* line 485 COVERED, hit count: 1 */ static Stack2 st3=new Stack2();
+/* line 486 COVERED, hit count: 1 */ static Stack2 st4=new Stack2();
+/* line 487 */ static void add2(long d) {
+/* line 488 NOT_COVERED */ 	st4.st.add(d);
+/* line 489 NOT_COVERED */ 	st4.gcd.add(GCD(st4.gcd.peek(),d));
+/* line 490 NOT_COVERED */ }
+/* line 491 */ static void remove2() {
+/* line 492 NOT_COVERED */ 	if(st3.st.isEmpty()) {
+/* line 493 NOT_COVERED */ 		while(!st4.st.isEmpty()) {
+/* line 494 NOT_COVERED */ 			st3.st.add(st4.st.pop());
+/* line 495 NOT_COVERED */ 			st4.gcd.pop();
+/* line 496 NOT_COVERED */ 			st3.gcd.add(GCD(st3.gcd.peek(),st3.st.peek()));
+/* line 497 */ 			
+/* line 498 */ 		}}
+/* line 499 NOT_COVERED */ 		st3.st.pop();
+/* line 500 NOT_COVERED */ 		st3.gcd.pop();
+/* line 501 */ 	
+/* line 502 NOT_COVERED */ }
+/* line 503 */ static boolean good2() {
+/* line 504 NOT_COVERED */ 	if(st3.st.isEmpty()) {
+/* line 505 NOT_COVERED */ 		while(!st4.st.isEmpty()) {
+/* line 506 NOT_COVERED */ 			st3.st.add(st4.st.pop());
+/* line 507 NOT_COVERED */ 			st4.gcd.pop();
+/* line 508 NOT_COVERED */ 			st3.gcd.add(GCD(st3.gcd.peek(),st3.st.peek()));
+/* line 509 */ 			
+/* line 510 */ 		}}
+/* line 511 NOT_COVERED */ 	long d=st3.gcd.pop();
+/* line 512 NOT_COVERED */ 	long g=st3.gcd.peek();
+/* line 513 NOT_COVERED */ 	st3.gcd.add(d);
+/* line 514 NOT_COVERED */ 	return GCD(g,st4.gcd.peek())==1;
+/* line 515 */ }
+/* line 516 */ 
+/* line 517 */ 
+/* line 518 */ public static long GCD(long a,long b) {
+/* line 519 NOT_COVERED */ 	if(b==(long)0) {
+/* line 520 NOT_COVERED */ 		return a;
+/* line 521 */ 	}
+/* line 522 NOT_COVERED */ 	return GCD(b , a%b);
+/* line 523 */ }
+/* line 524 */ public static boolean good3() {
+/* line 525 NOT_COVERED */ 	return GCD(st3.gcd.peek(),st4.gcd.peek())==1;
+/* line 526 */ }
+/* line 527 */ public static long shortest_Segment_gcd_equal_to_one(long[] a,int n) {
+/* line 528 NOT_COVERED */ 	int l=0;
+/* line 529 NOT_COVERED */ 	long x=0;
+/* line 530 NOT_COVERED */ 	long res=Integer.MAX_VALUE;
+/* line 531 NOT_COVERED */ 	for(int r=0;r<n;r++) {
+/* line 532 NOT_COVERED */ 		add2(a[r]);
+/* line 533 NOT_COVERED */ 		while(good2()) {
+/* line 534 NOT_COVERED */ 		remove2();
+/* line 535 NOT_COVERED */ 			l++;
+/* line 536 */ 		}
+/* line 537 NOT_COVERED */ 		if(good3()) {
+/* line 538 NOT_COVERED */ 			res=Math.min(res, r-l+1);
+/* line 539 */ 		}
+/* line 540 */ 	}
+/* line 541 NOT_COVERED */ 	return res;
+/* line 542 */ }
+/* line 543 */ public static long[] merge_sort(long[] A, int start, int end) {
+/* line 544 NOT_COVERED */ 	if (end > start) {
+/* line 545 NOT_COVERED */ 		int mid = (end + start) / 2;
+/* line 546 NOT_COVERED */ 		long[] v = merge_sort(A, start, mid);
+/* line 547 NOT_COVERED */ 		long[] o = merge_sort(A, mid + 1, end);
+/* line 548 NOT_COVERED */ 		return (merge(v, o));
+/* line 549 */ 	} else {
+/* line 550 NOT_COVERED */ 		long[] y = new long[1];
+/* line 551 NOT_COVERED */ 		y[0] = A[start];
+/* line 552 NOT_COVERED */ 		return y;
+/* line 553 */ 	}
+/* line 554 */ }
+/* line 555 */ public static long[] merge(long a[], long b[]) {
+/* line 556 */ //	int count=0;
+/* line 557 NOT_COVERED */ 	long[] temp = new long[a.length + b.length];
+/* line 558 NOT_COVERED */ 	int m = a.length;
+/* line 559 NOT_COVERED */ 	int n = b.length;
+/* line 560 NOT_COVERED */ 	int i = 0;
+/* line 561 NOT_COVERED */ 	int j = 0;
+/* line 562 NOT_COVERED */ 	int c = 0;
+/* line 563 NOT_COVERED */ 	while (i < m && j < n) {
+/* line 564 NOT_COVERED */ 		if (a[i] < b[j]) {
+/* line 565 NOT_COVERED */ 			temp[c++] = a[i++];
+/* line 566 */ 		
+/* line 567 */ 		} else {
+/* line 568 NOT_COVERED */ 			temp[c++] = b[j++];
+/* line 569 */ 		}
+/* line 570 */ 	}
+/* line 571 NOT_COVERED */ 	while (i < m) {
+/* line 572 NOT_COVERED */ 		temp[c++] = a[i++];
+/* line 573 */ 	}
+/* line 574 NOT_COVERED */ 	while (j < n) {
+/* line 575 NOT_COVERED */ 		temp[c++] = b[j++];
+/* line 576 */ 	}
+/* line 577 NOT_COVERED */ 	return temp;
+/* line 578 */ }
+/* line 579 */ //public static pair2[] merge_sort(pair2[] A, int start, int end) {
+/* line 580 */ //	if (end > start) {
+/* line 581 */ //		int mid = (end + start) / 2;
+/* line 582 */ //		pair2[] v = merge_sort(A, start, mid);
+/* line 583 */ //		pair2[] o = merge_sort(A, mid + 1, end);
+/* line 584 */ //		return (merge(v, o));
+/* line 585 */ //	} else {
+/* line 586 */ //		pair2[] y = new pair2[1];
+/* line 587 */ //		y[0] = A[start];
+/* line 588 */ //		return y;
+/* line 589 */ //	}
+/* line 590 */ //}
+/* line 591 */ //public static pair2[] merge(pair2 a[], pair2 b[]) {
+/* line 592 */ ////	int count=0;
+/* line 593 */ //	pair2[] temp = new pair2[a.length + b.length];
+/* line 594 */ //	int m = a.length;
+/* line 595 */ //	int n = b.length;
+/* line 596 */ //	int i = 0;
+/* line 597 */ //	int j = 0;
+/* line 598 */ //	int c = 0;
+/* line 599 */ //	while (i < m && j < n) {
+/* line 600 */ //		if (a[i].a > b[j].a) {
+/* line 601 */ //			temp[c++] = a[i++];
+/* line 602 */ //		
+/* line 603 */ //		}else if(a[i].a==b[j].a) {
+/* line 604 */ //			if(Math.abs(a[i].c-a[i].b)<Math.abs(b[j].b-b[j].c)) {
+/* line 605 */ //				temp[c++]=a[i++];
+/* line 606 */ //				}else if(Math.abs(a[i].c-a[i].b)==Math.abs(b[j].b-b[j].c)) {
+/* line 607 */ //					if(a[i].c>b[j].c) {
+/* line 608 */ //						temp[c++]=a[i++];
+/* line 609 */ //					}else {
+/* line 610 */ //						temp[c++]=b[j++];
+/* line 611 */ //					}
+/* line 612 */ //				}
+/* line 613 */ //			
+/* line 614 */ //			else {
+/* line 615 */ //					temp[c++]=b[j++];
+/* line 616 */ //				}
+/* line 617 */ //		}
+/* line 618 */ //		else {
+/* line 619 */ //			temp[c++] = b[j++];
+/* line 620 */ //		}
+/* line 621 */ //	}
+/* line 622 */ //	while (i < m) {
+/* line 623 */ //		temp[c++] = a[i++];
+/* line 624 */ //	}
+/* line 625 */ //	while (j < n) {
+/* line 626 */ //		temp[c++] = b[j++];
+/* line 627 */ //	}
+/* line 628 */ //	return temp;
+/* line 629 */ //}
+/* line 630 */ }

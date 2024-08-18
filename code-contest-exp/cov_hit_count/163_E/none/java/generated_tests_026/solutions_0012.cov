@@ -1,0 +1,431 @@
+/* line 1 */ //package vkcup2012.r2;
+/* line 2 */ import java.io.ByteArrayInputStream;
+/* line 3 */ import java.io.IOException;
+/* line 4 */ import java.io.InputStream;
+/* line 5 */ import java.io.PrintWriter;
+/* line 6 */ import java.util.ArrayDeque;
+/* line 7 */ import java.util.Arrays;
+/* line 8 */ import java.util.BitSet;
+/* line 9 */ import java.util.Comparator;
+/* line 10 */ import java.util.Queue;
+/* line 11 */ 
+/* line 12 COVERED, hit count: 1 */ public class E {
+/* line 13 */ 	InputStream is;
+/* line 14 */ 	PrintWriter out;
+/* line 15 COVERED, hit count: 1 */ 	String INPUT = "";
+/* line 16 */ //	String INPUT = "26 3\r\n" + 
+/* line 17 */ //			"bbaaa\r\n" + 
+/* line 18 */ //			"abaaab\r\n" + 
+/* line 19 */ //			"aa\r\n" + 
+/* line 20 */ //			"-3\r\n" + 
+/* line 21 */ //			"?aabaabaaab\r\n";
+/* line 22 */ //	String INPUT = "7 3\r\n" + 
+/* line 23 */ //			"a\r\n" + 
+/* line 24 */ //			"aa\r\n" + 
+/* line 25 */ //			"ab\r\n" + 
+/* line 26 */ //			"?aaab\r\n" + 
+/* line 27 */ //			"-2\r\n" + 
+/* line 28 */ //			"?aaab\r\n" + 
+/* line 29 */ //			"-3\r\n" + 
+/* line 30 */ //			"?aaab\r\n" + 
+/* line 31 */ //			"+2\r\n" + 
+/* line 32 */ //			"?aabbaa";
+/* line 33 */ 	
+/* line 34 */ 	void solve()
+/* line 35 */ 	{
+/* line 36 NOT_COVERED */ 		int n = ni(), m = ni();
+/* line 37 NOT_COVERED */ 		char[][] s = new char[m][];
+/* line 38 NOT_COVERED */ 		for(int i = 0;i < m;i++){
+/* line 39 NOT_COVERED */ 			s[i] = ns().toCharArray();
+/* line 40 */ 		}
+/* line 41 */ 		
+/* line 42 NOT_COVERED */ 		int[][][] trie = buildAlphabetTrie(s);
+/* line 43 NOT_COVERED */ 		int t = trie.length;
+/* line 44 NOT_COVERED */ 		int[] fail = buildFailure(trie);
+/* line 45 NOT_COVERED */ 		fail[0] = -1;
+/* line 46 NOT_COVERED */ 		int[][] fch = parentToChildren(fail);
+/* line 47 */ 		
+/* line 48 */ //		tr(fail);
+/* line 49 */ //		tr(t);
+/* line 50 */ //		int[] ord = new int[t];
+/* line 51 */ //		sortByPreorder(fch, 0, ord, 0, -1);;
+/* line 52 NOT_COVERED */ 		int[] ord = sortByPreorder(fch, 0);
+/* line 53 NOT_COVERED */ 		int[] right = new int[t];
+/* line 54 NOT_COVERED */ 		for(int i = t-1;i >= 0;i--){
+/* line 55 NOT_COVERED */ 			right[ord[i]] = i;
+/* line 56 NOT_COVERED */ 			for(int e : fch[ord[i]]){
+/* line 57 NOT_COVERED */ 				right[ord[i]] = Math.max(right[ord[i]], right[e]);
+/* line 58 */ 			}
+/* line 59 */ 		}
+/* line 60 */ 		// right : 頂点番号 -> ft上pos
+/* line 61 */ 		// ord : ft上pos -> 頂点番号
+/* line 62 */ 		
+/* line 63 NOT_COVERED */ 		int[] iord = new int[t];
+/* line 64 NOT_COVERED */ 		for(int i = 0;i < t;i++)iord[ord[i]] = i;
+/* line 65 */ 		
+/* line 66 NOT_COVERED */ 		int[] ft0 = new int[t+1];
+/* line 67 NOT_COVERED */ 		int[] ft1 = new int[t+1];
+/* line 68 */ 		
+/* line 69 NOT_COVERED */ 		int[] key = new int[m];
+/* line 70 NOT_COVERED */ 		for(int i = 0;i < m;i++){
+/* line 71 NOT_COVERED */ 			int cur = 0;
+/* line 72 NOT_COVERED */ 			for(int j = 0;j < s[i].length;j++){
+/* line 73 NOT_COVERED */ 				cur = next(trie, cur, s[i][j]-'a');
+/* line 74 */ 			}
+/* line 75 NOT_COVERED */ 			key[i] = cur;
+/* line 76 NOT_COVERED */ 			addRangeFenwick(ft0, ft1, iord[cur], right[cur], 1);
+/* line 77 */ 		}
+/* line 78 NOT_COVERED */ 		boolean[] used = new boolean[m];
+/* line 79 NOT_COVERED */ 		Arrays.fill(used, true);
+/* line 80 */ //		tr(restoreFenwick(ft0, ft1));
+/* line 81 */ 		
+/* line 82 NOT_COVERED */ 		for(int i = 0;i < n;i++){
+/* line 83 NOT_COVERED */ 			char o = nc();
+/* line 84 NOT_COVERED */ 			if(o == '?'){
+/* line 85 NOT_COVERED */ 				char[] q = ns().toCharArray();
+/* line 86 NOT_COVERED */ 				long hit = 0;
+/* line 87 NOT_COVERED */ 				int cur = 0;
+/* line 88 NOT_COVERED */ 				for(char c : q){
+/* line 89 NOT_COVERED */ 					while(cur > 0 && next(trie, cur, c-'a') == -1)cur = fail[cur];
+/* line 90 NOT_COVERED */ 					int nex = next(trie, cur, c-'a');
+/* line 91 NOT_COVERED */ 					if(nex == -1)nex = 0;
+/* line 92 NOT_COVERED */ 					cur = nex;
+/* line 93 NOT_COVERED */ 					hit += sumRangeFenwick(ft0, ft1, iord[cur]) - sumRangeFenwick(ft0, ft1, iord[cur]-1);
+/* line 94 */ 				}
+/* line 95 NOT_COVERED */ 				out.println(hit);
+/* line 96 NOT_COVERED */ 			}else if(o == '+'){
+/* line 97 NOT_COVERED */ 				int ind = ni()-1;
+/* line 98 NOT_COVERED */ 				if(!used[ind]){
+/* line 99 NOT_COVERED */ 					addRangeFenwick(ft0, ft1, iord[key[ind]], right[key[ind]], 1);
+/* line 100 NOT_COVERED */ 					used[ind] = true;
+/* line 101 */ 				}
+/* line 102 NOT_COVERED */ 			}else if(o == '-'){
+/* line 103 NOT_COVERED */ 				int ind = ni()-1;
+/* line 104 NOT_COVERED */ 				if(used[ind]){
+/* line 105 NOT_COVERED */ 					addRangeFenwick(ft0, ft1, iord[key[ind]], right[key[ind]], -1);
+/* line 106 NOT_COVERED */ 					used[ind] = false;
+/* line 107 */ 				}
+/* line 108 */ 			}
+/* line 109 */ 		}
+/* line 110 NOT_COVERED */ 	}
+/* line 111 */ 	
+/* line 112 */ 	public static int[] sortByPreorder(int[][] g, int root){
+/* line 113 NOT_COVERED */ 		int n = g.length;
+/* line 114 NOT_COVERED */ 		int[] stack = new int[n];
+/* line 115 NOT_COVERED */ 		int[] ord = new int[n];
+/* line 116 NOT_COVERED */ 		BitSet ved = new BitSet();
+/* line 117 NOT_COVERED */ 		stack[0] = root;
+/* line 118 NOT_COVERED */ 		int p = 1;
+/* line 119 NOT_COVERED */ 		int r = 0;
+/* line 120 NOT_COVERED */ 		ved.set(root);
+/* line 121 NOT_COVERED */ 		while(p > 0){
+/* line 122 NOT_COVERED */ 			int cur = stack[p-1];
+/* line 123 NOT_COVERED */ 			ord[r++] = cur;
+/* line 124 NOT_COVERED */ 			p--;
+/* line 125 NOT_COVERED */ 			for(int e : g[cur]){
+/* line 126 NOT_COVERED */ 				if(!ved.get(e)){
+/* line 127 NOT_COVERED */ 					stack[p++] = e;
+/* line 128 NOT_COVERED */ 					ved.set(e);
+/* line 129 */ 				}
+/* line 130 */ 			}
+/* line 131 NOT_COVERED */ 		}
+/* line 132 NOT_COVERED */ 		return ord;
+/* line 133 */ 	}
+/* line 134 */ 	
+/* line 135 */ 	public static int sumFenwick(int[] ft, int i)
+/* line 136 */ 	{
+/* line 137 NOT_COVERED */ 		int sum = 0;
+/* line 138 NOT_COVERED */ 		for(i++;i > 0;i -= i&-i)sum += ft[i];
+/* line 139 NOT_COVERED */ 		return sum;
+/* line 140 */ 	}
+/* line 141 */ 	
+/* line 142 */ 	public static void addFenwick(int[] ft, int i, int v)
+/* line 143 */ 	{
+/* line 144 NOT_COVERED */ 		if(v == 0)return;
+/* line 145 NOT_COVERED */ 		int n = ft.length;
+/* line 146 NOT_COVERED */ 		for(i++;i < n;i += i&-i)ft[i] += v;
+/* line 147 NOT_COVERED */ 	}
+/* line 148 */ 	
+/* line 149 */ 	public static int valFenwick(int[] ft, int i)
+/* line 150 */ 	{
+/* line 151 NOT_COVERED */ 		return sumFenwick(ft, i) - sumFenwick(ft, i-1);
+/* line 152 */ 	}
+/* line 153 */ 	
+/* line 154 */ 	public static int[] restoreFenwick(int[] ft)
+/* line 155 */ 	{
+/* line 156 NOT_COVERED */ 		int n = ft.length-1;
+/* line 157 NOT_COVERED */ 		int[] ret = new int[n];
+/* line 158 NOT_COVERED */ 		for(int i = 0;i < n;i++)ret[i] = sumFenwick(ft, i);
+/* line 159 NOT_COVERED */ 		for(int i = n-1;i >= 1;i--)ret[i] -= ret[i-1];
+/* line 160 NOT_COVERED */ 		return ret;
+/* line 161 */ 	}
+/* line 162 */ 	
+/* line 163 */ 	public static long[] restoreFenwick(int[] ft0, int[] ft1)
+/* line 164 */ 	{
+/* line 165 NOT_COVERED */ 		int n = ft0.length-1;
+/* line 166 NOT_COVERED */ 		long[] ret = new long[n];
+/* line 167 NOT_COVERED */ 		for(int i = 0;i < n;i++)ret[i] = sumRangeFenwick(ft0, ft1, i);
+/* line 168 NOT_COVERED */ 		for(int i = n-1;i >= 1;i--)ret[i] -= ret[i-1];
+/* line 169 NOT_COVERED */ 		return ret;
+/* line 170 */ 	}
+/* line 171 */ 	
+/* line 172 */ 	public static void addRangeFenwick(int[] ft0, int[] ft1, int i, int v)
+/* line 173 */ 	{
+/* line 174 NOT_COVERED */ 		addFenwick(ft1, i+1, -v);
+/* line 175 NOT_COVERED */ 		addFenwick(ft1, 0, v);
+/* line 176 NOT_COVERED */ 		addFenwick(ft0, i+1, v*(i+1));
+/* line 177 NOT_COVERED */ 	}
+/* line 178 */ 	
+/* line 179 */ 	public static void addRangeFenwick(int[] ft0, int[] ft1, int a, int b, int v)
+/* line 180 */ 	{
+/* line 181 NOT_COVERED */ 		if(a <= b){
+/* line 182 NOT_COVERED */ 			addFenwick(ft1, b+1, -v);
+/* line 183 NOT_COVERED */ 			addFenwick(ft0, b+1, v*(b+1));
+/* line 184 NOT_COVERED */ 			addFenwick(ft1, a, v);
+/* line 185 NOT_COVERED */ 			addFenwick(ft0, a, -v*a);
+/* line 186 */ 		}
+/* line 187 NOT_COVERED */ 	}
+/* line 188 */ 	
+/* line 189 */ 	public static long sumRangeFenwick(int[] ft0, int[] ft1, int i)
+/* line 190 */ 	{
+/* line 191 NOT_COVERED */ 		return (long)sumFenwick(ft1, i) * (i+1) + sumFenwick(ft0, i);
+/* line 192 */ 	}
+/* line 193 */ 	
+/* line 194 */ 	public static int sortByPreorder(int[][] g, int cur, int[] ord, int pos, int prev)
+/* line 195 */ 	{
+/* line 196 NOT_COVERED */ 		ord[pos++] = cur;
+/* line 197 NOT_COVERED */ 		for(int e : g[cur])if(prev != e)pos = sortByPreorder(g, e, ord, pos, cur);
+/* line 198 NOT_COVERED */ 		return pos;
+/* line 199 */ 	}
+/* line 200 */ 	
+/* line 201 */ 	public static int[][] parentToChildren(int[] parent)
+/* line 202 */ 	{
+/* line 203 NOT_COVERED */ 		int n = parent.length;
+/* line 204 NOT_COVERED */ 		int[] ct = new int[n];
+/* line 205 NOT_COVERED */ 		for(int i = 0;i < n;i++){
+/* line 206 NOT_COVERED */ 			if(parent[i] >= 0){
+/* line 207 NOT_COVERED */ 				ct[parent[i]]++;
+/* line 208 */ 			}
+/* line 209 */ 		}
+/* line 210 NOT_COVERED */ 		int[][] ret = new int[n][];
+/* line 211 NOT_COVERED */ 		for(int i = 0;i < n;i++){
+/* line 212 NOT_COVERED */ 			ret[i] = new int[ct[i]];
+/* line 213 */ 		}
+/* line 214 NOT_COVERED */ 		for(int i = 0;i < n;i++){
+/* line 215 NOT_COVERED */ 			if(parent[i] >= 0){
+/* line 216 NOT_COVERED */ 				ret[parent[i]][--ct[parent[i]]] = i;
+/* line 217 */ 			}
+/* line 218 */ 		}
+/* line 219 */ 		
+/* line 220 NOT_COVERED */ 		return ret;
+/* line 221 */ 	}
+/* line 222 */ 	
+/* line 223 */ 	
+/* line 224 */ 	char nc() {
+/* line 225 */ 		try{
+/* line 226 */ 			int b;
+/* line 227 NOT_COVERED */ 			while ((b = is.read()) != -1
+/* line 228 */ 					&& (b == ' ' || b == '\r' || b == '\n'))
+/* line 229 NOT_COVERED */ 				;
+/* line 230 NOT_COVERED */ 			if(b == -1)
+/* line 231 NOT_COVERED */ 				return 0;
+/* line 232 NOT_COVERED */ 			return (char) b;
+/* line 233 NOT_COVERED */ 		}catch (IOException e){
+/* line 234 */ 		}
+/* line 235 NOT_COVERED */ 		return 0;
+/* line 236 */ 	}
+/* line 237 */ 
+/* line 238 */ 	public static int[][][] buildAlphabetTrie(char[][] oss)
+/* line 239 */ 	{
+/* line 240 NOT_COVERED */ 		char[][] ss = Arrays.copyOf(oss, oss.length);
+/* line 241 */ 		
+/* line 242 NOT_COVERED */ 		int m = 1;
+/* line 243 NOT_COVERED */ 		for(int i = 0;i < ss.length;i++)m += ss[i].length;
+/* line 244 NOT_COVERED */ 		Arrays.sort(ss, new Comparator<char[]>(){
+/* line 245 */ 			public int compare(char[] a, char[] b){
+/* line 246 NOT_COVERED */ 				for(int i = 0;i < a.length && i < b.length;i++){
+/* line 247 NOT_COVERED */ 					if(a[i] != b[i])return a[i] - b[i];
+/* line 248 */ 				}
+/* line 249 NOT_COVERED */ 				return a.length - b.length;
+/* line 250 */ 			}
+/* line 251 */ 		});
+/* line 252 */ 		
+/* line 253 NOT_COVERED */ 		int[][][] trie = new int[m][][];
+/* line 254 NOT_COVERED */ 		Queue<int[]> q = new ArrayDeque<int[]>();
+/* line 255 NOT_COVERED */ 		q.add(new int[]{0, ss.length-1, 0, -1}); // [start, end, len, parent]
+/* line 256 NOT_COVERED */ 		int[] lq = new int[ss.length];
+/* line 257 NOT_COVERED */ 		int p = 0;
+/* line 258 NOT_COVERED */ 		int r = 1;
+/* line 259 NOT_COVERED */ 		while(!q.isEmpty()){
+/* line 260 NOT_COVERED */ 			int[] cur = q.poll();
+/* line 261 NOT_COVERED */ 			int from = cur[0];
+/* line 262 NOT_COVERED */ 			int lp = 0;
+/* line 263 NOT_COVERED */ 			for(int i = cur[0];i <= cur[1];i++){
+/* line 264 NOT_COVERED */ 				if(i == cur[1] || !(
+/* line 265 */ 						(ss[i].length == cur[2] && ss[i+1].length == cur[2]) || 
+/* line 266 */ 						(ss[i].length > cur[2] && ss[i+1].length > cur[2] && ss[i][cur[2]] == ss[i+1][cur[2]])
+/* line 267 */ 						)){
+/* line 268 NOT_COVERED */ 					if(ss[i].length > cur[2]){
+/* line 269 NOT_COVERED */ 						lq[lp++] = i;
+/* line 270 NOT_COVERED */ 						q.add(new int[]{from, i, cur[2]+1, p});
+/* line 271 */ 					}
+/* line 272 NOT_COVERED */ 					from = i+1;
+/* line 273 */ 				}
+/* line 274 */ 				
+/* line 275 */ 			}
+/* line 276 */ 			
+/* line 277 NOT_COVERED */ 			trie[p] = new int[2][lp];
+/* line 278 NOT_COVERED */ 			for(int i = 0;i < lp;i++){
+/* line 279 NOT_COVERED */ 				trie[p][0][i] = ss[lq[i]][cur[2]]-'a';
+/* line 280 NOT_COVERED */ 				trie[p][1][i] = r++;
+/* line 281 */ 			}
+/* line 282 NOT_COVERED */ 			p++;
+/* line 283 NOT_COVERED */ 		}
+/* line 284 */ 		
+/* line 285 NOT_COVERED */ 		return Arrays.copyOf(trie, p);
+/* line 286 */ 	}
+/* line 287 */ 	
+/* line 288 */ 	public static int[] buildFailure(int[][][] trie)
+/* line 289 */ 	{
+/* line 290 NOT_COVERED */ 		Queue<Integer> q = new ArrayDeque<Integer>();
+/* line 291 NOT_COVERED */ 		q.add(0);
+/* line 292 NOT_COVERED */ 		int[] failure = new int[trie.length];
+/* line 293 NOT_COVERED */ 		Arrays.fill(failure, -1);
+/* line 294 NOT_COVERED */ 		failure[0] = 0;
+/* line 295 NOT_COVERED */ 		while(q.size() > 0) {
+/* line 296 NOT_COVERED */ 			int cur = q.poll();
+/* line 297 NOT_COVERED */ 			for(int j = 0;j < trie[cur][0].length;j++){
+/* line 298 NOT_COVERED */ 				int nex = trie[cur][1][j];
+/* line 299 NOT_COVERED */ 				int c = trie[cur][0][j];
+/* line 300 */ 				
+/* line 301 NOT_COVERED */ 				q.add(nex);
+/* line 302 NOT_COVERED */ 				if(cur == 0){
+/* line 303 NOT_COVERED */ 					failure[nex] = 0;
+/* line 304 */ 				}else{
+/* line 305 NOT_COVERED */ 					int fc = failure[cur];
+/* line 306 NOT_COVERED */ 					for(;fc != 0 && next(trie, fc, c) == -1;fc = failure[fc]);
+/* line 307 NOT_COVERED */ 					int nn = next(trie, fc, c);
+/* line 308 NOT_COVERED */ 					failure[nex] = nn == -1 ? 0 : nn;
+/* line 309 */ 				}
+/* line 310 */ 			}
+/* line 311 NOT_COVERED */ 		}
+/* line 312 NOT_COVERED */ 		return failure;
+/* line 313 */ 	}
+/* line 314 */ 	
+/* line 315 */ 	public static int next(int[][][] trie, int cur, int q)
+/* line 316 */ 	{
+/* line 317 NOT_COVERED */ 		int ind = Arrays.binarySearch(trie[cur][0], q);
+/* line 318 NOT_COVERED */ 		return ind >= 0 ? trie[cur][1][ind] : -1;
+/* line 319 */ 	}
+/* line 320 */ 	
+/* line 321 */ 	void run() throws Exception
+/* line 322 */ 	{
+/* line 323 COVERED, hit count: 1 */ 		is = oj ? System.in : new ByteArrayInputStream(INPUT.getBytes());
+/* line 324 COVERED, hit count: 1 */ 		out = new PrintWriter(System.out);
+/* line 325 */ 		
+/* line 326 COVERED, hit count: 1 */ 		long s = System.currentTimeMillis();
+/* line 327 NOT_COVERED */ 		solve();
+/* line 328 NOT_COVERED */ 		out.flush();
+/* line 329 NOT_COVERED */ 		tr(System.currentTimeMillis()-s+"ms");
+/* line 330 NOT_COVERED */ 	}
+/* line 331 */ 	
+/* line 332 */ 	public static void main(String[] args) throws Exception
+/* line 333 */ 	{
+/* line 334 NOT_COVERED */ 		new E().run();
+/* line 335 NOT_COVERED */ 	}
+/* line 336 */ 	
+/* line 337 */ 	public int ni()
+/* line 338 */ 	{
+/* line 339 */ 		try {
+/* line 340 COVERED, hit count: 2 */ 			int num = 0;
+/* line 341 COVERED, hit count: 2 */ 			boolean minus = false;
+/* line 342 PARTIALLY_COVERED, hit count: 2 */ 			while((num = is.read()) != -1 && !((num >= '0' && num <= '9') || num == '-'));
+/* line 343 COVERED, hit count: 2 */ 			if(num == '-'){
+/* line 344 NOT_COVERED */ 				num = 0;
+/* line 345 NOT_COVERED */ 				minus = true;
+/* line 346 */ 			}else{
+/* line 347 COVERED, hit count: 2 */ 				num -= '0';
+/* line 348 */ 			}
+/* line 349 */ 			
+/* line 350 */ 			while(true){
+/* line 351 COVERED, hit count: 2 */ 				int b = is.read();
+/* line 352 PARTIALLY_COVERED, hit count: 2 */ 				if(b >= '0' && b <= '9'){
+/* line 353 NOT_COVERED */ 					num = num * 10 + (b - '0');
+/* line 354 */ 				}else{
+/* line 355 COVERED, hit count: 2 */ 					return minus ? -num : num;
+/* line 356 */ 				}
+/* line 357 NOT_COVERED */ 			}
+/* line 358 NOT_COVERED */ 		} catch (IOException e) {
+/* line 359 */ 		}
+/* line 360 NOT_COVERED */ 		return -1;
+/* line 361 */ 	}
+/* line 362 */ 	
+/* line 363 */ 	public long nl()
+/* line 364 */ 	{
+/* line 365 */ 		try {
+/* line 366 NOT_COVERED */ 			long num = 0;
+/* line 367 NOT_COVERED */ 			boolean minus = false;
+/* line 368 NOT_COVERED */ 			while((num = is.read()) != -1 && !((num >= '0' && num <= '9') || num == '-'));
+/* line 369 NOT_COVERED */ 			if(num == '-'){
+/* line 370 NOT_COVERED */ 				num = 0;
+/* line 371 NOT_COVERED */ 				minus = true;
+/* line 372 */ 			}else{
+/* line 373 NOT_COVERED */ 				num -= '0';
+/* line 374 */ 			}
+/* line 375 */ 			
+/* line 376 */ 			while(true){
+/* line 377 NOT_COVERED */ 				int b = is.read();
+/* line 378 NOT_COVERED */ 				if(b >= '0' && b <= '9'){
+/* line 379 NOT_COVERED */ 					num = num * 10 + (b - '0');
+/* line 380 */ 				}else{
+/* line 381 NOT_COVERED */ 					return minus ? -num : num;
+/* line 382 */ 				}
+/* line 383 NOT_COVERED */ 			}
+/* line 384 NOT_COVERED */ 		} catch (IOException e) {
+/* line 385 */ 		}
+/* line 386 NOT_COVERED */ 		return -1;
+/* line 387 */ 	}
+/* line 388 */ 	
+/* line 389 */ 	public String ns()
+/* line 390 */ 	{
+/* line 391 */ 		try{
+/* line 392 NOT_COVERED */ 			int b = 0;
+/* line 393 NOT_COVERED */ 			StringBuilder sb = new StringBuilder();
+/* line 394 NOT_COVERED */ 			while((b = is.read()) != -1 && (b == '\r' || b == '\n' || b == ' '));
+/* line 395 NOT_COVERED */ 			if(b == -1)return "";
+/* line 396 NOT_COVERED */ 			sb.append((char)b);
+/* line 397 */ 			while(true){
+/* line 398 NOT_COVERED */ 				b = is.read();
+/* line 399 NOT_COVERED */ 				if(b == -1)return sb.toString();
+/* line 400 NOT_COVERED */ 				if(b == '\r' || b == '\n' || b == ' ')return sb.toString();
+/* line 401 NOT_COVERED */ 				sb.append((char)b);
+/* line 402 */ 			}
+/* line 403 NOT_COVERED */ 		} catch (IOException e) {
+/* line 404 */ 		}
+/* line 405 NOT_COVERED */ 		return "";
+/* line 406 */ 	}
+/* line 407 */ 	
+/* line 408 */ 	public char[] ns(int n)
+/* line 409 */ 	{
+/* line 410 NOT_COVERED */ 		char[] buf = new char[n];
+/* line 411 */ 		try{
+/* line 412 NOT_COVERED */ 			int b = 0, p = 0;
+/* line 413 NOT_COVERED */ 			while((b = is.read()) != -1 && (b == ' ' || b == '\r' || b == '\n'));
+/* line 414 NOT_COVERED */ 			if(b == -1)return null;
+/* line 415 NOT_COVERED */ 			buf[p++] = (char)b;
+/* line 416 NOT_COVERED */ 			while(p < n){
+/* line 417 NOT_COVERED */ 				b = is.read();
+/* line 418 NOT_COVERED */ 				if(b == -1 || b == ' ' || b == '\r' || b == '\n')break;
+/* line 419 NOT_COVERED */ 				buf[p++] = (char)b;
+/* line 420 */ 			}
+/* line 421 NOT_COVERED */ 			return Arrays.copyOf(buf, p);
+/* line 422 NOT_COVERED */ 		} catch (IOException e) {
+/* line 423 */ 		}
+/* line 424 NOT_COVERED */ 		return null;
+/* line 425 */ 	}
+/* line 426 */ 	
+/* line 427 */ 	
+/* line 428 NOT_COVERED */ 	double nd() { return Double.parseDouble(ns()); }
+/* line 429 COVERED, hit count: 1 */ 	boolean oj = System.getProperty("ONLINE_JUDGE") != null;
+/* line 430 NOT_COVERED */ 	void tr(Object... o) { if(!oj)System.out.println(Arrays.deepToString(o)); }
+/* line 431 */ }

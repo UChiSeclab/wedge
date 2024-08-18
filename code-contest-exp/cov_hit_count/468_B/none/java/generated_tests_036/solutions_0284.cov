@@ -1,0 +1,323 @@
+/* line 1 */ import java.util.Map;
+/* line 2 */ import java.io.IOException;
+/* line 3 */ import java.util.InputMismatchException;
+/* line 4 */ import java.util.TreeMap;
+/* line 5 */ import java.io.PrintStream;
+/* line 6 */ import java.io.OutputStream;
+/* line 7 */ import java.util.ArrayDeque;
+/* line 8 */ import java.io.PrintWriter;
+/* line 9 */ import java.util.Deque;
+/* line 10 */ import java.math.BigInteger;
+/* line 11 */ import java.util.Queue;
+/* line 12 */ import java.util.Collection;
+/* line 13 */ import java.io.InputStream;
+/* line 14 */ 
+/* line 15 */ /**
+/* line 16 */  * Built using CHelper plug-in
+/* line 17 */  * Actual solution is at the top
+/* line 18 */  * @author karan173
+/* line 19 */  */
+/* line 20 NOT_COVERED */ public class Main {
+/* line 21 */     public static void main(String[] args) {
+/* line 22 COVERED, hit count: 1 */         InputStream inputStream = System.in;
+/* line 23 COVERED, hit count: 1 */         OutputStream outputStream = System.out;
+/* line 24 COVERED, hit count: 1 */         FastReader in = new FastReader(inputStream);
+/* line 25 COVERED, hit count: 1 */         PrintWriter out = new PrintWriter(outputStream);
+/* line 26 COVERED, hit count: 1 */         TaskB solver = new TaskB();
+/* line 27 COVERED, hit count: 1 */         solver.solve(1, in, out);
+/* line 28 COVERED, hit count: 1 */         out.close();
+/* line 29 COVERED, hit count: 1 */     }
+/* line 30 */ }
+/* line 31 */ 
+/* line 32 COVERED, hit count: 1 */ class TaskB
+/* line 33 */ {
+/* line 34 */     int val[];
+/* line 35 */     int p[];
+/* line 36 */     int aneigh[], bneight[], deg[];
+/* line 37 */     Deque<Integer> mycycle;
+/* line 38 COVERED, hit count: 1 */     boolean loops = false;
+/* line 39 */     public void solve(int testNumber, FastReader in, PrintWriter out)
+/* line 40 */     {
+/* line 41 COVERED, hit count: 1 */         int n = in.ni ();
+/* line 42 COVERED, hit count: 1 */         val = new int[n];
+/* line 43 COVERED, hit count: 1 */         int a = in.ni ();
+/* line 44 COVERED, hit count: 1 */         int b = in.ni ();
+/* line 45 COVERED, hit count: 1 */         Map<Integer, Integer> set = new TreeMap<Integer, Integer> ();
+/* line 46 COVERED, hit count: 1 */         p = in.iArr (n);
+/* line 47 PARTIALLY_COVERED, hit count: 101 */         for (int i = 0; i < n; i++)
+/* line 48 */         {
+/* line 49 COVERED, hit count: 100 */             set.put (p[i], i);
+/* line 50 */         }
+/* line 51 COVERED, hit count: 1 */         aneigh = new int[n];
+/* line 52 COVERED, hit count: 1 */         bneight = new int[n];
+/* line 53 COVERED, hit count: 1 */         deg = new int[n];
+/* line 54 PARTIALLY_COVERED, hit count: 101 */         for (int i = 0; i < n; i++)
+/* line 55 */         {
+/* line 56 COVERED, hit count: 100 */             aneigh[i] = val[i] = bneight[i] = -1;
+/* line 57 COVERED, hit count: 100 */             deg[i] = 0;
+/* line 58 */         }
+/* line 59 COVERED, hit count: 1 */         Queue<Integer> queue = new ArrayDeque<Integer> ();
+/* line 60 PARTIALLY_COVERED, hit count: 101 */         for (int i = 0; i < n; i++)
+/* line 61 */         {
+/* line 62 COVERED, hit count: 100 */             Integer x1 = set.get (a - p[i]);
+/* line 63 COVERED, hit count: 100 */             Integer x2 = set.get (b - p[i]);
+/* line 64 COVERED, hit count: 100 */             if (x1 != null)
+/* line 65 */             {
+/* line 66 NOT_COVERED */                 aneigh[i] = x1;
+/* line 67 NOT_COVERED */                 deg[i]++;
+/* line 68 */             }
+/* line 69 PARTIALLY_COVERED, hit count: 100 */             if (x2 != null && a != b)
+/* line 70 */             {
+/* line 71 NOT_COVERED */                 bneight[i] = x2;
+/* line 72 NOT_COVERED */                 deg[i]++;
+/* line 73 */             }
+/* line 74 COVERED, hit count: 100 */             if (deg[i] == 1)
+/* line 75 */             {
+/* line 76 NOT_COVERED */                 queue.add (i);
+/* line 77 */             }
+/* line 78 */         }
+/* line 79 */ 
+/* line 80 COVERED, hit count: 1 */         while (!queue.isEmpty ())
+/* line 81 */         {
+/* line 82 NOT_COVERED */             int idx = queue.remove ();
+/* line 83 NOT_COVERED */             if (deg[idx] != 1)
+/* line 84 */             {
+/* line 85 NOT_COVERED */                 continue;
+/* line 86 */             }
+/* line 87 NOT_COVERED */             int aa = aneigh[idx];
+/* line 88 NOT_COVERED */             int bb = bneight[idx];
+/* line 89 NOT_COVERED */             if (aa != -1)
+/* line 90 */             {
+/* line 91 NOT_COVERED */                 val[idx] = val[aa] = 0;
+/* line 92 NOT_COVERED */                 deg[aa]--;
+/* line 93 NOT_COVERED */                 deg[idx]--;
+/* line 94 NOT_COVERED */                 aneigh[aa] = -1;
+/* line 95 NOT_COVERED */                 aneigh[idx] = -1;
+/* line 96 NOT_COVERED */                 if (deg[aa] == 1)
+/* line 97 */                 {
+/* line 98 NOT_COVERED */                     int zz = bneight[aa];
+/* line 99 NOT_COVERED */                     bneight[zz] = -1;
+/* line 100 NOT_COVERED */                     deg[zz]--;
+/* line 101 NOT_COVERED */                     if(deg[zz] == 1)
+/* line 102 NOT_COVERED */                     queue.add (zz);
+/* line 103 NOT_COVERED */                 }
+/* line 104 */             }
+/* line 105 */             else
+/* line 106 */             {
+/* line 107 NOT_COVERED */                 val[idx] = val[bb] = 1;
+/* line 108 NOT_COVERED */                 deg[bb]--;
+/* line 109 NOT_COVERED */                 deg[idx]--;
+/* line 110 NOT_COVERED */                 bneight[idx] = bneight[bb] = -1;
+/* line 111 NOT_COVERED */                 if (deg[bb] == 1)
+/* line 112 */                 {
+/* line 113 */                     //queue.add (bb);
+/* line 114 NOT_COVERED */                     int zz = aneigh[bb];
+/* line 115 NOT_COVERED */                     aneigh[zz] = -1;
+/* line 116 NOT_COVERED */                     deg[zz]--;
+/* line 117 NOT_COVERED */                     if(deg[zz] == 1)
+/* line 118 NOT_COVERED */                         queue.add (zz);
+/* line 119 */                 }
+/* line 120 */             }
+/* line 121 NOT_COVERED */         }
+/* line 122 */ 
+/* line 123 COVERED, hit count: 1 */         for (int i = 0; i < n; i++)
+/* line 124 */         {
+/* line 125 COVERED, hit count: 1 */             if (val[i] == -1 && cantBePaired(i))
+/* line 126 */             {
+/* line 127 COVERED, hit count: 1 */                 out.println ("NO");
+/* line 128 COVERED, hit count: 1 */                 return;
+/* line 129 */             }
+/* line 130 */         }
+/* line 131 */ 
+/* line 132 */         //every person has two neighbours
+/* line 133 */ 
+/* line 134 */         //cases => either cycles or linear path with loops end points
+/* line 135 NOT_COVERED */         for (int i = 0; i < n; i++)
+/* line 136 */         {
+/* line 137 NOT_COVERED */             if (val[i] == -1)
+/* line 138 */             {
+/* line 139 NOT_COVERED */                 mycycle = new ArrayDeque<Integer> ();
+/* line 140 NOT_COVERED */                 loops = false;
+/* line 141 NOT_COVERED */                 cycle (i);
+/* line 142 NOT_COVERED */                 if (loops || mycycle.size () % 2 == 0)
+/* line 143 */                 {
+/* line 144 NOT_COVERED */                     doEvenCycle ();
+/* line 145 NOT_COVERED */                     continue;
+/* line 146 */                 }
+/* line 147 */ 
+/* line 148 NOT_COVERED */                 out.println ("NO");
+/* line 149 NOT_COVERED */                 return;
+/* line 150 */             }
+/* line 151 */         }
+/* line 152 NOT_COVERED */         out.println ("YES");
+/* line 153 NOT_COVERED */         for (int i = 0; i < n; i++)
+/* line 154 */         {
+/* line 155 NOT_COVERED */             out.print (val[i] + " ");
+/* line 156 */         }
+/* line 157 NOT_COVERED */         out.println ();
+/* line 158 NOT_COVERED */     }
+/* line 159 */ 
+/* line 160 */     private boolean cantBePaired(int i)
+/* line 161 */     {
+/* line 162 COVERED, hit count: 1 */         int aa = aneigh[i];
+/* line 163 COVERED, hit count: 1 */         int bb = bneight[i];
+/* line 164 PARTIALLY_COVERED, hit count: 1 */         if (aa != -1 && val[aa] == -1)
+/* line 165 */         {
+/* line 166 NOT_COVERED */             return false;
+/* line 167 */         }
+/* line 168 PARTIALLY_COVERED, hit count: 1 */         if (bb != -1 && val[bb] == -1)
+/* line 169 */         {
+/* line 170 NOT_COVERED */             return false;
+/* line 171 */         }
+/* line 172 COVERED, hit count: 1 */         return true;
+/* line 173 */     }
+/* line 174 */ 
+/* line 175 */ 
+/* line 176 */     private void doEvenCycle()
+/* line 177 */     {
+/* line 178 NOT_COVERED */         for (int x : mycycle)
+/* line 179 */         {
+/* line 180 NOT_COVERED */             val[x] = 0;
+/* line 181 NOT_COVERED */         }
+/* line 182 NOT_COVERED */     }
+/* line 183 */ 
+/* line 184 */     private void cycle(int i)
+/* line 185 */     {
+/* line 186 NOT_COVERED */         boolean aa = false;
+/* line 187 NOT_COVERED */         int prev = i;
+/* line 188 NOT_COVERED */         mycycle.addLast (i);
+/* line 189 NOT_COVERED */         System.out.println (i);
+/* line 190 NOT_COVERED */         int j = aneigh[i];
+/* line 191 NOT_COVERED */         while (j != i)
+/* line 192 */         {
+/* line 193 NOT_COVERED */             if (j == prev)
+/* line 194 */             {
+/* line 195 NOT_COVERED */                 loops = true;
+/* line 196 NOT_COVERED */                 break;
+/* line 197 */             }
+/* line 198 NOT_COVERED */             mycycle.addLast (j);
+/* line 199 NOT_COVERED */             System.out.println (j);
+/* line 200 NOT_COVERED */             prev = j;
+/* line 201 NOT_COVERED */             j = aa ? aneigh[j] : bneight[j];
+/* line 202 */ //            if (j == -1)
+/* line 203 */ //            {
+/* line 204 */ //                System.out.println (prev + " " + aneigh[prev] + bneight[prev] + " " + deg[prev] + " " + val[prev] + " " + val[64] + " " + deg[64]);
+/* line 205 */ //            }
+/* line 206 NOT_COVERED */             aa = !aa;
+/* line 207 */         }
+/* line 208 */ 
+/* line 209 NOT_COVERED */         if (loops)
+/* line 210 */         {
+/* line 211 NOT_COVERED */             j = bneight[i];
+/* line 212 NOT_COVERED */             prev = i;
+/* line 213 NOT_COVERED */             aa = true;
+/* line 214 NOT_COVERED */             while (prev != j)
+/* line 215 */             {
+/* line 216 NOT_COVERED */                 mycycle.addFirst (j);
+/* line 217 */ 
+/* line 218 NOT_COVERED */                 prev = j;
+/* line 219 NOT_COVERED */                 j = aa ? aneigh[j] : bneight[j];
+/* line 220 NOT_COVERED */                 aa = !aa;
+/* line 221 */             }
+/* line 222 */         }
+/* line 223 NOT_COVERED */         System.out.println ("XXX");
+/* line 224 NOT_COVERED */     }
+/* line 225 */ }
+/* line 226 */ 
+/* line 227 */ class FastReader
+/* line 228 */ {
+/* line 229 */ 
+/* line 230 */     public InputStream stream;
+/* line 231 COVERED, hit count: 1 */     private byte[] buf = new byte[1024];
+/* line 232 */     private int curChar;
+/* line 233 */     private int numChars;
+/* line 234 */     private SpaceCharFilter filter;
+/* line 235 */ 
+/* line 236 */     public FastReader(InputStream stream)
+/* line 237 COVERED, hit count: 1 */     {
+/* line 238 COVERED, hit count: 1 */         this.stream = stream;
+/* line 239 COVERED, hit count: 1 */     }
+/* line 240 */ 
+/* line 241 */     public FastReader()
+/* line 242 NOT_COVERED */     {
+/* line 243 */ 
+/* line 244 NOT_COVERED */     }
+/* line 245 */ 
+/* line 246 */     public int read()
+/* line 247 */     {
+/* line 248 COVERED, hit count: 495 */         if (numChars == -1)
+/* line 249 */         {
+/* line 250 NOT_COVERED */             throw new InputMismatchException ();
+/* line 251 */         }
+/* line 252 PARTIALLY_COVERED, hit count: 495 */         if (curChar >= numChars)
+/* line 253 */         {
+/* line 254 COVERED, hit count: 1 */             curChar = 0;
+/* line 255 */             try
+/* line 256 */             {
+/* line 257 COVERED, hit count: 1 */                 numChars = stream.read (buf);
+/* line 258 NOT_COVERED */             } catch (IOException e)
+/* line 259 */             {
+/* line 260 NOT_COVERED */                 throw new InputMismatchException ();
+/* line 261 COVERED, hit count: 1 */             }
+/* line 262 COVERED, hit count: 1 */             if (numChars <= 0)
+/* line 263 */             {
+/* line 264 NOT_COVERED */                 return -1;
+/* line 265 */             }
+/* line 266 */         }
+/* line 267 COVERED, hit count: 495 */         return buf[curChar++];
+/* line 268 */     }
+/* line 269 */ 
+/* line 270 */     public int ni()
+/* line 271 */     {
+/* line 272 COVERED, hit count: 103 */         int c = read ();
+/* line 273 COVERED, hit count: 103 */         while (isSpaceChar (c))
+/* line 274 NOT_COVERED */             c = read ();
+/* line 275 COVERED, hit count: 103 */         int sgn = 1;
+/* line 276 COVERED, hit count: 103 */         if (c == '-')
+/* line 277 */         {
+/* line 278 NOT_COVERED */             sgn = -1;
+/* line 279 NOT_COVERED */             c = read ();
+/* line 280 */         }
+/* line 281 COVERED, hit count: 103 */         int res = 0;
+/* line 282 */         do
+/* line 283 */         {
+/* line 284 COVERED, hit count: 392 */             if (c < '0' || c > '9')
+/* line 285 */             {
+/* line 286 NOT_COVERED */                 throw new InputMismatchException ();
+/* line 287 */             }
+/* line 288 COVERED, hit count: 392 */             res *= 10;
+/* line 289 COVERED, hit count: 392 */             res += c - '0';
+/* line 290 COVERED, hit count: 392 */             c = read ();
+/* line 291 PARTIALLY_COVERED, hit count: 392 */         } while (!isSpaceChar (c));
+/* line 292 COVERED, hit count: 103 */         return res * sgn;
+/* line 293 */     }
+/* line 294 */ 
+/* line 295 */     public boolean isSpaceChar(int c)
+/* line 296 */     {
+/* line 297 COVERED, hit count: 495 */         if (filter != null)
+/* line 298 */         {
+/* line 299 NOT_COVERED */             return filter.isSpaceChar (c);
+/* line 300 */         }
+/* line 301 COVERED, hit count: 495 */         return isWhitespace (c);
+/* line 302 */     }
+/* line 303 */ 
+/* line 304 */     public static boolean isWhitespace(int c)
+/* line 305 */     {
+/* line 306 PARTIALLY_COVERED, hit count: 495 */         return c==' ' || c == '\n' || c == '\r' || c == '\t' || c == -1;
+/* line 307 */     }
+/* line 308 */ 
+/* line 309 */     public int[] iArr(int n)
+/* line 310 */     {
+/* line 311 COVERED, hit count: 1 */         int a[] = new int[n];
+/* line 312 PARTIALLY_COVERED, hit count: 101 */         for (int i = 0; i < n; i++)
+/* line 313 */         {
+/* line 314 COVERED, hit count: 100 */             a[i] = ni ();
+/* line 315 */         }
+/* line 316 COVERED, hit count: 1 */         return a;
+/* line 317 */     }
+/* line 318 */ 
+/* line 319 */     public interface SpaceCharFilter
+/* line 320 */     {
+/* line 321 */         public boolean isSpaceChar(int ch);
+/* line 322 */     }
+/* line 323 */ }

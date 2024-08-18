@@ -1,0 +1,13 @@
+/* line 1 */ import java.util.*;
+/* line 2 NOT_COVERED */ public class Main {
+/* line 3 */  
+/* line 4 */   public static void main(String[] args) {
+/* line 5 COVERED, hit count: 1 */     Scanner sc=new Scanner(System.in);
+/* line 6 COVERED, hit count: 1 */     String s=sc.next();
+/* line 7 COVERED, hit count: 1 */     if(s.charAt(6)%2==0)
+/* line 8 COVERED, hit count: 1 */           System.out.println("0");
+/* line 9 */     else
+/* line 10 NOT_COVERED */           System.out.println("1");
+/* line 11 */  
+/* line 12 COVERED, hit count: 1 */   }
+/* line 13 */ }
