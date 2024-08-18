@@ -127,6 +127,10 @@ def main(
     problem_root_dir: str = config["problem_root_dir"],
     run_tests: bool = True,
     run_tests_language: Literal["python", "cpp", "python3", "java"] = "java",
+    prompt_template: Literal[
+        "prompt_template.txt", "prompt_template_with_feedback.txt"
+    ] = "prompt_template.txt",
+    use_feedback: bool = False,
 ):
     """Generates tests by test generator created by LLM.
 
@@ -141,19 +145,28 @@ def main(
 
     for problem in tqdm(filtered_problems):
         problem_id = problem["name"].split(".")[0]
+        print("problem_id:", problem_id)
         problem_dir = problem_root_dir / problem_id
         experiment_dir = problem_dir / experiment_name
         experiment_dir.mkdir(exist_ok=True, parents=True)
-        _, selected_solutions = select_solutions(
+        selected_solution_ids, selected_solutions = select_solutions(
             problem_id, problem, config["prompt_language"]
         )
+
+        if len(selected_solution_ids) < 2:
+            # print(f"Not enough solutions to select for {problem_id}, language: {str(config["prompt_language"])}")
+            continue
 
         test_generator_path = experiment_dir / "gen.py"
 
         if not test_generator_path.exists():
             if not config["manual_prompt"]:
                 cost = write_test_generator(
-                    experiment_dir, problem["description"], selected_solutions
+                    experiment_dir,
+                    problem,
+                    selected_solutions,
+                    prompt_template=prompt_template,
+                    use_feedback=use_feedback,
                 )
                 print("Cost on API call:", cost)
             else:

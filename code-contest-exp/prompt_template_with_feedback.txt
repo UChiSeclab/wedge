@@ -20,6 +20,8 @@ The below information may help you better understand the performance difference 
 1. Input data: The input data that leads to significant performance differences between the fast and slow programs.
 2. Coverage and hit count: The source code with coverage and hit count of the fast and slow programs for the given input data.
 
+Input data:
+
 <input>
 
 Fast program #1 source with coverage and hit count:
@@ -52,4 +54,4 @@ Phase 4: Implement Test Generator
     The script should:
         -- Follow the input format specified in the problem statement.
         -- Maximize stress on the "slow" programs while ensuring the "fast" programs run efficiently.
-        -- Read an argument that specifies a directory and write all the test cases as 'test_01.in', 'test_02.in', etc., into the directory.
+        -- Read an argument that specifies a directory and write all the test cases as 'test_01.in', 'test_02.in', etc., into the directory. E.g., executing `python gen.py <output_directory>` will produce 'test_01.in', 'test_02.in', etc., in the <output_directory> directory.

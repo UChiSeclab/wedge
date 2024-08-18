@@ -1,9 +1,10 @@
 from pathlib import Path
-from typing import List
+from typing import List, Dict, Literal
 import requests
 import subprocess
 
 from utils import num_tokens_from_string
+from config import config
 
 API_KEY = "sk-proj-agKWhu46RVJSx5PbRea7T3BlbkFJB3jZFl9KGevQ0QC9vatB"
 
@@ -38,18 +39,51 @@ def cut_string(input_string: str, begin_token="```python\n", end_token="```") ->
 
 def write_test_generator(
     experiment_dir: Path,
-    problem_description: str,
+    problem: Dict,
     solution_codes: List[str],  # List of [fast_solution, slow_solution]
     ill_tests: str = None,
     error: subprocess.CalledProcessError = None,
+    prompt_template: Literal[
+        "prompt_template.txt", "prompt_template_with_feedback.txt"
+    ] = "prompt_template.txt",
+    use_feedback: bool = False,
 ):
     """Prompts llm to write a test generator."""
-    with open("./prompt_template.txt", "r", encoding="utf-8") as file:
+    with open(prompt_template, "r", encoding="utf-8") as file:
         prompt = file.read()
 
-    prompt = prompt.replace("<problem_statement>", problem_description)
+    prompt = prompt.replace("<problem_statement>", problem["description"])
     prompt = prompt.replace("<fast_solution>", solution_codes[0])
     prompt = prompt.replace("<slow_solution>", solution_codes[1])
+
+    problem_id = problem["name"].split(".")[0]
+
+    if use_feedback:
+        assert prompt_template == "prompt_template_with_feedback.txt"
+        cov_dir = (
+            Path(config["coverage_hit_count_output_dir"])
+            / problem_id
+            / experiment_dir.name
+            / str(config["prompt_language"])
+        )
+        cov_files = [file.absolute() for file in Path(cov_dir).rglob("*.cov")]
+        assert len(cov_files) == 2, f"cov_files: {cov_files}"
+        fast_solution_cov_file = [
+            file for file in cov_files if file.parent.name == "fast"
+        ][0]
+        slow_solution_cov_file = [
+            file for file in cov_files if file.parent.name == "slow"
+        ][0]
+        input_id = fast_solution_cov_file.parent.parent.name
+        input_file = (
+            Path(config["problem_root_dir"]) / problem_id / "input" / f"{input_id}.in"
+        )
+
+        prompt = prompt.replace("<fast_coverage>", fast_solution_cov_file.read_text())
+        prompt = prompt.replace("<slow_coverage>", slow_solution_cov_file.read_text())
+        prompt = prompt.replace("<input>", input_file.read_text())
+    else:
+        assert prompt_template == "prompt_template.txt"
 
     gpt_response = request(prompt)
     cost = (
