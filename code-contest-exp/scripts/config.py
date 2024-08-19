@@ -11,7 +11,7 @@ config = {
     "repeat_test": 3,
     "specified_problem": [
         "374_E",
-        "1140_G",
+        # "1140_G", # does not contain 2 correct java solutions
         "611_D",
         "987_F",
         "163_E",

@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-
+from fire import Fire
 import plotly.express as px
 
 from utils import mean
@@ -13,7 +13,7 @@ def load_data(file_path):
     return data
 
 
-def compare_solutions(problem_name, alphacode_data, gpt_tests_data):
+def compare_solutions(problem_name, alphacode_data, gpt_tests_data, experiment_name):
     alphacode_time = {"java": [], "cpp": [], "python": []}
     gpt_tests_time = {"java": [], "cpp": [], "python": []}
 
@@ -51,13 +51,19 @@ def compare_solutions(problem_name, alphacode_data, gpt_tests_data):
         )
         fig.update_layout(barmode="overlay")
         fig.update_traces(opacity=0.5)
-        fig.write_image(f"analysis/time_contrast/{language}/{problem_name}.png")
+        output_file = (
+            Path("analysis") / experiment_name / language / f"{problem_name}.png"
+        )
+        output_file.parent.mkdir(exist_ok=True, parents=True)
+        fig.write_image(output_file)
 
 
-def main():
+def main(
+    experiment_name: str = "time_contrast",
+):
     # Load data from two files
     alphacode_dir = Path("./results/alphacode")
-    gpt_dir = Path("./results/time_contrast")
+    gpt_dir = Path("./results") / experiment_name
 
     for file_name in os.listdir(gpt_dir):
         alphacode_result = load_data(alphacode_dir / file_name)
@@ -65,8 +71,10 @@ def main():
 
         # Compare solutions
         print(file_name)
-        compare_solutions(file_name.split(".")[0], alphacode_result, gpt_result)
+        compare_solutions(
+            file_name.split(".")[0], alphacode_result, gpt_result, experiment_name
+        )
 
 
 if __name__ == "__main__":
-    main()
+    Fire(main)
