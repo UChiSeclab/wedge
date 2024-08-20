@@ -26,11 +26,11 @@ Input data:
 
 Fast program #1 source with coverage and hit count:
 
-<fast_coverage>
+<fast_solution_coverage>
 
 Slow program #1 source with coverage and hit count:
 
-<slow_coverage>
+<slow_solution_coverage>
 
 Based on the above information, you will work in phases:
 
