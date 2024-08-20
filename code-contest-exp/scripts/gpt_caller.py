@@ -76,11 +76,18 @@ def write_test_generator(
         ][0]
         slow_input_id = fast_solution_cov_file.parent.parent.name
         input_file = (
-            Path(config["problem_root_dir"]) / problem_id / "input" / f"{slow_input_id}.in"
+            Path(config["problem_root_dir"])
+            / problem_id
+            / "input"
+            / f"{slow_input_id}.in"
         )
 
-        prompt = prompt.replace("<fast_solution_coverage>", fast_solution_cov_file.read_text())
-        prompt = prompt.replace("<slow_solution_coverage>", slow_solution_cov_file.read_text())
+        prompt = prompt.replace(
+            "<fast_solution_coverage>", fast_solution_cov_file.read_text()
+        )
+        prompt = prompt.replace(
+            "<slow_solution_coverage>", slow_solution_cov_file.read_text()
+        )
         prompt = prompt.replace("<input>", input_file.read_text())
         prompt = prompt.replace("<number_of_tests>", str(num_tests))
     elif feedback_prompt_type == "diff_input":
@@ -102,14 +109,24 @@ def write_test_generator(
         slow_input_id = slow_input_cov_file.parent.parent.name
         fast_input_id = fast_input_cov_file.parent.parent.name
         slow_input_file = (
-            Path(config["problem_root_dir"]) / problem_id / "input" / f"{slow_input_id}.in"
+            Path(config["problem_root_dir"])
+            / problem_id
+            / "input"
+            / f"{slow_input_id}.in"
         )
         fast_input_file = (
-            Path(config["problem_root_dir"]) / problem_id / "input" / f"{fast_input_id}.in"
+            Path(config["problem_root_dir"])
+            / problem_id
+            / "input"
+            / f"{fast_input_id}.in"
         )
 
-        prompt = prompt.replace("<fast_input_coverage>", fast_input_cov_file.read_text())
-        prompt = prompt.replace("<slow_input_coverage>", slow_input_cov_file.read_text())
+        prompt = prompt.replace(
+            "<fast_input_coverage>", fast_input_cov_file.read_text()
+        )
+        prompt = prompt.replace(
+            "<slow_input_coverage>", slow_input_cov_file.read_text()
+        )
         prompt = prompt.replace("<slow_input>", slow_input_file.read_text())
         prompt = prompt.replace("<fast_input>", fast_input_file.read_text())
         prompt = prompt.replace("<number_of_tests>", str(num_tests))

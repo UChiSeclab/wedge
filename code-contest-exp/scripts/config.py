@@ -15,8 +15,20 @@ config = {
         # "414_E", # excluded due to some reason
         # "1413_F", # excluded due to no input
         # "750_F", "223_D", "786_D", "917_E", "44_F", "1098_F", "666_E", "1284_G", "1470_F", "1375_I", "1439_A1", "720_F", "269_E", "1178_G", "744_D", "607_E", "1043_G", "175_F", "982_F", "107_E", "1054_E", "1440_C2", # excluded due to not enough java solutions
-        "901_E", "331_D3", "985_G", "331_D1",
-        "656_E", "1163_F", "1440_C1", "280_D", "986_D", "1065_D", "609_E", "555_E", "1389_F", "1303_G"
+        "901_E",
+        "331_D3",
+        "985_G",
+        "331_D1",
+        "656_E",
+        "1163_F",
+        "1440_C1",
+        "280_D",
+        "986_D",
+        "1065_D",
+        "609_E",
+        "555_E",
+        "1389_F",
+        "1303_G",
     ],
     "use_specified_problem": True,
     "coverage_hit_count_output_dir": "cov_hit_count",

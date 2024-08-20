@@ -35,10 +35,7 @@ def __squeeze_time_dict(
     return result
 
 
-def __filter_input(
-    slow_time_stat: Dict[str, float],
-    fast_time_stat: Dict[str, float]
-):
+def __filter_input(slow_time_stat: Dict[str, float], fast_time_stat: Dict[str, float]):
     """there might be some corner cases where the input is not present in both solutions"""
     """we only include existing inputs"""
     only_in_slow = set(slow_time_stat.keys()) - set(fast_time_stat.keys())
@@ -54,7 +51,7 @@ def __filter_input(
 def select_slow_fast_input(
     solutions_stat_file: Path,
     solution_id: str,
-    use_max_or_avg: Literal["max", "avg"] = "avg"
+    use_max_or_avg: Literal["max", "avg"] = "avg",
 ) -> Tuple[str, str]:
     data = json.loads(solutions_stat_file.read_text())
     solution_stat = data[solution_id]
@@ -180,7 +177,11 @@ def main(
                     / experiment_name
                     / solution_language
                     / (most_differentiating_input_file_name.split(".")[0])
-                    / ("fast_solution" if solution_id == fast_solution_id else "slow_solution")
+                    / (
+                        "fast_solution"
+                        if solution_id == fast_solution_id
+                        else "slow_solution"
+                    )
                     / f"{solution_id}.cov"
                 )
                 cov_hit_count_file.parent.mkdir(exist_ok=True, parents=True)
@@ -190,7 +191,9 @@ def main(
                         / "solutions"
                         / solution_language
                         / f"{solution_id}.{Language.str_to_lang(solution_language).to_suffix()}",
-                        problem_dir / "input" / f"{most_differentiating_input_file_name}",
+                        problem_dir
+                        / "input"
+                        / f"{most_differentiating_input_file_name}",
                         Language.str_to_lang(solution_language),
                         cov_hit_count_file,
                     )
@@ -203,7 +206,11 @@ def main(
                     / experiment_name
                     / solution_language
                     / (input_file_name.split(".")[0])
-                    / ("fast_input" if input_file_name == fast_input_file_name else "slow_input")
+                    / (
+                        "fast_input"
+                        if input_file_name == fast_input_file_name
+                        else "slow_input"
+                    )
                     / f"{slow_solution_id}.cov"
                 )
                 cov_hit_count_file.parent.mkdir(exist_ok=True, parents=True)
@@ -220,6 +227,7 @@ def main(
 
         else:
             raise ValueError("Invalid feedback_prompt_type")
+
 
 if __name__ == "__main__":
     Fire(main)
