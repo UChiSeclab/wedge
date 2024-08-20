@@ -4,6 +4,4 @@ trash/
 *.pkl
 code-contest-exp/problems
 code-contest-exp/results
-code-contest-exp/solutions_*
-code-contest-exp/incorrect_solutions_*
 code-contest-exp/cov_hit_count
