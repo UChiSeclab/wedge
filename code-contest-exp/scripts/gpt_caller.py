@@ -16,7 +16,7 @@ def request(instruction: str) -> str:
     data = {
         "model": "gpt-4o",
         "messages": [{"role": "user", "content": instruction}],
-        "temperature": 1,
+        "temperature": 0.8,
     }
     response = requests.post(url, json=data, headers=headers, timeout=60)
     if response.status_code == 200:
