@@ -48,6 +48,10 @@ def get_cf_problems(use_specified_problem: bool = False):
         if os.path.exists("specified_problem_dataset.pkl"):
             with open(r"specified_problem_dataset.pkl", "rb") as file:
                 cf_problems = pickle.load(file)
+                cf_problems = cf_problems.filter(
+                    lambda example: example["name"].split(".")[0]
+                    in config["specified_problem"]
+                )
         else:
             dataset = load_dataset("deepmind/code_contests")
             all_problems = dataset["train"]

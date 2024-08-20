@@ -127,10 +127,9 @@ def main(
     problem_root_dir: str = config["problem_root_dir"],
     run_tests: bool = True,
     run_tests_language: Literal["python", "cpp", "python3", "java"] = "java",
-    prompt_template: Literal[
-        "prompt_template.txt", "prompt_template_with_feedback.txt"
-    ] = "prompt_template.txt",
-    use_feedback: bool = False,
+    prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
+    prompt_template: str = "prompt_template.txt",
+    feedback_prompt_type: Literal["diff_solution", "diff_input"] = None,
 ):
     """Generates tests by test generator created by LLM.
 
@@ -166,7 +165,8 @@ def main(
                     problem,
                     selected_solutions,
                     prompt_template=prompt_template,
-                    use_feedback=use_feedback,
+                    prompt_language=prompt_language,
+                    feedback_prompt_type=feedback_prompt_type,
                 )
                 print("Cost on API call:", cost)
             else:

@@ -4,7 +4,7 @@ from common import Language
 from tempdir import TempDir
 import subprocess
 import shutil
-from typing import Literal, Dict, List
+from typing import Literal, Dict, List, Tuple
 import json
 from fire import Fire
 from tqdm import tqdm
@@ -37,8 +37,7 @@ def __squeeze_time_dict(
 
 def __filter_input(
     slow_time_stat: Dict[str, float],
-    fast_time_stat: Dict[str, float],
-    only_existing_inputs=True,
+    fast_time_stat: Dict[str, float]
 ):
     """there might be some corner cases where the input is not present in both solutions"""
     """we only include existing inputs"""
@@ -48,15 +47,22 @@ def __filter_input(
         print("only in slow inputs:", only_in_slow)
     if debug and only_in_fast:
         print("only in fast inputs:", only_in_fast)
-    if only_existing_inputs:
-        return {
-            k: v
-            for k, v in slow_time_stat.items()
-            if k in fast_time_stat
-            and (k.startswith("public_tests_") or k.startswith("private_tests_"))
-        }
-    else:
-        return {k: v for k, v in slow_time_stat.items() if k in fast_time_stat}
+
+    return {k: v for k, v in slow_time_stat.items() if k in fast_time_stat}
+
+
+def select_slow_fast_input(
+    solutions_stat_file: Path,
+    solution_id: str,
+    use_max_or_avg: Literal["max", "avg"] = "avg"
+) -> Tuple[str, str]:
+    data = json.loads(solutions_stat_file.read_text())
+    solution_stat = data[solution_id]
+    time_stat = __squeeze_time_dict(solution_stat["time_dict"], use_max_or_avg)
+    slow_input = min(time_stat, key=lambda x: time_stat[x])
+    fast_input = max(time_stat, key=lambda x: time_stat[x])
+
+    return slow_input, fast_input
 
 
 def select_most_differentiating_input(
@@ -118,6 +124,7 @@ def main(
     experiment_name: str = config["experiment_name"],
     problem_root_dir: str = config["problem_root_dir"],
     solution_language: Literal["python", "cpp", "python3", "java"] = "java",
+    feedback_prompt_type: Literal["diff_solution", "diff_input"] = None,
 ):
     problem_root_dir = Path(problem_root_dir)
     assert (
@@ -145,8 +152,13 @@ def main(
 
         fast_solution_id, slow_solution_id = selected_solution_ids
         solutions_stat_file = Path("./results/alphacode") / (problem_id + ".json")
+
         most_differentiating_input_file_name = select_most_differentiating_input(
             solutions_stat_file, fast_solution_id, slow_solution_id
+        )
+
+        slow_input_file_name, fast_input_file_name = select_slow_fast_input(
+            solutions_stat_file, slow_solution_id
         )
 
         if debug:
@@ -160,28 +172,54 @@ def main(
             )
 
         # collect coverage and hit count
-        for solution_id in [fast_solution_id, slow_solution_id]:
-            cov_hit_count_file = (
-                COVERAGE_HIT_COUNT_OUTPUT_DIR
-                / problem_id
-                / experiment_name
-                / solution_language
-                / (most_differentiating_input_file_name.split(".")[0])
-                / ("fast" if solution_id == fast_solution_id else "slow")
-                / f"{solution_id}.cov"
-            )
-            cov_hit_count_file.parent.mkdir(exist_ok=True, parents=True)
-            if not cov_hit_count_file.exists():
-                collect_coverage_hit_count(
-                    problem_dir
-                    / "solutions"
+        if feedback_prompt_type == "diff_solution":
+            for solution_id in [fast_solution_id, slow_solution_id]:
+                cov_hit_count_file = (
+                    COVERAGE_HIT_COUNT_OUTPUT_DIR
+                    / problem_id
+                    / experiment_name
                     / solution_language
-                    / f"{solution_id}.{Language.str_to_lang(solution_language).to_suffix()}",
-                    problem_dir / "input" / f"{most_differentiating_input_file_name}",
-                    Language.str_to_lang(solution_language),
-                    cov_hit_count_file,
+                    / (most_differentiating_input_file_name.split(".")[0])
+                    / ("fast_solution" if solution_id == fast_solution_id else "slow_solution")
+                    / f"{solution_id}.cov"
                 )
+                cov_hit_count_file.parent.mkdir(exist_ok=True, parents=True)
+                if not cov_hit_count_file.exists():
+                    collect_coverage_hit_count(
+                        problem_dir
+                        / "solutions"
+                        / solution_language
+                        / f"{solution_id}.{Language.str_to_lang(solution_language).to_suffix()}",
+                        problem_dir / "input" / f"{most_differentiating_input_file_name}",
+                        Language.str_to_lang(solution_language),
+                        cov_hit_count_file,
+                    )
 
+        elif feedback_prompt_type == "diff_input":
+            for input_file_name in [slow_input_file_name, fast_input_file_name]:
+                cov_hit_count_file = (
+                    COVERAGE_HIT_COUNT_OUTPUT_DIR
+                    / problem_id
+                    / experiment_name
+                    / solution_language
+                    / (input_file_name.split(".")[0])
+                    / ("fast_input" if input_file_name == fast_input_file_name else "slow_input")
+                    / f"{slow_solution_id}.cov"
+                )
+                cov_hit_count_file.parent.mkdir(exist_ok=True, parents=True)
+                if not cov_hit_count_file.exists():
+                    collect_coverage_hit_count(
+                        problem_dir
+                        / "solutions"
+                        / solution_language
+                        / f"{slow_solution_id}.{Language.str_to_lang(solution_language).to_suffix()}",
+                        problem_dir / "input" / f"{input_file_name}",
+                        Language.str_to_lang(solution_language),
+                        cov_hit_count_file,
+                    )
+
+        else:
+            raise ValueError("Invalid feedback_prompt_type")
 
 if __name__ == "__main__":
     Fire(main)
