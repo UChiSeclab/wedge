@@ -8,7 +8,7 @@ if [ "$#" -ne 4 ]; then
     exit 1
 fi
 
-solution_file="$1" # solutions_xxx.java
+solution_file="$1" # solutions_xxx.cpp
 input_file=$(realpath "$2") # test_xx.in
 work_dir="$3"
 output_dir="$4"
@@ -28,7 +28,7 @@ cd "$work_dir" || exit
 CFLAG="-fPIC -fprofile-arcs -ftest-coverage"
 obj_file="${wd_solution_file%.*}.o"
 exec_file="${wd_solution_file%.*}"
-g++ $CFLAG -c -Wall -Werror $wd_solution_file
+g++ $CFLAG -c $wd_solution_file
 g++ $CFLAG -o $exec_file $obj_file
 ./$exec_file < "$input_file"
 gcov $wd_solution_file
