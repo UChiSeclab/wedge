@@ -200,6 +200,8 @@ def main(
             if run_tests_language == str(Language.JAVA):
                 solution_dir = problem_dir / "solutions" / str(run_tests_language)
                 for solution_file_name in os.listdir(solution_dir):
+                    if "incorrect" in solution_file_name:
+                        continue
                     run_solution(
                         solution_dir,
                         solution_file_name,
