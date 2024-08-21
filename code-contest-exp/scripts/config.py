@@ -47,4 +47,8 @@ abandoned_list = [
     "If there are multiple possible solutions",
     "If there are several solutions",
     "The answer will be considered correct,",
+    "an interactive problem",
+    "its absolute or relative error does not exceed",
+    "print in any order",
+    "with an accuracy of",
 ]
