@@ -55,6 +55,7 @@ def write_test_generator(
     prompt = prompt.replace("<problem_statement>", problem["description"])
     prompt = prompt.replace("<fast_solution>", solution_codes[0])
     prompt = prompt.replace("<slow_solution>", solution_codes[1])
+    prompt = prompt.replace("<number_of_tests>", str(num_tests))
 
     problem_id = problem["name"].split(".")[0]
 
@@ -89,7 +90,6 @@ def write_test_generator(
             "<slow_solution_coverage>", slow_solution_cov_file.read_text()
         )
         prompt = prompt.replace("<input>", input_file.read_text())
-        prompt = prompt.replace("<number_of_tests>", str(num_tests))
     elif feedback_prompt_type == "diff_input":
         assert prompt_template == "prompt_template_with_feedback_diff_input.txt"
         cov_dir = (
@@ -129,7 +129,6 @@ def write_test_generator(
         )
         prompt = prompt.replace("<slow_input>", slow_input_file.read_text())
         prompt = prompt.replace("<fast_input>", fast_input_file.read_text())
-        prompt = prompt.replace("<number_of_tests>", str(num_tests))
     else:
         assert prompt_template == "prompt_template.txt"
 

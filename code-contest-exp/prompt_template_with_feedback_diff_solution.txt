@@ -42,7 +42,7 @@ Phase 1: Analyze the given programs.
 
 Phase 2: Define Stress Test Specifications.
     Based on the problem statement, describe the size, shape, and range of potential inputs.
-    Identify input patterns that can maximize the inefficiencies of the programs.
+    Identify input patterns that can maximize the inefficiencies of the "slow" programs.
     Don't just limit the generator into generating tests that maximize input size, but suggest specific values or patterns for inputs that can stress the slow programs (e.g., sorted arrays, repeated elements, specific edge cases).
     Explain how the inputs should be designed to exploit algorithmic inefficiencies or implementation anti-patterns.
 
