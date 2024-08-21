@@ -173,6 +173,22 @@ def run_solution_wrapper(args):
     return run_solution(*args)
 
 
+def input_sanitization(input_dir: Path, output_dir: Path):
+    invalid_input_files = []
+    for input_test in os.listdir(input_dir):
+        output_path = output_dir / f"{input_test[:-3]}.out"
+        if not os.path.isfile(output_path):
+            invalid_input_files.append(input_test)
+
+    for invalid_input_file in invalid_input_files:
+        print(
+            f"[WARNING] input file {invalid_input_file} does not have \
+            corresponding output file. The input likely runs into problems."
+        )
+        print(f"[WARNING] Removing invalid input file: {invalid_input_file}")
+        os.remove(input_dir / invalid_input_file)
+
+
 def main(
     experiment_name: str = config["experiment_name"],
     problem_root_dir: str = config["problem_root_dir"],
@@ -207,6 +223,7 @@ def main(
 
         print(problem["name"])
         print(f"# of tests: {len(os.listdir(input_dir))}")
+        input_sanitization(input_dir, output_dir)
         test_args = []
         for sol_type in ["solutions", "incorrect_solutions"]:
             for solution_idx, _ in enumerate(problem[sol_type]["solution"]):
