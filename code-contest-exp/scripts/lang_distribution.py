@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 from tqdm import tqdm
-from scipy.stats import pearsonr   
+from scipy.stats import pearsonr
 
 
 loc_result_path = Path(f"results/average_loc_sorted.json")
@@ -25,7 +25,7 @@ for problem_result in tqdm(os.listdir(result_dir)):
     path = result_dir / problem_result
     with open(path, "r", encoding="utf-8") as file:
         res_dict = json.load(file)
-    
+
     time_list = []
     for (sol_name, res) in res_dict.items():
         if sol_name == "time_limit":
@@ -57,15 +57,15 @@ import plotly.io as pio
 
 # Create a scatter plot with loc on the x-axis and var on the y-axis
 scatter_plot = go.Scatter(
-    x=loc, 
+    x=loc,
     y=var,
-    mode='markers',
+    mode="markers",
     marker=dict(
         size=10,
         color=run_time,  # Color by runtime
-        colorscale='Viridis',
+        colorscale="Viridis",
         showscale=True,
-        colorbar=dict(title="Run Time")
+        colorbar=dict(title="Run Time"),
     ),
     text=[f"Runtime: {rt:.2f}" for rt in run_time],  # Tooltips with runtime
 )
@@ -75,7 +75,7 @@ layout = go.Layout(
     title="Distribution of Lines of Code (loc) and Run Time Variance (var)",
     xaxis=dict(title="Average Lines of Code (loc)"),
     yaxis=dict(title="Run Time Variance"),
-    hovermode='closest'
+    hovermode="closest",
 )
 
 # Create the figure

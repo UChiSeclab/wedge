@@ -153,7 +153,8 @@ def main(
         )
 
         if len(selected_solution_ids) < 2:
-            print(f"Not enough solutions to select for {problem_id}, language: {str(config["prompt_language"])}")
+            print(f"Not enough solutions to select for {problem_id}", end=" ")
+            print("language:", config["prompt_language"])
             continue
 
         test_generator_path = experiment_dir / "gen.py"

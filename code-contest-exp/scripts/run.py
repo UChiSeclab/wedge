@@ -179,10 +179,12 @@ def input_sanitization(input_dir: Path, output_dir: Path):
         output_path = output_dir / f"{input_test[:-3]}.out"
         if not os.path.isfile(output_path):
             invalid_input_files.append(input_test)
-    
+
     for invalid_input_file in invalid_input_files:
-        print(f"[WARNING] input file {invalid_input_file} does not have \
-            corresponding output file. The input likely runs into problems.")
+        print(
+            f"[WARNING] input file {invalid_input_file} does not have \
+            corresponding output file. The input likely runs into problems."
+        )
         print(f"[WARNING] Removing invalid input file: {invalid_input_file}")
         os.remove(input_dir / invalid_input_file)
 
