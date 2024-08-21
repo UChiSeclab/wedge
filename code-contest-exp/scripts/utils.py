@@ -22,7 +22,7 @@ def num_tokens_from_string(string: str, encoding_name: str = "cl100k_base") -> i
 
 
 def get_cf_problems(use_specified_problem: bool = False):
-    """Get Codeforces datasets
+    """Get Codeforces datasets.
 
     Load the datasets from dataset.pkl (if existed) or code_contests
     and filter codeforces problems.
@@ -69,7 +69,7 @@ def get_cf_problems(use_specified_problem: bool = False):
 
 
 def filter_problems(problems):
-    """Filters problems
+    """Filter problems.
 
     Skip if the problem accept multiple answers or the problem is not on the list.
 

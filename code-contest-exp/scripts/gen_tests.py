@@ -50,11 +50,11 @@ def __filter_solution_idx(
             continue
         if f"solutions_{solution_idx:04}" in result:
             if all(
-                v == "AC" for v in result[f"solutions_{solution_idx:04}"]["verdict"]
+                v != "WA" for v in result[f"solutions_{solution_idx:04}"]["verdict"]
             ):
                 filtered_solution_idxs.append(solution_idx)
             else:
-                print(f"solutions_{solution_idx:04} is not AC")
+                print(f"solutions_{solution_idx:04} is WA")
         else:
             print(f"Solution {solution_idx} is not in the result")
 
@@ -122,6 +122,45 @@ def select_solutions(
     return selected_solution_ids, selected_solutions
 
 
+def create_test_generator(
+    problem,
+    selected_solutions,
+    experiment_dir: Path,
+    experiment_input_dir: Path,
+    prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
+    prompt_template: str = "prompt_template.txt",
+    feedback_prompt_type: Literal["diff_solution", "diff_input"] = None,
+):
+    if not config["manual_prompt"]:
+        cost = write_test_generator(
+            experiment_dir,
+            problem,
+            selected_solutions,
+            prompt_template=prompt_template,
+            prompt_language=prompt_language,
+            feedback_prompt_type=feedback_prompt_type,
+        )
+        print("Cost on API call:", cost)
+    else:
+        print("Write file into", experiment_dir / "gen.py")
+        input("Press Enter to continue...")
+
+    try:
+        subprocess.run(
+            [
+                "python",
+                (experiment_dir / "gen.py").as_posix(),
+                experiment_input_dir.as_posix(),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).check_returncode()
+    except subprocess.CalledProcessError as e:
+        print("Error during execution of gen.py:", e)
+        return
+
+
 def main(
     experiment_name: str = config["experiment_name"],
     problem_root_dir: str = config["problem_root_dir"],
@@ -156,42 +195,21 @@ def main(
             # print(f"Not enough solutions to select for {problem_id}, language: {str(config["prompt_language"])}")
             continue
 
-        test_generator_path = experiment_dir / "gen.py"
-
-        if not test_generator_path.exists():
-            if not config["manual_prompt"]:
-                cost = write_test_generator(
-                    experiment_dir,
-                    problem,
-                    selected_solutions,
-                    prompt_template=prompt_template,
-                    prompt_language=prompt_language,
-                    feedback_prompt_type=feedback_prompt_type,
-                )
-                print("Cost on API call:", cost)
-            else:
-                print("Write file into", experiment_dir / "gen.py")
-                input("Press Enter to continue...")
-        else:
-            raise FileExistsError("Test generator already exist.")
-
-        # Execute gen.py and write its output to a file
         experiment_input_dir = experiment_dir / "input"
         experiment_input_dir.mkdir(exist_ok=True, parents=True)
-        try:
-            subprocess.run(
-                [
-                    "python",
-                    test_generator_path.as_posix(),
-                    experiment_input_dir.as_posix(),
-                ],
-                capture_output=True,
-                text=True,
-                check=True,
-            ).check_returncode()
-        except subprocess.CalledProcessError as e:
-            print("Error during execution of gen.py:", e)
-            continue
+        test_generator_path = experiment_dir / "gen.py"
+        try_cnt = 0
+        while try_cnt < 5 and len(os.listdir(experiment_input_dir)) == 0:
+            create_test_generator(
+                problem,
+                selected_solutions,
+                experiment_dir,
+                experiment_input_dir,
+                prompt_language,
+                prompt_template,
+                feedback_prompt_type,
+            )
+            try_cnt += 1
 
         if run_tests:
             experiment_output_dir = experiment_dir / "output"
