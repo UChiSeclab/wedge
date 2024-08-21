@@ -43,10 +43,10 @@ def write_test_generator(
     solution_codes: List[str],  # List of [fast_solution, slow_solution]
     ill_tests: str = None,
     error: subprocess.CalledProcessError = None,
-    prompt_template: Literal[
-        "prompt_template.txt", "prompt_template_with_feedback.txt"
-    ] = "prompt_template.txt",
-    use_feedback: bool = False,
+    prompt_template: str = "prompt_template.txt",
+    prompt_language: str = "java",
+    feedback_prompt_type: Literal["diff_solution", "diff_input"] = None,
+    num_tests: int = 20,
 ):
     """Prompts llm to write a test generator."""
     with open(prompt_template, "r", encoding="utf-8") as file:
@@ -58,8 +58,40 @@ def write_test_generator(
 
     problem_id = problem["name"].split(".")[0]
 
-    if use_feedback:
-        assert prompt_template == "prompt_template_with_feedback.txt"
+    if feedback_prompt_type == "diff_solution":
+        assert prompt_template == "prompt_template_with_feedback_diff_solution.txt"
+        cov_dir = (
+            Path(config["coverage_hit_count_output_dir"])
+            / problem_id
+            / experiment_dir.name
+            / prompt_language
+        )
+        cov_files = [file.absolute() for file in Path(cov_dir).rglob("*.cov")]
+        assert len(cov_files) == 2, f"cov_files: {cov_files}"
+        fast_solution_cov_file = [
+            file for file in cov_files if file.parent.name == "fast_solution"
+        ][0]
+        slow_solution_cov_file = [
+            file for file in cov_files if file.parent.name == "slow_solution"
+        ][0]
+        slow_input_id = fast_solution_cov_file.parent.parent.name
+        input_file = (
+            Path(config["problem_root_dir"])
+            / problem_id
+            / "input"
+            / f"{slow_input_id}.in"
+        )
+
+        prompt = prompt.replace(
+            "<fast_solution_coverage>", fast_solution_cov_file.read_text()
+        )
+        prompt = prompt.replace(
+            "<slow_solution_coverage>", slow_solution_cov_file.read_text()
+        )
+        prompt = prompt.replace("<input>", input_file.read_text())
+        prompt = prompt.replace("<number_of_tests>", str(num_tests))
+    elif feedback_prompt_type == "diff_input":
+        assert prompt_template == "prompt_template_with_feedback_diff_input.txt"
         cov_dir = (
             Path(config["coverage_hit_count_output_dir"])
             / problem_id
@@ -68,20 +100,36 @@ def write_test_generator(
         )
         cov_files = [file.absolute() for file in Path(cov_dir).rglob("*.cov")]
         assert len(cov_files) == 2, f"cov_files: {cov_files}"
-        fast_solution_cov_file = [
-            file for file in cov_files if file.parent.name == "fast"
+        fast_input_cov_file = [
+            file for file in cov_files if file.parent.name == "fast_input"
         ][0]
-        slow_solution_cov_file = [
-            file for file in cov_files if file.parent.name == "slow"
+        slow_input_cov_file = [
+            file for file in cov_files if file.parent.name == "slow_input"
         ][0]
-        input_id = fast_solution_cov_file.parent.parent.name
-        input_file = (
-            Path(config["problem_root_dir"]) / problem_id / "input" / f"{input_id}.in"
+        slow_input_id = slow_input_cov_file.parent.parent.name
+        fast_input_id = fast_input_cov_file.parent.parent.name
+        slow_input_file = (
+            Path(config["problem_root_dir"])
+            / problem_id
+            / "input"
+            / f"{slow_input_id}.in"
+        )
+        fast_input_file = (
+            Path(config["problem_root_dir"])
+            / problem_id
+            / "input"
+            / f"{fast_input_id}.in"
         )
 
-        prompt = prompt.replace("<fast_coverage>", fast_solution_cov_file.read_text())
-        prompt = prompt.replace("<slow_coverage>", slow_solution_cov_file.read_text())
-        prompt = prompt.replace("<input>", input_file.read_text())
+        prompt = prompt.replace(
+            "<fast_input_coverage>", fast_input_cov_file.read_text()
+        )
+        prompt = prompt.replace(
+            "<slow_input_coverage>", slow_input_cov_file.read_text()
+        )
+        prompt = prompt.replace("<slow_input>", slow_input_file.read_text())
+        prompt = prompt.replace("<fast_input>", fast_input_file.read_text())
+        prompt = prompt.replace("<number_of_tests>", str(num_tests))
     else:
         assert prompt_template == "prompt_template.txt"
 

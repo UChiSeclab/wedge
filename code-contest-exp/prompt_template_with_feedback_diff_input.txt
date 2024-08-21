@@ -16,21 +16,25 @@ Slow program #1:
 
 <slow_solution>
 
-The below information may help you better understand the performance difference between the fast and slow programs:
-1. Input data: The input data that leads to significant performance differences between the fast and slow programs.
-2. Coverage and hit count: The source code with coverage and hit count of the fast and slow programs for the given input data.
+The below information may help you better understand the performance difference between the fast and slow programs, especially why the slow program is slow:
+1. Slow and fast input data: The input data that makes the **slow program** run slowest and the **slow program** run fastest.
+2. Coverage and hit count: The source code with coverage and hit count of the slow programs under the slow input data and fast input data.
 
-Input data:
+Slow input data:
 
-<input>
+<slow_input>
 
-Fast program #1 source with coverage and hit count:
+Slow program #1 source with coverage and hit count under slow input data:
 
-<fast_coverage>
+<slow_input_coverage>
 
-Slow program #1 source with coverage and hit count:
+Fast input data:
 
-<slow_coverage>
+<fast_input>
+
+Slow program #1 source with coverage and hit count under fast input data:
+
+<fast_input_coverage>
 
 Based on the above information, you will work in phases:
 
@@ -46,8 +50,9 @@ Phase 2: Define Stress Test Specifications.
     Don't just limit the generator into generating tests that maximize input size, but suggest specific values or patterns for inputs that can stress the slow programs (e.g., sorted arrays, repeated elements, specific edge cases).
     Explain how the inputs should be designed to exploit algorithmic inefficiencies or implementation anti-patterns.
 
-Phase 3: Reason the performance difference between fast and slow programs.
-    Based on the given input and the coverage and hit count information of the fast and slow programs, reason why the input can make the slow program and fast program show significant performance differences. The insights would be helpful for the generator to create tests that stress the slow programs.
+Phase 3: Reason the performance difference between under fast and slow input data.
+    Based on the given fast/slow input and the corresponding coverage and hit count information of the slow program, reason why the inputs can make the slow program run relatively fast/slow. The insights would be helpful for the generator to create tests that stress the slow programs.
+    Example: "The slow input data is longer than the fast input data, leading to more iterations in the slow program."
 
 Phase 4: Implement Test Generator
     Write a Python script to generate the tests described in the previous phase.

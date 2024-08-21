@@ -10,6 +10,7 @@ from fire import Fire
 from config import config
 from utils import filter_problems, get_cf_problems
 
+
 def sum_lines_of_code(solution_dir, language):
     """Sum up lines of code for all solutions in the given directory."""
     total_loc = 0
@@ -17,12 +18,11 @@ def sum_lines_of_code(solution_dir, language):
         for solution_file in os.listdir(solution_dir):
             file_path = solution_dir / solution_file
             analysis = pygount.SourceAnalysis.from_file(
-                file_path,
-                language,
-                encoding="utf-8"
+                file_path, language, encoding="utf-8"
             )
             total_loc += analysis.code
     return total_loc
+
 
 def process_problem(args):
     """Process a single problem to calculate the total lines of code."""
@@ -43,6 +43,7 @@ def process_problem(args):
 
     return problem_id, total_loc
 
+
 def main(problem_root_dir: str = config["problem_root_dir"], max_cpu: int = 96):
     """Calculate total lines of code for each problem and sort them."""
     problem_root_dir = Path(problem_root_dir)
@@ -52,7 +53,9 @@ def main(problem_root_dir: str = config["problem_root_dir"], max_cpu: int = 96):
     args = [(problem["name"], problem_root_dir) for problem in filtered_problems]
 
     with Pool(min(max_cpu, cpu_count())) as pool:
-        problem_locs = list(tqdm(pool.imap(process_problem, args), total=len(filtered_problems)))
+        problem_locs = list(
+            tqdm(pool.imap(process_problem, args), total=len(filtered_problems))
+        )
 
     # Sort problems by total lines of code
     problem_locs.sort(key=lambda x: x[1], reverse=True)
@@ -64,6 +67,7 @@ def main(problem_root_dir: str = config["problem_root_dir"], max_cpu: int = 96):
         json.dump(problem_locs, file, indent=4)
 
     print(f"Results saved to {sorted_result_path}")
+
 
 if __name__ == "__main__":
     Fire(main)

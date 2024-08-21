@@ -10,8 +10,25 @@ config = {
     "prompt_language": Language.JAVA,
     "repeat_test": 3,
     "specified_problem": [
-        "175_F", "917_E", "414_E", "44_F", "901_E", "720_F", "786_D", "331_D3", "269_E", "1098_F", "1043_G", "1375_I", "1470_F", "117_E", "107_E", "223_D", "985_G", "1284_G", "331_D1",
-        "1440_C2", "1340_F", "744_D", "656_E", "1114_F", "1178_G", "1419_F", "750_F", "504_E", "666_E", "1163_F", "1440_C1", "1439_A1", "280_D", "986_D", "1065_D", "1413_F", "348_E", "768_G", "1054_E", "609_E", "555_E", "1389_F", "607_E", "982_F", "418_D", "1303_G"
+        # "117_E", "348_E", "418_D", "504_E", "1114_F", "768_G", "1419_F" # excluded due to not working with java coverage collection tool
+        # "1340_F" # excluded due to not working with cpp coverage collection tool
+        # "414_E", # excluded due to some reason
+        # "1413_F", # excluded due to no input
+        # "750_F", "223_D", "786_D", "917_E", "44_F", "1098_F", "666_E", "1284_G", "1470_F", "1375_I", "1439_A1", "720_F", "269_E", "1178_G", "744_D", "607_E", "1043_G", "175_F", "982_F", "107_E", "1054_E", "1440_C2", # excluded due to not enough java solutions
+        "901_E",
+        "331_D3",
+        "985_G",
+        "331_D1",
+        "656_E",
+        "1163_F",
+        "1440_C1",
+        "280_D",
+        "986_D",
+        "1065_D",
+        "609_E",
+        "555_E",
+        "1389_F",
+        "1303_G",
     ],
     "use_specified_problem": True,
     "coverage_hit_count_output_dir": "cov_hit_count",
