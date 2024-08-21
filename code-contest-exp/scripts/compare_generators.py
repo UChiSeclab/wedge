@@ -15,6 +15,7 @@ def load_data(file_path):
 
 
 def process_experiment_data(experiment_data, exec_time):
+    # TODO: exclude problems with less than 5 solutions
     for solution, data in experiment_data.items():
         if solution == "time_limit":
             continue
@@ -64,8 +65,8 @@ def compare_solutions(
 
 
 def main(
-    experiment_name_1: str = "feedback",
-    experiment_name_2: str = "time_contrast",
+    experiment_name_1: str,
+    experiment_name_2: str,
 ):
     # Load data from two files
     experiment_dir_1 = Path("./results") / experiment_name_1
