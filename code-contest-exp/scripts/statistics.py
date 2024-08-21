@@ -4,10 +4,74 @@ from pathlib import Path
 from fire import Fire
 from typing import Dict
 import pprint
+from matplotlib import pyplot as plt
 
 from utils import mean
 from config import config
 from utils import filter_problems, get_cf_problems
+
+def plot_problem_statistics(problem_statistics: Dict):
+    # Prepare data for plotting
+    problems = list(problem_statistics.keys())
+    languages = set(lang for prob in problem_statistics.values() for lang in prob.keys())
+    strategies = ["time_contrast", "feedback_diff_solution", "feedback_diff_input"]
+
+    x_labels = []
+    avg_time_values = []
+    max_time_values = []
+
+    for problem_id in problems:
+        for language in languages:
+            label = f"{problem_id}-{language}"
+            x_labels.append(label)
+            avg_times = []
+            max_times = []
+            for strategy in strategies:
+                strategy_data = problem_statistics.get(problem_id, {}).get(language, {}).get(strategy, (0, 0))
+                avg_times.append(strategy_data[0])
+                max_times.append(strategy_data[1])
+            avg_time_values.append(avg_times)
+            max_time_values.append(max_times)
+
+    # Convert to arrays for easier manipulation
+    import numpy as np
+    avg_time_values = np.array(avg_time_values)
+    max_time_values = np.array(max_time_values)
+
+    # Define plot characteristics
+    n_groups = len(x_labels)
+    bar_width = 0.25
+    index = np.arange(n_groups)
+
+    # Plot avg time
+    fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(15, 10))
+
+    ax1.bar(index, avg_time_values[:, 0], bar_width, label='time_contrast', color='blue')
+    ax1.bar(index + bar_width, avg_time_values[:, 1], bar_width, label='feedback_diff_solution', color='green')
+    ax1.bar(index + 2 * bar_width, avg_time_values[:, 2], bar_width, label='feedback_diff_input', color='red')
+
+    ax1.set_xlabel('Problem-Language')
+    ax1.set_ylabel('Average Time')
+    ax1.set_title('Average Time by Problem-Language and Strategy')
+    ax1.set_xticks(index + bar_width)
+    ax1.set_xticklabels(x_labels, rotation=45, ha='right')
+    ax1.legend()
+
+    # Plot max time
+    ax2.bar(index, max_time_values[:, 0], bar_width, label='time_contrast', color='blue')
+    ax2.bar(index + bar_width, max_time_values[:, 1], bar_width, label='feedback_diff_solution', color='green')
+    ax2.bar(index + 2 * bar_width, max_time_values[:, 2], bar_width, label='feedback_diff_input', color='red')
+
+    ax2.set_xlabel('Problem-Language')
+    ax2.set_ylabel('Max Time')
+    ax2.set_title('Max Time by Problem-Language and Strategy')
+    ax2.set_xticks(index + bar_width)
+    ax2.set_xticklabels(x_labels, rotation=45, ha='right')
+    ax2.legend()
+
+    # Adjust layout to prevent overlapping
+    plt.tight_layout()
+    plt.savefig("problem_statistics.png")
 
 
 def main(
@@ -118,6 +182,7 @@ def main(
     )
     pp.pprint(problem_statistics)
 
+    plot_problem_statistics(problem_statistics)
 
 if __name__ == "__main__":
     Fire(main)
