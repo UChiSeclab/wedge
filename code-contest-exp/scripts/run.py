@@ -243,26 +243,22 @@ def main(
         print(f"# of tests: {len(os.listdir(input_dir))}")
         input_sanitization(input_dir, output_dir)
         test_args = []
-        for sol_type in ["solutions", "incorrect_solutions"]:
-            for solution_idx, _ in enumerate(problem[sol_type]["solution"]):
-                language = Language(problem[sol_type]["language"][solution_idx])
-                solution_file_name = (
-                    f"{sol_type}_{solution_idx:04}.{language.to_suffix()}"
-                )
-                solution_path = (
-                    solution_dir / language.name.lower() / solution_file_name
-                )
-                for _ in range(config["repeat_test"]):
-                    test_args.append(
-                        (
-                            solution_path,
-                            language,
-                            input_dir,
-                            output_dir,
-                            time_limit,
-                            False,
-                        )
+        sol_type = "solutions"
+        for solution_idx, _ in enumerate(problem[sol_type]["solution"]):
+            language = Language(problem[sol_type]["language"][solution_idx])
+            solution_file_name = f"{sol_type}_{solution_idx:04}.{language.to_suffix()}"
+            solution_path = solution_dir / language.name.lower() / solution_file_name
+            for _ in range(config["repeat_test"]):
+                test_args.append(
+                    (
+                        solution_path,
+                        language,
+                        input_dir,
+                        output_dir,
+                        time_limit,
+                        False,
                     )
+                )
         random.shuffle(test_args)
 
         max_workers = max(1, int(0.75 * os.cpu_count()))
