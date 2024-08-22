@@ -2,16 +2,93 @@ import json
 import os
 from pathlib import Path
 from fire import Fire
-from typing import Dict
+from typing import Dict, List, Literal
 import pprint
+from matplotlib import pyplot as plt
 
 from utils import mean
 from config import config
 from utils import filter_problems, get_cf_problems
+from feedback_collect import squeeze_time_dict
+
+def plot_problem_statistics(problem_statistics: Dict):
+    # Prepare data for plotting
+    problems = list(problem_statistics.keys())
+    languages = set(lang for prob in problem_statistics.values() for lang in prob.keys())
+    strategies = ["time_contrast", "feedback_diff_solution", "feedback_diff_input", "alphacode"]
+
+    x_labels = []
+    avg_time_values = []
+    max_time_values = []
+
+    for problem_id in problems:
+        for language in languages:
+            label = f"{problem_id}-{language}"
+            x_labels.append(label)
+            avg_times = []
+            max_times = []
+            for strategy in strategies:
+                strategy_data = problem_statistics.get(problem_id, {}).get(language, {}).get(strategy, (0, 0))
+                avg_times.append(strategy_data[0])
+                max_times.append(strategy_data[1])
+            avg_time_values.append(avg_times)
+            max_time_values.append(max_times)
+
+    # Convert to arrays for easier manipulation
+    import numpy as np
+    avg_time_values = np.array(avg_time_values)
+    max_time_values = np.array(max_time_values)
+
+    # Define plot characteristics
+    n_groups = len(x_labels)
+    bar_width = 0.2
+    index = np.arange(n_groups)
+
+    # Plot avg time
+    fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(15, 10))
+
+    ax1.bar(index, avg_time_values[:, 0], bar_width, label='time_contrast', color='blue')
+    ax1.bar(index + bar_width, avg_time_values[:, 1], bar_width, label='feedback_diff_solution', color='green')
+    ax1.bar(index + 2 * bar_width, avg_time_values[:, 2], bar_width, label='feedback_diff_input', color='red')
+    ax1.bar(index + 3 * bar_width, avg_time_values[:, 3], bar_width, label='alphacode', color='purple')
+
+    ax1.set_xlabel('Problem-Language')
+    ax1.set_ylabel('Average Time')
+    ax1.set_title('Average Time by Problem-Language and Strategy')
+    ax1.set_xticks(index + bar_width)
+    ax1.set_xticklabels(x_labels, rotation=45, ha='right')
+    ax1.legend()
+
+    # Plot max time
+    ax2.bar(index, max_time_values[:, 0], bar_width, label='time_contrast', color='blue')
+    ax2.bar(index + bar_width, max_time_values[:, 1], bar_width, label='feedback_diff_solution', color='green')
+    ax2.bar(index + 2 * bar_width, max_time_values[:, 2], bar_width, label='feedback_diff_input', color='red')
+    ax2.bar(index + 3 * bar_width, max_time_values[:, 3], bar_width, label='alphacode', color='purple')
+
+    ax2.set_xlabel('Problem-Language')
+    ax2.set_ylabel('Max Time')
+    ax2.set_title('Max Time by Problem-Language and Strategy')
+    ax2.set_xticks(index + bar_width)
+    ax2.set_xticklabels(x_labels, rotation=45, ha='right')
+    ax2.legend()
+
+    # Adjust layout to prevent overlapping
+    plt.tight_layout()
+    plt.savefig("problem_statistics.png")
+
+
+def get_top_k_slow_inputs_time(time_dict:Dict[str, List[float]], k=5, use_max_or_avg: Literal["max", "avg"] = "avg") -> Dict[str, float]:
+    time_stat = squeeze_time_dict(time_dict, use_max_or_avg=use_max_or_avg) # input_name -> time
+    if len(time_stat) < k:
+        raise ValueError(f"Number of inputs is less than k={k}")
+    top_k_stat = {k: v for k, v in sorted(time_stat.items(), key=lambda item: item[1], reverse=True)[:k]}
+
+    return top_k_stat
 
 
 def main(
     problem_root_dir: str = config["problem_root_dir"],
+    top_k_slow_inputs: int = 5,
 ):
     problem_root_dir = Path(problem_root_dir)
     filtered_problems = filter_problems(
@@ -25,7 +102,7 @@ def main(
         {}
     )  # strategy -> problem_id -> language -> (avg_time, max_time)
 
-    strategies = ["time_contrast", "feedback_diff_solution", "feedback_diff_input"]
+    strategies = ["time_contrast", "feedback_diff_solution", "feedback_diff_input", "alphacode"]
     for strategy in strategies:  # experiment_name
         experiment_dir = Path("results") / strategy
         experiment_statistics[strategy] = {}
@@ -36,6 +113,7 @@ def main(
             problem_statistics[problem_id] = problem_statistics.get(problem_id, {})
 
             solutions_data = {}
+            input_not_enough_flag = False
             for solution, data in experiment_data.items():
                 if solution == "time_limit":
                     continue
@@ -51,9 +129,18 @@ def main(
                     problem_id
                 ].get(language, {})
 
-                avg_time = mean(data["average_time"])
-                max_time = mean(data["max_time"])
+                try:
+                    top_k_input_stat = get_top_k_slow_inputs_time(data["time_dict"], k=top_k_slow_inputs)
+                    avg_time = mean(top_k_input_stat.values())
+                    max_time = max(top_k_input_stat.values())
+                except ValueError as e:
+                    print(f"[Warning] Error processing {problem_id} with {strategy}: {e}")
+                    input_not_enough_flag = True
+                    break
 
+                if input_not_enough_flag:
+                    print(f"[Warning] Skip {problem_id} due to not enough inputs")
+                    break
                 solutions_data[language] = solutions_data.get(language, [])
                 solutions_data[language].append((avg_time, max_time))
 
@@ -118,6 +205,7 @@ def main(
     )
     pp.pprint(problem_statistics)
 
+    plot_problem_statistics(problem_statistics)
 
 if __name__ == "__main__":
     Fire(main)

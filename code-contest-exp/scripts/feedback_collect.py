@@ -22,9 +22,9 @@ COVERAGE_HIT_COUNT_OUTPUT_DIR = (
 debug = False
 
 
-def __squeeze_time_dict(
+def squeeze_time_dict(
     time_dict: Dict[str, List[float]], use_max_or_avg: Literal["max", "avg"]
-):
+) -> Dict[str, float]:
     result = {}
     for input_name, time_list in time_dict.items():
         if use_max_or_avg == "max":
@@ -55,7 +55,7 @@ def select_slow_fast_input(
 ) -> Tuple[str, str]:
     data = json.loads(solutions_stat_file.read_text())
     solution_stat = data[solution_id]
-    time_stat = __squeeze_time_dict(solution_stat["time_dict"], use_max_or_avg)
+    time_stat = squeeze_time_dict(solution_stat["time_dict"], use_max_or_avg)
     slow_input = min(time_stat, key=lambda x: time_stat[x])
     fast_input = max(time_stat, key=lambda x: time_stat[x])
 
@@ -78,8 +78,8 @@ def select_most_differentiating_input(
         slow_solution_stat["time_dict"],
         fast_solution_stat["time_dict"],
     )
-    slow_time_stat = __squeeze_time_dict(slow_time_stat, use_max_or_avg)
-    fast_time_stat = __squeeze_time_dict(fast_time_stat, use_max_or_avg)
+    slow_time_stat = squeeze_time_dict(slow_time_stat, use_max_or_avg)
+    fast_time_stat = squeeze_time_dict(fast_time_stat, use_max_or_avg)
     most_differentiating_input = max(
         __filter_input(slow_time_stat, fast_time_stat),
         key=lambda x: abs(slow_time_stat[x] - fast_time_stat[x]),
