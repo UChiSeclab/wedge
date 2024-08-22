@@ -3,8 +3,9 @@ from common import Language
 
 config = {
     "problem_root_dir": "./problems",
+    "result_root_dir": "./results",
     "max_time_limit": 20,
-    "experiment_name": "none",  # set it to 'none' to run it on alpha code tests
+    "experiment_name": "alphacode",  # set it to 'alphacode' to run it on alphacode tests
     "solution_selection": "time_contrast",
     "manual_prompt": False,
     "prompt_language": Language.JAVA,
@@ -15,20 +16,8 @@ config = {
         # "414_E", # excluded due to some reason
         # "1413_F", # excluded due to no input
         # "750_F", "223_D", "786_D", "917_E", "44_F", "1098_F", "666_E", "1284_G", "1470_F", "1375_I", "1439_A1", "720_F", "269_E", "1178_G", "744_D", "607_E", "1043_G", "175_F", "982_F", "107_E", "1054_E", "1440_C2", # excluded due to not enough java solutions
-        "901_E",
-        "331_D3",
-        "985_G",
-        "331_D1",
-        "656_E",
-        "1163_F",
-        "1440_C1",
-        "280_D",
-        "986_D",
-        "1065_D",
-        "609_E",
-        "555_E",
-        "1389_F",
-        "1303_G",
+        # "901_E", "331_D3", "985_G", "331_D1", "656_E", "1163_F", "1440_C1", "280_D", "986_D", "1065_D", "609_E", "555_E", "1389_F",
+        "5_A",
     ],
     "use_specified_problem": True,
     "coverage_hit_count_output_dir": "cov_hit_count",
@@ -51,4 +40,8 @@ abandoned_list = [
     "its absolute or relative error does not exceed",
     "print in any order",
     "with an accuracy of",
+    "in arbitrary order.",
+    "If there is more than one solution, find any of them.",
+    "If there are multiple answers, print any.",
+    "Your answer will be considered correct if its relative or absolute error",
 ]
