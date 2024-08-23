@@ -5,6 +5,7 @@ import subprocess
 
 from utils import num_tokens_from_string
 from config import config
+from prompt_utils import fill_multi_slow_solutions, fill_multi_slow_solutions_feedback
 
 API_KEY = "sk-proj-agKWhu46RVJSx5PbRea7T3BlbkFJB3jZFl9KGevQ0QC9vatB"
 
@@ -40,12 +41,12 @@ def cut_string(input_string: str, begin_token="```python\n", end_token="```") ->
 def write_test_generator(
     experiment_dir: Path,
     problem: Dict,
-    solution_codes: List[str],  # List of [fast_solution, slow_solution]
+    solution_codes: List[str],  # List of [fast_solution, slow_solution] or [slow_solution_1, slow_solution_2, ...]
     ill_tests: str = None,
     error: subprocess.CalledProcessError = None,
     prompt_template: str = "prompt_template.txt",
     prompt_language: str = "java",
-    feedback_prompt_type: Literal["diff_solution", "diff_input"] = None,
+    feedback_prompt_type: Literal["diff_solution", "diff_input", "multi_solution_diff_input"] = None,
     num_tests: int = 20,
 ):
     """Prompts llm to write a test generator."""
@@ -53,12 +54,18 @@ def write_test_generator(
         prompt = file.read()
 
     prompt = prompt.replace("<problem_statement>", problem["description"])
-    prompt = prompt.replace("<fast_solution>", solution_codes[0])
-    prompt = prompt.replace("<slow_solution>", solution_codes[1])
     prompt = prompt.replace("<number_of_tests>", str(num_tests))
+
+    # fill solutions
+    if feedback_prompt_type == "multi_solution_diff_input":
+        prompt = fill_multi_slow_solutions(prompt, solution_codes)
+    else:
+        prompt = prompt.replace("<fast_solution>", solution_codes[0])
+        prompt = prompt.replace("<slow_solution>", solution_codes[1])
 
     problem_id = problem["name"].split(".")[0]
 
+    # fill input(s) and feedback
     if feedback_prompt_type == "diff_solution":
         assert prompt_template == "prompt_template_with_feedback_diff_solution.txt"
         cov_dir = (
@@ -90,6 +97,7 @@ def write_test_generator(
             "<slow_solution_coverage>", slow_solution_cov_file.read_text()
         )
         prompt = prompt.replace("<input>", input_file.read_text())
+
     elif feedback_prompt_type == "diff_input":
         assert prompt_template == "prompt_template_with_feedback_diff_input.txt"
         cov_dir = (
@@ -127,6 +135,44 @@ def write_test_generator(
         prompt = prompt.replace(
             "<slow_input_coverage>", slow_input_cov_file.read_text()
         )
+        prompt = prompt.replace("<slow_input>", slow_input_file.read_text())
+        prompt = prompt.replace("<fast_input>", fast_input_file.read_text())
+
+    elif feedback_prompt_type == "multi_solution_diff_input":
+        assert prompt_template == "prompt_template_with_feedback_multi_solution_diff_input.txt"
+        cov_dir = (
+            Path(config["coverage_hit_count_output_dir"])
+            / problem_id
+            / experiment_dir.name
+            / str(config["prompt_language"])
+        )
+        cov_files = [file.absolute() for file in Path(cov_dir).rglob("*.cov")]
+        assert len(cov_files) == 2 * len(solution_codes), f"cov_files: {len(cov_files)}"
+        fast_input_cov_files = [
+            file for file in cov_files if file.parent.parent.name == "fast_input"
+        ]
+        slow_input_cov_files = [
+            file for file in cov_files if file.parent.parent.name == "slow_input"
+        ]
+        slow_input_id = slow_input_cov_files[0].parent.parent.parent.name
+        fast_input_id = fast_input_cov_files[0].parent.parent.parent.name
+        slow_input_file = (
+            Path(config["problem_root_dir"])
+            / problem_id
+            / "input"
+            / f"{slow_input_id}.in"
+        )
+        fast_input_file = (
+            Path(config["problem_root_dir"])
+            / problem_id
+            / "input"
+            / f"{fast_input_id}.in"
+        )
+
+        prompt = fill_multi_slow_solutions_feedback(
+            prompt, fast_input_cov_files, slow_input_cov_files
+        )
+
         prompt = prompt.replace("<slow_input>", slow_input_file.read_text())
         prompt = prompt.replace("<fast_input>", fast_input_file.read_text())
     else:

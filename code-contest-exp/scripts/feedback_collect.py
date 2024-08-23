@@ -19,7 +19,7 @@ FEEDBACK_COLLECTION_SCRIPT_DIR = (
 COVERAGE_HIT_COUNT_OUTPUT_DIR = (
     Path(__file__).parent / ".." / "cov_hit_count"
 ).absolute()
-debug = False
+debug = True
 
 
 def squeeze_time_dict(
@@ -61,6 +61,31 @@ def select_slow_fast_input(
 
     return slow_input, fast_input
 
+def select_slow_fast_input_for_multi_solution(
+    solutions_stat_file: Path,
+    solution_ids: List[str],
+    use_max_or_avg: Literal["max", "avg"] = "avg",
+) -> Tuple[str, str]:
+    """for the given solutions, select the on average slowest and fastest input"""
+    """note that all solutions are correct and should have the same (full) inputs"""
+    data = json.loads(solutions_stat_file.read_text())
+    input_solution_stat = {} # input -> {solution_id -> time}
+    input_times = {} # input -> [time]
+    for solution_id in solution_ids:
+        solution_stat = data[solution_id]
+        time_stat = squeeze_time_dict(solution_stat["time_dict"], use_max_or_avg)
+        for input_name, time in time_stat.items():
+            if input_name not in input_solution_stat:
+                input_solution_stat[input_name] = {}
+            input_solution_stat[input_name][solution_id] = time
+
+    for input_name, solution_time in input_solution_stat.items():
+        input_times[input_name] = list(solution_time.values())
+
+    slow_input = min(input_times, key=lambda x: sum(input_times[x])/len(input_times[x]))
+    fast_input = max(input_times, key=lambda x: sum(input_times[x])/len(input_times[x]))
+
+    return slow_input, fast_input
 
 def select_most_differentiating_input(
     solutions_stat_file: Path,
@@ -121,12 +146,15 @@ def main(
     experiment_name: str = config["experiment_name"],
     problem_root_dir: str = config["problem_root_dir"],
     solution_language: Literal["python", "cpp", "python3", "java"] = "java",
-    feedback_prompt_type: Literal["diff_solution", "diff_input"] = None,
+    feedback_prompt_type: Literal["diff_solution", "diff_input", "multi_solution_diff_input"] = None,
+    solution_selection_type: Literal["random", "time_contrast", "multi_slow"] = config["solution_selection"],
+    top_k: int = None,
 ):
     problem_root_dir = Path(problem_root_dir)
+    config["solution_selection"] = solution_selection_type
     assert (
-        config["solution_selection"] == "time_contrast"
-    ), "This script is only for time_contrast selection"
+        config["solution_selection"] in ["time_contrast", "multi_slow"]
+    ), "This script is only for time_contrast selection or multi_slow selection"
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
@@ -138,34 +166,30 @@ def main(
         experiment_dir = problem_dir / experiment_name
         experiment_dir.mkdir(exist_ok=True, parents=True)
         selected_solution_ids, selected_solutions = select_solutions(
-            problem_id, problem, Language.str_to_lang(solution_language)
+            problem_id, problem, Language.str_to_lang(solution_language), top_k
         )
 
-        if len(selected_solution_ids) < 2:
+        if len(selected_solution_ids) < 2 or (top_k and len(selected_solution_ids) < top_k):
             print(
                 f"Not enough solutions to select for {problem_id} language: {solution_language}"
             )
             continue
 
-        fast_solution_id, slow_solution_id = selected_solution_ids
         solutions_stat_file = Path("./results/alphacode") / (problem_id + ".json")
+        if feedback_prompt_type in ["diff_solution", "diff_input"]:
+            fast_solution_id, slow_solution_id = selected_solution_ids
 
-        most_differentiating_input_file_name = select_most_differentiating_input(
-            solutions_stat_file, fast_solution_id, slow_solution_id
-        )
+            most_differentiating_input_file_name = select_most_differentiating_input(
+                solutions_stat_file, fast_solution_id, slow_solution_id
+            )
 
-        slow_input_file_name, fast_input_file_name = select_slow_fast_input(
-            solutions_stat_file, slow_solution_id
-        )
-
-        if debug:
-            print("=" * 50)
-            print("problem_id:", problem_id)
-            print("fast_solution_id:", fast_solution_id)
-            print("slow_solution_id:", slow_solution_id)
-            print(
-                "most_differentiating_input_file_name:",
-                most_differentiating_input_file_name,
+            slow_input_file_name, fast_input_file_name = select_slow_fast_input(
+                solutions_stat_file, slow_solution_id
+            )
+        elif feedback_prompt_type == "multi_solution_diff_input":
+            slow_solution_ids = selected_solution_ids
+            slow_input_file_name, fast_input_file_name = select_slow_fast_input_for_multi_solution(
+                solutions_stat_file, slow_solution_ids
             )
 
         # collect coverage and hit count
@@ -224,6 +248,35 @@ def main(
                         Language.str_to_lang(solution_language),
                         cov_hit_count_file,
                     )
+                    
+        elif feedback_prompt_type == "multi_solution_diff_input":
+            for input_file_name in [slow_input_file_name, fast_input_file_name]:
+                for slow_idx, slow_solution_id in enumerate(slow_solution_ids, start=1):
+                    cov_hit_count_file = (
+                        COVERAGE_HIT_COUNT_OUTPUT_DIR
+                        / problem_id
+                        / experiment_name
+                        / solution_language
+                        / (input_file_name.split(".")[0])
+                        / (
+                            "slow_input"
+                            if input_file_name == slow_input_file_name
+                            else "fast_input"
+                        )
+                        / f"slow_solution_{slow_idx}"
+                        / f"{slow_solution_id}.cov"
+                    )
+                    cov_hit_count_file.parent.mkdir(exist_ok=True, parents=True)
+                    if not cov_hit_count_file.exists():
+                        collect_coverage_hit_count(
+                            problem_dir
+                            / "solutions"
+                            / solution_language
+                            / f"{slow_solution_id}.{Language.str_to_lang(solution_language).to_suffix()}",
+                            problem_dir / "input" / f"{input_file_name}",
+                            Language.str_to_lang(solution_language),
+                            cov_hit_count_file,
+                        )
 
         else:
             raise ValueError("Invalid feedback_prompt_type")

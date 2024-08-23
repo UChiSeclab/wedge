@@ -50,19 +50,19 @@ def __filter_solution_idx(
             continue
         if f"solutions_{solution_idx:04}" in result:
             if all(
-                v != "WA" for v in result[f"solutions_{solution_idx:04}"]["verdict"]
+                v == "AC" for v in result[f"solutions_{solution_idx:04}"]["verdict"]
             ):
                 filtered_solution_idxs.append(solution_idx)
             else:
-                print(f"solutions_{solution_idx:04} is WA")
+                print(f"solutions_{solution_idx:04} is not AC")
         else:
-            print(f"Solution {solution_idx} is not in the result")
+            print(f"Solution {solution_idx} is not in the result") # TODO: to be investigated and fixed
 
     return filtered_solution_idxs
 
 
 def select_solutions(
-    problem_id: str, problem: Dict, prompt_language: Language
+    problem_id: str, problem: Dict, prompt_language: Language, top_k: int = None
 ) -> Tuple[List[str], List[str]]:
     """Selects solutions for feeding to the llm. Note that only correct solutions are considered."""
     solution_idxs, raw_solutions = get_solutions_in_language(problem, prompt_language)
@@ -117,6 +117,24 @@ def select_solutions(
             problem["solutions"]["solution"][slow_solution_idx],
         ]
         selected_solution_idxs = [fast_solution_idx, slow_solution_idx]
+    
+    elif config["solution_selection"] == "multi_slow":
+        alphacode_dir = Path("./results/alphacode")
+        with open(alphacode_dir / f"{problem_id}.json", "r", encoding="utf-8") as file:
+            result = json.load(file)
+        filtered_solution_idxs = __filter_solution_idx(
+            problem_id, prompt_language, result, solution_idxs
+        )
+        # select top k slow solutions
+        assert top_k is not None and top_k > 1, f"top_k: {top_k}"
+        # assert len(filtered_solution_idxs) >= top_k, f"len(filtered_solution_idxs): {len(filtered_solution_idxs)}"
+        filtered_solution_idxs.sort(
+            key=lambda idx: mean(result[f"solutions_{idx:04}"]["average_time"]), reverse=True
+        )
+        selected_solution_idxs = filtered_solution_idxs[:top_k]
+        selected_solutions = [
+            problem["solutions"]["solution"][idx] for idx in selected_solution_idxs
+        ]
 
     selected_solution_ids = [f"solutions_{idx:04}" for idx in selected_solution_idxs]
     return selected_solution_ids, selected_solutions
@@ -129,7 +147,7 @@ def create_test_generator(
     experiment_input_dir: Path,
     prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
     prompt_template: str = "prompt_template.txt",
-    feedback_prompt_type: Literal["diff_solution", "diff_input"] = None,
+    feedback_prompt_type: Literal["diff_solution", "diff_input", "multi_solution_diff_input"] = None,
 ):
     if not config["manual_prompt"]:
         cost = write_test_generator(
@@ -168,7 +186,9 @@ def main(
     run_tests_language: Literal["python", "cpp", "python3", "java"] = "java",
     prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
     prompt_template: str = "prompt_template.txt",
-    feedback_prompt_type: Literal["diff_solution", "diff_input"] = None,
+    feedback_prompt_type: Literal["diff_solution", "diff_input", "multi_solution_diff_input"] = None,
+    solution_selection_type: Literal["random", "time_contrast", "multi_slow"] = config["solution_selection"],
+    top_k: int = None,
 ):
     """Generates tests by test generator created by LLM.
 
@@ -177,6 +197,7 @@ def main(
     - problem_root_dir: The directory to put the problem in
     """
     problem_root_dir = Path(problem_root_dir)
+    config["solution_selection"] = solution_selection_type
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
@@ -188,10 +209,10 @@ def main(
         experiment_dir = problem_dir / experiment_name
         experiment_dir.mkdir(exist_ok=True, parents=True)
         selected_solution_ids, selected_solutions = select_solutions(
-            problem_id, problem, config["prompt_language"]
+            problem_id, problem, config["prompt_language"], top_k=top_k
         )
 
-        if len(selected_solution_ids) < 2:
+        if len(selected_solution_ids) < 2 or (top_k and len(selected_solution_ids) < top_k):
             print(f"Not enough solutions to select for {problem_id}", end=" ")
             print("language:", config["prompt_language"])
             continue
@@ -199,6 +220,10 @@ def main(
         experiment_input_dir = experiment_dir / "input"
         experiment_input_dir.mkdir(exist_ok=True, parents=True)
         test_generator_path = experiment_dir / "gen.py"
+        if test_generator_path.exists() and len(os.listdir(experiment_input_dir)) > 0:
+            print(f"Experiment {experiment_name} already exists for {problem_id}")
+            continue
+
         try_cnt = 0
         while try_cnt < 5 and len(os.listdir(experiment_input_dir)) == 0:
             create_test_generator(
