@@ -56,8 +56,8 @@ def select_slow_fast_input(
     data = json.loads(solutions_stat_file.read_text())
     solution_stat = data[solution_id]
     time_stat = squeeze_time_dict(solution_stat["time_dict"], use_max_or_avg)
-    slow_input = min(time_stat, key=lambda x: time_stat[x])
-    fast_input = max(time_stat, key=lambda x: time_stat[x])
+    slow_input = max(time_stat, key=lambda x: time_stat[x])
+    fast_input = min(time_stat, key=lambda x: time_stat[x])
 
     return slow_input, fast_input
 
@@ -82,8 +82,8 @@ def select_slow_fast_input_for_multi_solution(
     for input_name, solution_time in input_solution_stat.items():
         input_times[input_name] = list(solution_time.values())
 
-    slow_input = min(input_times, key=lambda x: sum(input_times[x])/len(input_times[x]))
-    fast_input = max(input_times, key=lambda x: sum(input_times[x])/len(input_times[x]))
+    slow_input = max(input_times, key=lambda x: sum(input_times[x])/len(input_times[x]))
+    fast_input = min(input_times, key=lambda x: sum(input_times[x])/len(input_times[x]))
 
     return slow_input, fast_input
 
