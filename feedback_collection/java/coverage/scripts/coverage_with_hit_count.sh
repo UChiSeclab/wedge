@@ -45,7 +45,7 @@ instrumented_class_dir="instrumented"
 ${COBERTURA_INSTRUMENT_SH} --destination ${instrumented_class_dir} .
 
 # run the solution to collect coverage and hit count with Cobertura
-java -cp "${COBERTURA_DIR}/cobertura-2.1.1.jar:${COBERTURA_DIR}/lib/*:${instrumented_class_dir}" -Dnet.sourceforge.cobertura.datafile=cobertura.ser ${class_name} < "$input_file"
+java -cp "${COBERTURA_DIR}/../cobertura-2.1.2-SNAPSHOT.jar:${COBERTURA_DIR}/lib/*:${instrumented_class_dir}" -Dnet.sourceforge.cobertura.datafile=cobertura.ser ${class_name} < "$input_file"
 
 # generate the Cobertura coverage report
 ${COBERTURA_REPORT_SH} --destination . --format xml
