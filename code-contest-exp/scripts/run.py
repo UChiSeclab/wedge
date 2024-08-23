@@ -41,7 +41,7 @@ def compile_solution(tmp_dir: Path, solution_code: str, language: Language):
         file_path = tmp_dir / "solution.cpp"
         with open(file_path, "w", encoding="utf-8") as file:
             file.write(solution_code)
-        for cpp_version in ["c++14", "c++17"]:
+        for cpp_version in ["c++17", "c++14", "c++11"]:
             compile_process = subprocess.run(
                 [
                     "g++",
@@ -129,13 +129,21 @@ def run_solution(
                 try:
                     command = []
                     if language == Language.JAVA:
-                        command = ["java", "-Xmx4M", "-cp", tmp_dir, executable_name]
+                        command = ["java", "-Xmx2048m", "-cp", tmp_dir, executable_name]
                     elif language == Language.CPP:
                         command = [tmp_dir / "solution"]
                     elif language == Language.PYTHON:
-                        command = ["python", tmp_dir / "solution.py"]
+                        command = [
+                            "/home/casperwang/miniconda3/envs/py27/bin/python",
+                            tmp_dir / "solution.py",
+                        ]
+                        # should change based on the path of python2.7
                     elif language == Language.PYTHON3:
-                        command = ["python3", tmp_dir / "solution.py"]
+                        command = [
+                            "/home/casperwang/miniconda3/envs/py38/bin/python",
+                            tmp_dir / "solution.py",
+                        ]
+                        # should change based on the path of python3.8
 
                     start_time = time.time()
                     run_process = subprocess.run(
@@ -158,10 +166,13 @@ def run_solution(
                                 with open(output_path, "r", encoding="utf-8") as file:
                                     actual_output = file.read().split()
                                 if not check_same_output(actual_output, program_output):
+                                    print("[WA]", actual_output, program_output)
                                     wrong_answer_flag = True
                         except UnicodeError:
+                            print("[WA]", "Unicode Error")
                             wrong_answer_flag = True
                     else:
+                        print("[WA]", run_process)
                         wrong_answer_flag = True
                 except subprocess.TimeoutExpired:
                     runtime = config["max_time_limit"]
