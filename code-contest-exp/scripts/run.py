@@ -129,18 +129,25 @@ def run_solution(
                 try:
                     command = []
                     if language == Language.JAVA:
-                        command = ["java", "-Xmx2048m", "-cp", tmp_dir, executable_name]
+                        command = [
+                            "java",
+                            "-Xmx2048m",
+                            "-DONLINE_JUDGE=true",
+                            "-cp",
+                            tmp_dir,
+                            executable_name,
+                        ]
                     elif language == Language.CPP:
                         command = [tmp_dir / "solution"]
                     elif language == Language.PYTHON:
                         command = [
-                            "/home/casperwang/miniconda3/envs/py27/bin/python",
+                            f"/home/{os.environ.get('USER')}/miniconda3/envs/py27/bin/python",
                             tmp_dir / "solution.py",
                         ]
                         # should change based on the path of python2.7
                     elif language == Language.PYTHON3:
                         command = [
-                            "/home/casperwang/miniconda3/envs/py38/bin/python",
+                            f"/home/{os.environ.get('USER')}/miniconda3/envs/py38/bin/python",
                             tmp_dir / "solution.py",
                         ]
                         # should change based on the path of python3.8
