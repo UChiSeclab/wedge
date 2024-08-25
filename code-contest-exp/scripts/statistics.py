@@ -5,11 +5,67 @@ from fire import Fire
 from typing import Dict, List, Literal
 import pprint
 from matplotlib import pyplot as plt
+import numpy as np
 
 from utils import mean
 from config import config
 from utils import filter_problems, get_cf_problems
 from feedback_collect import squeeze_time_dict
+
+def plot_avg_over_problem(problem_statistics: Dict):
+    # Prepare data for plotting
+    problems = list(problem_statistics.keys())
+    languages = set(lang for prob in problem_statistics.values() for lang in prob.keys())
+    strategies = ["time_contrast", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "alphacode"] # x-axis
+
+    avg_time_values = {} # strategy -> List[float]
+    max_time_values = {} # strategy -> List[float]
+    
+    for problem_id in problems:
+        for language in languages:
+            avg_times = []
+            max_times = []
+            for strategy in strategies:
+                strategy_data = problem_statistics.get(problem_id, {}).get(language, {}).get(strategy, (0, 0))
+                avg_times.append(strategy_data[0])
+                max_times.append(strategy_data[1])
+
+                avg_time_values[strategy] = avg_time_values.get(strategy, [])
+                max_time_values[strategy] = max_time_values.get(strategy, [])
+                avg_time_values[strategy].append(strategy_data[0])
+                max_time_values[strategy].append(strategy_data[1])
+            if any(time == 0 for time in avg_times) or any(time == 0 for time in max_times):
+                print(f"[Warning] {problem_id} with {language} has 0 time")
+                continue
+    
+    avg_avg_time_values = {strategy: mean(times) for strategy, times in avg_time_values.items()}
+    avg_max_time_values = {strategy: mean(times) for strategy, times in max_time_values.items()}
+    # Define plot characteristics
+    n_groups = len(strategies)
+    bar_width = 0.20
+    index = np.arange(n_groups)
+    fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(12, 10))
+    
+    ax1.bar(index, avg_avg_time_values.values(), bar_width, label='avg_time', color='blue')
+    ax1.set_xlabel('Strategy')
+    ax1.set_ylabel('Average Time')
+    ax1.set_title('Average "Average Time" by Strategy')
+    ax1.set_xticks(index)
+    ax1.set_xticklabels(strategies, ha='center')
+    ax1.legend()
+
+    ax2.bar(index, avg_max_time_values.values(), bar_width, label='max_time', color='red')
+    ax2.set_xlabel('Strategy')
+    ax2.set_ylabel('Max Time')
+    ax2.set_title('Average "Max Time" by Strategy')
+    ax2.set_xticks(index)
+    ax2.set_xticklabels(strategies, ha='center')
+    ax2.legend()
+
+    # Adjust layout to prevent overlapping
+    plt.tight_layout()
+    plt.savefig("./results/avg_over_problem.png")
+
 
 def plot_problem_statistics(problem_statistics: Dict):
     # Prepare data for plotting
@@ -23,25 +79,27 @@ def plot_problem_statistics(problem_statistics: Dict):
 
     for problem_id in problems:
         for language in languages:
-            label = f"{problem_id}-{language}"
-            x_labels.append(label)
             avg_times = []
             max_times = []
             for strategy in strategies:
                 strategy_data = problem_statistics.get(problem_id, {}).get(language, {}).get(strategy, (0, 0))
                 avg_times.append(strategy_data[0])
                 max_times.append(strategy_data[1])
+            if any(time == 0 for time in avg_times) or any(time == 0 for time in max_times):
+                print(f"[Warning] {problem_id} with {language} has 0 time")
+                continue
+            label = f"{problem_id}-{language}"
+            x_labels.append(label)
             avg_time_values.append(avg_times)
             max_time_values.append(max_times)
 
     # Convert to arrays for easier manipulation
-    import numpy as np
     avg_time_values = np.array(avg_time_values)
     max_time_values = np.array(max_time_values)
 
     # Define plot characteristics
     n_groups = len(x_labels)
-    bar_width = 0.2
+    bar_width = 0.15
     index = np.arange(n_groups)
 
     # Plot avg time
@@ -76,7 +134,7 @@ def plot_problem_statistics(problem_statistics: Dict):
 
     # Adjust layout to prevent overlapping
     plt.tight_layout()
-    plt.savefig("problem_statistics.png")
+    plt.savefig("./results/problem_statistics.png")
 
 
 def get_top_k_slow_inputs_time(time_dict:Dict[str, List[float]], k=5, use_max_or_avg: Literal["max", "avg"] = "avg") -> Dict[str, float]:
@@ -124,7 +182,7 @@ def main(
                     continue
                 if solution.startswith("incorrect_solutions"):
                     continue
-                if "WA" in data["verdict"] or "KILL" in data["verdict"]:
+                if not all(verdict == "AC" for verdict in data["verdict"]):
                     continue
                 language = data["language"].lower()
                 if language == "python3":
@@ -211,6 +269,8 @@ def main(
     pp.pprint(problem_statistics)
 
     plot_problem_statistics(problem_statistics)
+
+    plot_avg_over_problem(problem_statistics)
 
 if __name__ == "__main__":
     Fire(main)
