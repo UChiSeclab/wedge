@@ -3,13 +3,25 @@ import os
 import pickle
 from datasets import load_dataset, concatenate_datasets
 import tiktoken
-from typing import Dict
+from typing import Dict, List, Literal
 from pathlib import Path
 import json
 import datetime
 
 from config import abandoned_list, config
-from common import Language
+
+
+def squeeze_time_dict(
+    time_dict: Dict[str, List[float]], use_max_or_avg: Literal["max", "avg"]
+) -> Dict[str, float]:
+    result = {}
+    for input_name, time_list in time_dict.items():
+        if use_max_or_avg == "max":
+            result[input_name] = max(time_list)
+        elif use_max_or_avg == "avg":
+            result[input_name] = sum(time_list) / len(time_list)
+
+    return result
 
 
 def get_alphacode_result(problem_id: str) -> Dict:

@@ -10,7 +10,8 @@ import numpy as np
 from utils import mean
 from config import config
 from utils import filter_problems, get_cf_problems
-from feedback_collect import squeeze_time_dict
+from utils import squeeze_time_dict
+
 
 def plot_avg_over_problem(problem_statistics: Dict):
     # Prepare data for plotting
