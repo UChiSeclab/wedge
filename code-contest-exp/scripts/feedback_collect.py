@@ -19,7 +19,7 @@ FEEDBACK_COLLECTION_SCRIPT_DIR = (
 COVERAGE_HIT_COUNT_OUTPUT_DIR = (
     Path(__file__).parent / ".." / "cov_hit_count"
 ).absolute()
-debug = True
+debug = False
 
 
 def squeeze_time_dict(
@@ -151,9 +151,8 @@ def main(
     top_k: int = None,
 ):
     problem_root_dir = Path(problem_root_dir)
-    config["solution_selection"] = solution_selection_type
     assert (
-        config["solution_selection"] in ["time_contrast", "multi_slow"]
+        solution_selection_type in ["time_contrast", "multi_slow"]
     ), "This script is only for time_contrast selection or multi_slow selection"
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
@@ -166,7 +165,7 @@ def main(
         experiment_dir = problem_dir / experiment_name
         experiment_dir.mkdir(exist_ok=True, parents=True)
         selected_solution_ids, selected_solutions = select_solutions(
-            problem_id, problem, Language.str_to_lang(solution_language), top_k
+            problem_id, problem, solution_selection_type, Language.str_to_lang(solution_language), top_k
         )
 
         if len(selected_solution_ids) < 2 or (top_k and len(selected_solution_ids) < top_k):

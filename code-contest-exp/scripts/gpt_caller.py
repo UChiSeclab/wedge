@@ -47,7 +47,7 @@ def write_test_generator(
     prompt_template: str = "prompt_template.txt",
     prompt_language: str = "java",
     feedback_prompt_type: Literal["diff_solution", "diff_input", "multi_solution_diff_input"] = None,
-    num_tests: int = 20,
+    num_tests: int = config["num_tests"],
 ):
     """Prompts llm to write a test generator."""
     with open(prompt_template, "r", encoding="utf-8") as file:
@@ -104,10 +104,10 @@ def write_test_generator(
             Path(config["coverage_hit_count_output_dir"])
             / problem_id
             / experiment_dir.name
-            / str(config["prompt_language"])
+            / prompt_language
         )
         cov_files = [file.absolute() for file in Path(cov_dir).rglob("*.cov")]
-        assert len(cov_files) == 2, f"cov_files: {cov_files}"
+        assert len(cov_files) == 2, f"cov_files: {cov_files} in {cov_dir}"
         fast_input_cov_file = [
             file for file in cov_files if file.parent.name == "fast_input"
         ][0]
@@ -144,10 +144,10 @@ def write_test_generator(
             Path(config["coverage_hit_count_output_dir"])
             / problem_id
             / experiment_dir.name
-            / str(config["prompt_language"])
+            / prompt_language
         )
         cov_files = [file.absolute() for file in Path(cov_dir).rglob("*.cov")]
-        assert len(cov_files) == 2 * len(solution_codes), f"cov_files: {len(cov_files)}"
+        assert len(cov_files) == 2 * len(solution_codes), f"cov_files: {len(cov_files)} in {cov_dir}"
         fast_input_cov_files = [
             file for file in cov_files if file.parent.parent.name == "fast_input"
         ]
