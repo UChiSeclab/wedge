@@ -10,6 +10,7 @@ import time
 from fire import Fire
 from tqdm import tqdm
 import tempdir
+from typing import List
 
 from common import Language
 from config import config
@@ -67,11 +68,24 @@ def compile_solution(tmp_dir: Path, solution_code: str, language: Language):
     return "Judge Error"
 
 
-def check_same_output(output_A: str, output_B: str):
+def check_same_output(output_A: List[str], output_B: List[str]):
     if len(output_A) != len(output_B):
         return False
     for idx, Ai in enumerate(output_A):
         Bi = output_B[idx]
+
+        if Ai == Bi \
+            or (Ai.lower() == "yes" and Bi.lower() == "yes") \
+            or (Ai.lower() == "no" and Bi.lower() == "no"):
+            continue
+        try:
+            Ai = int(Ai)
+            Bi = int(Bi)
+            if Ai == Bi or abs(Ai - Bi) == pow(2, 32):
+                continue
+        except ValueError:
+            pass
+
         try:
             Ai = float(Ai)
             Bi = float(Bi)
@@ -84,6 +98,7 @@ def check_same_output(output_A: str, output_B: str):
 
 
 def run_solution(
+    experiment_name: str,
     solution_path: Path,
     language: Language,
     input_dir: Path,
@@ -166,20 +181,29 @@ def run_solution(
                         try:
                             program_output = run_process.stdout.decode("utf-8")
                             if write_output:
+                                # write output for the first in gen_tests.py
                                 with open(output_path, "w", encoding="utf-8") as file:
                                     file.write(program_output)
                             else:
+                                # don't write output for the later runs when 
+                                # collecting the execution statistics in run.py
                                 program_output = program_output.split()
                                 with open(output_path, "r", encoding="utf-8") as file:
-                                    actual_output = file.read().split()
-                                if not check_same_output(actual_output, program_output):
-                                    print("[WA]", actual_output, program_output)
+                                    gt_output = file.read().split()
+                                if not check_same_output(gt_output, program_output):
+                                    print(
+                                        "[WA]",
+                                        gt_output[:100],
+                                        "..." if len(gt_output) > 100 else "",
+                                        program_output[:100],
+                                        "..." if len(program_output) > 100 else ""
+                                    )
                                     wrong_answer_flag = True
                         except UnicodeError:
                             print("[WA]", "Unicode Error")
                             wrong_answer_flag = True
                     else:
-                        print("[WA]", run_process)
+                        print("[WA]", "no output", solution_path, input_test, run_process.stderr.decode("utf-8"))
                         wrong_answer_flag = True
                 except subprocess.TimeoutExpired:
                     runtime = config["max_time_limit"]
@@ -187,7 +211,9 @@ def run_solution(
             total_runtime += runtime
             test_cnt += 1
             runtime_dict[input_test] = runtime
-            if wrong_answer_flag or runtime >= config["max_time_limit"]:
+            if experiment_name == "alphacode" and \
+                (wrong_answer_flag or runtime >= config["max_time_limit"]):
+                # we only do early exit for alphacode
                 break
 
     test_result = {
@@ -226,6 +252,13 @@ def input_sanitization(input_dir: Path, output_dir: Path):
         os.remove(input_dir / invalid_input_file)
 
 
+def problem_test_gen_failed(problem_id: str, experiment_name: str):
+    gen_tests_failing_problem_record = config["gen_tests_failing_problem_record"]
+    if not os.path.exists(gen_tests_failing_problem_record):
+        return False
+    data = json.load(open(gen_tests_failing_problem_record, "r"))
+    return problem_id in data and experiment_name in data[problem_id]
+
 def main(
     experiment_name: str = config["experiment_name"],
     problem_root_dir: str = config["problem_root_dir"],
@@ -235,7 +268,8 @@ def main(
     problem_root_dir = Path(problem_root_dir)
     result_root_dir = Path(result_root_dir)
     filtered_problems = filter_problems(
-        get_cf_problems(use_specified_problem=config["use_specified_problem"])
+        get_cf_problems(use_specified_problem=config["use_specified_problem"]),
+        filter_with_inconsistency_threshold=experiment_name != "alphacode",
     )
 
     for problem in tqdm(filtered_problems):
@@ -245,9 +279,15 @@ def main(
         if experiment_name == "alphacode":
             experiment_dir = problem_dir
         else:
+            if problem_test_gen_failed(problem_id, experiment_name):
+                print(f"[INFO] Test generation failed for {experiment_name} of {problem_id}, skipping.")
+                continue
             experiment_dir = problem_dir / experiment_name
             Path(result_root_dir / experiment_name).mkdir(exist_ok=True, parents=True)
         result_path = Path(result_root_dir / experiment_name / f"{problem_id}.json")
+        if result_path.exists():
+            print(f"[INFO] {result_path} exists, skipping.")
+            continue
         solution_dir = problem_dir / "solutions"
         input_dir = experiment_dir / "input"
         output_dir = experiment_dir / "output"
@@ -263,12 +303,15 @@ def main(
         test_args = []
         sol_type = "solutions"
         for solution_idx, _ in enumerate(problem[sol_type]["solution"]):
+            # TODO: we ensured the selected problems have consistency > 95%.
+            # Are we going to discard inconsistent solutions here? Currently not
             language = Language(problem[sol_type]["language"][solution_idx])
             solution_file_name = f"{sol_type}_{solution_idx:04}.{language.to_suffix()}"
             solution_path = solution_dir / language.name.lower() / solution_file_name
             for _ in range(config["repeat_test"]):
                 test_args.append(
                     (
+                        experiment_name,
                         solution_path,
                         language,
                         input_dir,
@@ -289,13 +332,13 @@ def main(
             if not res[idx]:
                 continue
             online_judge_verdict = (
-                "incorrect" if "incorrect" in str(test_arg[0]) else "correct"
+                "incorrect" if "incorrect" in str(test_arg[1]) else "correct"
             )
-            problem_res["time_limit"] = test_arg[4]
-            problem_id = (str(test_arg[0]).split("/")[-1]).split(".")[0]
+            problem_res["time_limit"] = test_arg[5]
+            problem_id = (str(test_arg[1]).split("/")[-1]).split(".")[0]
             if problem_id not in problem_res.keys():
                 problem_res[problem_id] = {
-                    "language": test_arg[1].name.lower(),
+                    "language": test_arg[2].name.lower(),
                     "online_judge_verdict": online_judge_verdict,
                     "verdict": [],
                     "average_time": [],
