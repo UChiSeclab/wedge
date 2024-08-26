@@ -6,6 +6,8 @@ import subprocess
 from utils import num_tokens_from_string
 from config import config
 from prompt_utils import fill_multi_slow_solutions, fill_multi_slow_solutions_feedback
+from select_solution import find_slow_fast_solution_cov_file
+from select_input import find_slow_fast_input_cov_file, find_slow_fast_input_cov_files_for_multi_solution
 
 API_KEY = "sk-proj-agKWhu46RVJSx5PbRea7T3BlbkFJB3jZFl9KGevQ0QC9vatB"
 
@@ -68,20 +70,9 @@ def write_test_generator(
     # fill input(s) and feedback
     if feedback_prompt_type == "diff_solution":
         assert prompt_template == "prompt_template_with_feedback_diff_solution.txt"
-        cov_dir = (
-            Path(config["coverage_hit_count_output_dir"])
-            / problem_id
-            / experiment_dir.name
-            / prompt_language
+        slow_solution_cov_file, fast_solution_cov_file = find_slow_fast_solution_cov_file(
+            problem_id, experiment_dir.name, prompt_language
         )
-        cov_files = [file.absolute() for file in Path(cov_dir).rglob("*.cov")]
-        assert len(cov_files) == 2, f"cov_files: {cov_files}"
-        fast_solution_cov_file = [
-            file for file in cov_files if file.parent.name == "fast_solution"
-        ][0]
-        slow_solution_cov_file = [
-            file for file in cov_files if file.parent.name == "slow_solution"
-        ][0]
         slow_input_id = fast_solution_cov_file.parent.parent.name
         input_file = (
             Path(config["problem_root_dir"])
@@ -100,74 +91,43 @@ def write_test_generator(
 
     elif feedback_prompt_type == "diff_input":
         assert prompt_template == "prompt_template_with_feedback_diff_input.txt"
-        cov_dir = (
-            Path(config["coverage_hit_count_output_dir"])
-            / problem_id
-            / experiment_dir.name
-            / prompt_language
+        slow_input_cov_file, fast_input_cov_file = find_slow_fast_input_cov_file(
+            problem_id, experiment_dir.name, prompt_language
         )
-        cov_files = [file.absolute() for file in Path(cov_dir).rglob("*.cov")]
-        assert len(cov_files) == 2, f"cov_files: {cov_files} in {cov_dir}"
-        fast_input_cov_file = [
-            file for file in cov_files if file.parent.name == "fast_input"
-        ][0]
-        slow_input_cov_file = [
-            file for file in cov_files if file.parent.name == "slow_input"
-        ][0]
         slow_input_id = slow_input_cov_file.parent.parent.name
         fast_input_id = fast_input_cov_file.parent.parent.name
-        slow_input_file = (
+
+        slow_input_file, fast_input_file = [
             Path(config["problem_root_dir"])
             / problem_id
             / "input"
-            / f"{slow_input_id}.in"
-        )
-        fast_input_file = (
-            Path(config["problem_root_dir"])
-            / problem_id
-            / "input"
-            / f"{fast_input_id}.in"
-        )
+            / f"{input_id}.in" \
+                for input_id in [slow_input_id, fast_input_id]
+        ]
 
         prompt = prompt.replace(
-            "<fast_input_coverage>", fast_input_cov_file.read_text()
+            "<slow_input_coverage>", slow_input_cov_file.read_text()
         )
         prompt = prompt.replace(
-            "<slow_input_coverage>", slow_input_cov_file.read_text()
+            "<fast_input_coverage>", fast_input_cov_file.read_text()
         )
         prompt = prompt.replace("<slow_input>", slow_input_file.read_text())
         prompt = prompt.replace("<fast_input>", fast_input_file.read_text())
 
     elif feedback_prompt_type == "multi_solution_diff_input":
         assert prompt_template == "prompt_template_with_feedback_multi_solution_diff_input.txt"
-        cov_dir = (
-            Path(config["coverage_hit_count_output_dir"])
-            / problem_id
-            / experiment_dir.name
-            / prompt_language
+        slow_input_cov_files, fast_input_cov_files = find_slow_fast_input_cov_files_for_multi_solution(
+            problem_id, experiment_dir.name, prompt_language
         )
-        cov_files = [file.absolute() for file in Path(cov_dir).rglob("*.cov")]
-        assert len(cov_files) == 2 * len(solution_codes), f"cov_files: {len(cov_files)} in {cov_dir}"
-        fast_input_cov_files = [
-            file for file in cov_files if file.parent.parent.name == "fast_input"
-        ]
-        slow_input_cov_files = [
-            file for file in cov_files if file.parent.parent.name == "slow_input"
-        ]
         slow_input_id = slow_input_cov_files[0].parent.parent.parent.name
         fast_input_id = fast_input_cov_files[0].parent.parent.parent.name
-        slow_input_file = (
+        slow_input_file, fast_input_file = [
             Path(config["problem_root_dir"])
             / problem_id
             / "input"
-            / f"{slow_input_id}.in"
-        )
-        fast_input_file = (
-            Path(config["problem_root_dir"])
-            / problem_id
-            / "input"
-            / f"{fast_input_id}.in"
-        )
+            / f"{input_id}.in" \
+                for input_id in [slow_input_id, fast_input_id]
+        ]
 
         prompt = fill_multi_slow_solutions_feedback(
             prompt, fast_input_cov_files, slow_input_cov_files

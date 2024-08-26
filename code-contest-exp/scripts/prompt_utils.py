@@ -2,7 +2,7 @@ from typing import List
 from pathlib import Path
 
 
-"""for multi_solution_diff_input feedback prompt type"""
+"""for multi_solution_diff_input (no feedback) prompt type"""
 def fill_multi_slow_solutions(prompt:str, top_k_slow_solution_codes:List[str]) -> str:
     assert "<k_slowest_solutions>" in prompt
     infill = ""
@@ -16,6 +16,7 @@ def fill_multi_slow_solutions(prompt:str, top_k_slow_solution_codes:List[str]) -
     return prompt
 
 
+"""for multi_solution_diff_input (with feedback) prompt type"""
 def fill_multi_slow_solutions_feedback(prompt:str, fast_input_cov_files:List[Path], slow_input_cov_files:List[Path]):
     assert "<k_slowest_solutions_fast_coverage>" in prompt
     assert "<k_slowest_solutions_slow_coverage>" in prompt

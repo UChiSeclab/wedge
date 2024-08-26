@@ -12,7 +12,8 @@ from utils import get_cf_problems, filter_problems, mean, get_alphacode_result, 
     record_failing_problem
 from gpt_caller import write_test_generator
 from run import run_solution
-from select_solution import select_solutions
+from select_solution import select_solutions, get_select_solution_type
+from feedback_collect import get_feedback_prompt_type
 
 def create_test_generator(
     problem,
@@ -140,8 +141,6 @@ def main(
     run_tests_language: Literal["python", "cpp", "python3", "java"] = "java",
     prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
     prompt_template: str = "prompt_template.txt",
-    feedback_prompt_type: Literal["diff_solution", "diff_input", "multi_solution_diff_input"] = None,
-    solution_selection_type: Literal["random", "time_contrast", "multi_slow"] = config["solution_selection"],
     top_k: int = None,
 ):
     """Generates tests by test generator created by LLM.
@@ -154,6 +153,8 @@ def main(
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
+    solution_selection_type = get_select_solution_type(experiment_name)
+    feedback_prompt_type = get_feedback_prompt_type(experiment_name)
 
     for problem in tqdm(filtered_problems):
         problem_id = problem["name"].split(".")[0]

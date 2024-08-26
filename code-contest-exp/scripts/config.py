@@ -6,7 +6,6 @@ config = {
     "result_root_dir": "./results",
     "max_time_limit": 20,
     "experiment_name": "alphacode",  # set it to 'alphacode' to run it on alphacode tests
-    "solution_selection": "time_contrast",
     "manual_prompt": False,
     "prompt_language": Language.JAVA,
     "repeat_test": 3,

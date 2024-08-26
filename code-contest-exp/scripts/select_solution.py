@@ -1,7 +1,25 @@
 from typing import List, Dict, Tuple
+from pathlib import Path
 
 from utils import get_alphacode_result, mean
 from common import Language
+from config import config
+
+
+def get_select_solution_type(experiment_name: str) -> str:
+    """Get the solution selection type based on the experiment name."""
+    if experiment_name in [
+        "time_contrast",
+        "feedback_diff_solution",
+        "feedback_diff_input"
+    ]:
+        return "time_contrast"
+    elif experiment_name in [
+        "feedback_multi_solution_diff_input",
+    ]:
+        return "multi_slow"
+    else:
+        raise ValueError(f"Unknown experiment name: {experiment_name}")
 
 
 def get_solutions_in_language(
@@ -107,3 +125,27 @@ def select_solutions(
 
     selected_solution_ids = [f"solutions_{idx:04}" for idx in selected_solution_idxs]
     return selected_solution_ids, selected_solutions
+
+
+def find_slow_fast_solution_cov_file(
+    problem_id: str,experiment_name: str,
+    prompt_language: str
+) -> Tuple[Path, Path]:
+    """ Find the fast and slow solution coverage files."""
+    assert "diff_solution" in experiment_name, f"experiment_name: {experiment_name}"
+    cov_dir = (
+        Path(config["coverage_hit_count_output_dir"])
+        / problem_id
+        / experiment_name
+        / prompt_language
+    )
+    cov_files = [file.absolute() for file in Path(cov_dir).rglob("*.cov")]
+    assert len(cov_files) == 2, f"cov_files: {cov_files}"
+    slow_solution_cov_file = [
+        file for file in cov_files if file.parent.name == "slow_solution"
+    ][0]
+    fast_solution_cov_file = [
+        file for file in cov_files if file.parent.name == "fast_solution"
+    ][0]
+
+    return slow_solution_cov_file, fast_solution_cov_file

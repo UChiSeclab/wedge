@@ -9,7 +9,7 @@ from fire import Fire
 from tqdm import tqdm
 
 from config import config
-from gen_tests import select_solutions
+from select_solution import select_solutions, get_select_solution_type
 from utils import get_cf_problems, filter_problems
 from select_input import (
     select_slow_fast_input,
@@ -25,6 +25,16 @@ COVERAGE_HIT_COUNT_OUTPUT_DIR = (
 ).absolute()
 debug = False
 
+
+def get_feedback_prompt_type(experiment_name: str):
+    if experiment_name == "feedback_diff_solution":
+        return "diff_solution"
+    elif experiment_name == "feedback_diff_input":
+        return "diff_input"
+    elif experiment_name == "feedback_multi_solution_diff_input":
+        return "multi_solution_diff_input"
+    else:
+        return None
 
 def collect_coverage_hit_count(
     solution_file: Path, input_file: Path, Language: Language, output_file: Path
@@ -52,14 +62,11 @@ def main(
     experiment_name: str = config["experiment_name"],
     problem_root_dir: str = config["problem_root_dir"],
     solution_language: Literal["python", "cpp", "python3", "java"] = "java",
-    feedback_prompt_type: Literal["diff_solution", "diff_input", "multi_solution_diff_input"] = None,
-    solution_selection_type: Literal["random", "time_contrast", "multi_slow"] = config["solution_selection"],
     top_k: int = None,
 ):
     problem_root_dir = Path(problem_root_dir)
-    assert (
-        solution_selection_type in ["time_contrast", "multi_slow"]
-    ), "This script is only for time_contrast selection or multi_slow selection"
+    solution_selection_type = get_select_solution_type(experiment_name)
+    feedback_prompt_type = get_feedback_prompt_type(experiment_name)
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )

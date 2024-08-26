@@ -1,7 +1,7 @@
 """Utility functions."""
 import os
 import pickle
-from datasets import load_dataset, concatenate_datasets
+from datasets import load_dataset
 import tiktoken
 from typing import Dict, List, Literal
 from pathlib import Path

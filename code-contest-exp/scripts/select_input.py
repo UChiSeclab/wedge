@@ -3,6 +3,7 @@ import json
 from typing import Literal, Dict, List, Tuple
 
 from utils import squeeze_time_dict
+from config import config
 
 debug = False
 
@@ -18,6 +19,46 @@ def __filter_input(slow_time_stat: Dict[str, float], fast_time_stat: Dict[str, f
 
     return {k: v for k, v in slow_time_stat.items() if k in fast_time_stat}
 
+
+def find_slow_fast_input_cov_file(
+    problem_id: str, experiment_name: str, prompt_language: str
+):
+    cov_dir = (
+        Path(config["coverage_hit_count_output_dir"])
+        / problem_id
+        / experiment_name
+        / prompt_language
+    )
+    cov_files = [file.absolute() for file in Path(cov_dir).rglob("*.cov")]
+    assert len(cov_files) == 2, f"cov_files: {cov_files} in {cov_dir}"
+    slow_input_cov_file = [
+        file for file in cov_files if file.parent.name == "slow_input"
+    ][0]
+    fast_input_cov_file = [
+        file for file in cov_files if file.parent.name == "fast_input"
+    ][0]
+
+    return slow_input_cov_file, fast_input_cov_file
+
+def find_slow_fast_input_cov_files_for_multi_solution(
+    problem_id: str, experiment_name: str, prompt_language: str
+) -> Tuple[List[Path], List[Path]]:
+    cov_dir = (
+        Path(config["coverage_hit_count_output_dir"])
+        / problem_id
+        / experiment_name
+        / prompt_language
+    )
+    cov_files = [file.absolute() for file in Path(cov_dir).rglob("*.cov")]
+    # assert len(cov_files) == 2 * len(solution_codes), f"cov_files: {len(cov_files)} in {cov_dir}"
+    slow_input_cov_files = [
+        file for file in cov_files if file.parent.parent.name == "slow_input"
+    ]
+    fast_input_cov_files = [
+        file for file in cov_files if file.parent.parent.name == "fast_input"
+    ]
+
+    return slow_input_cov_files, fast_input_cov_files
 
 def select_slow_fast_input(
     solutions_stat_file: Path,
