@@ -16,7 +16,7 @@ def plot_avg_over_problem(problem_statistics: Dict):
     # Prepare data for plotting
     problems = list(problem_statistics.keys())
     languages = set(lang for prob in problem_statistics.values() for lang in prob.keys())
-    strategies = ["time_contrast", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "alphacode"] # x-axis
+    strategies = ["time_contrast", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "alphacode"] # x-axis
 
     avg_time_values = {} # strategy -> List[float]
     max_time_values = {} # strategy -> List[float]
@@ -30,13 +30,15 @@ def plot_avg_over_problem(problem_statistics: Dict):
                 avg_times.append(strategy_data[0])
                 max_times.append(strategy_data[1])
 
-                avg_time_values[strategy] = avg_time_values.get(strategy, [])
-                max_time_values[strategy] = max_time_values.get(strategy, [])
-                avg_time_values[strategy].append(strategy_data[0])
-                max_time_values[strategy].append(strategy_data[1])
             if any(time == 0 for time in avg_times) or any(time == 0 for time in max_times):
                 print(f"[Warning] {problem_id} with {language} has 0 time")
                 continue
+            
+            for strategy in strategies:
+                avg_time_values[strategy] = avg_time_values.get(strategy, [])
+                max_time_values[strategy] = max_time_values.get(strategy, [])
+                avg_time_values[strategy].append(avg_times[strategies.index(strategy)])
+                max_time_values[strategy].append(max_times[strategies.index(strategy)])
     
     avg_avg_time_values = {strategy: mean(times) for strategy, times in avg_time_values.items()}
     avg_max_time_values = {strategy: mean(times) for strategy, times in max_time_values.items()}
@@ -71,7 +73,7 @@ def plot_problem_statistics(problem_statistics: Dict):
     # Prepare data for plotting
     problems = list(problem_statistics.keys())
     languages = set(lang for prob in problem_statistics.values() for lang in prob.keys())
-    strategies = ["time_contrast", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "alphacode"]
+    strategies = ["time_contrast", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "alphacode"]
 
     x_labels = []
     avg_time_values = []
@@ -109,7 +111,8 @@ def plot_problem_statistics(problem_statistics: Dict):
     ax1.bar(index + bar_width, avg_time_values[:, 1], bar_width, label='feedback_diff_solution', color='green')
     ax1.bar(index + 2 * bar_width, avg_time_values[:, 2], bar_width, label='feedback_diff_input', color='red')
     ax1.bar(index + 3 * bar_width, avg_time_values[:, 3], bar_width, label='feedback_multi_solution_diff_input', color='yellow')
-    ax1.bar(index + 4 * bar_width, avg_time_values[:, 4], bar_width, label='alphacode', color='purple')
+    ax1.bar(index + 4 * bar_width, avg_time_values[:, 4], bar_width, label='multi_solution_diff_input', color='orange')
+    ax1.bar(index + 5 * bar_width, avg_time_values[:, 5], bar_width, label='alphacode', color='purple')
 
     ax1.set_xlabel('Problem-Language')
     ax1.set_ylabel('Average Time')
@@ -123,7 +126,8 @@ def plot_problem_statistics(problem_statistics: Dict):
     ax2.bar(index + bar_width, max_time_values[:, 1], bar_width, label='feedback_diff_solution', color='green')
     ax2.bar(index + 2 * bar_width, avg_time_values[:, 2], bar_width, label='feedback_diff_input', color='red')
     ax2.bar(index + 3 * bar_width, avg_time_values[:, 3], bar_width, label='feedback_multi_solution_diff_input', color='yellow')
-    ax2.bar(index + 4 * bar_width, avg_time_values[:, 4], bar_width, label='alphacode', color='purple')
+    ax2.bar(index + 4 * bar_width, avg_time_values[:, 4], bar_width, label='multi_solution_diff_input', color='orange')
+    ax2.bar(index + 5 * bar_width, avg_time_values[:, 5], bar_width, label='alphacode', color='purple')
 
     ax2.set_xlabel('Problem-Language')
     ax2.set_ylabel('Max Time')
@@ -162,7 +166,7 @@ def main(
         {}
     )  # strategy -> problem_id -> language -> (avg_time, max_time)
 
-    strategies = ["time_contrast", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "alphacode"]
+    strategies = ["time_contrast", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "alphacode"]
     for strategy in strategies:  # experiment_name
         experiment_dir = Path("results") / strategy
         experiment_statistics[strategy] = {}
