@@ -6,22 +6,6 @@ from common import Language
 from config import config
 
 
-def get_select_solution_type(experiment_name: str) -> str:
-    """Get the solution selection type based on the experiment name."""
-    if experiment_name in [
-        "time_contrast",
-        "feedback_diff_solution",
-        "feedback_diff_input"
-    ]:
-        return "time_contrast"
-    elif experiment_name in [
-        "feedback_multi_solution_diff_input",
-    ]:
-        return "multi_slow"
-    else:
-        raise ValueError(f"Unknown experiment name: {experiment_name}")
-
-
 def get_solutions_in_language(
     problem: Dict, sol_language: Language
 ) -> Tuple[List[int], List[str]]:

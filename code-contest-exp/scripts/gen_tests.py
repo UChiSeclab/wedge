@@ -2,27 +2,27 @@
 import os
 import subprocess
 from pathlib import Path
-from typing import List, Dict, Literal, Tuple
+from typing import Literal
 from tqdm import tqdm
 from fire import Fire
 
 from common import Language
 from config import config
-from utils import get_cf_problems, filter_problems, mean, get_alphacode_result, \
+from utils import get_cf_problems, filter_problems, get_alphacode_result, \
     record_failing_problem
 from gpt_caller import write_test_generator
 from run import run_solution
-from select_solution import select_solutions, get_select_solution_type
-from feedback_collect import get_feedback_prompt_type
+from select_solution import select_solutions
+from prompt import PromptTemplate
 
 def create_test_generator(
     problem,
     selected_solutions,
+    selected_solution_ids,
     experiment_dir: Path,
     experiment_input_dir: Path,
+    prompt_template: PromptTemplate,
     prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
-    prompt_template: str = "prompt_template.txt",
-    feedback_prompt_type: Literal["diff_solution", "diff_input", "multi_solution_diff_input"] = None,
     clear_input_dir: bool = True,
 ) -> bool:
     if not config["manual_prompt"]:
@@ -30,9 +30,9 @@ def create_test_generator(
             experiment_dir,
             problem,
             selected_solutions,
+            selected_solution_ids,
             prompt_template=prompt_template,
             prompt_language=prompt_language,
-            feedback_prompt_type=feedback_prompt_type,
         )
         print("Cost on API call:", cost)
     else:
@@ -67,11 +67,11 @@ def create_test_generator_with_retry(
     experiment_name: str,
     problem,
     selected_solutions,
+    selected_solution_ids,
     experiment_dir: Path,
     experiment_input_dir: Path,
+    prompt_template: PromptTemplate,
     prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
-    prompt_template: str = "prompt_template.txt",
-    feedback_prompt_type: Literal["diff_solution", "diff_input", "multi_solution_diff_input"] = None,
     max_retry: int = 10,
     run_tests: bool = True,
     run_tests_language: Literal["python", "cpp", "python3", "java"] = "java",
@@ -92,15 +92,19 @@ def create_test_generator_with_retry(
         gen_py_success = create_test_generator(
             problem,
             selected_solutions,
+            selected_solution_ids,
             experiment_dir,
             experiment_input_dir,
-            prompt_language,
             prompt_template,
-            feedback_prompt_type,
+            prompt_language,
         )
-        
+
         if not gen_py_success:
             print(f"[Error] gen_tests failed to generate tests for {problem_id}, try count: {try_cnt}")
+            continue
+
+        if len(os.listdir(experiment_input_dir)) < config["num_tests"] / 2:
+            print(f"[Error] too few inputs are generated for {problem_id}, try count: {try_cnt}")
             continue
 
         if run_tests:
@@ -140,7 +144,7 @@ def main(
     run_tests: bool = True,
     run_tests_language: Literal["python", "cpp", "python3", "java"] = "java",
     prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
-    prompt_template: str = "prompt_template.txt",
+    prompt_template_path: str = "prompt_template.txt",
     top_k: int = None,
 ):
     """Generates tests by test generator created by LLM.
@@ -153,8 +157,8 @@ def main(
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
-    solution_selection_type = get_select_solution_type(experiment_name)
-    feedback_prompt_type = get_feedback_prompt_type(experiment_name)
+    prompt_template = PromptTemplate(Path(prompt_template_path), experiment_name)
+    solution_selection_type = PromptTemplate.get_select_solution_type(experiment_name)
 
     for problem in tqdm(filtered_problems):
         problem_id = problem["name"].split(".")[0]
@@ -183,11 +187,11 @@ def main(
             experiment_name,
             problem,
             selected_solutions,
+            selected_solution_ids,
             experiment_dir,
             experiment_input_dir,
-            prompt_language=prompt_language,
             prompt_template=prompt_template,
-            feedback_prompt_type=feedback_prompt_type,
+            prompt_language=prompt_language,
             run_tests=run_tests,
             run_tests_language=run_tests_language,
         ):

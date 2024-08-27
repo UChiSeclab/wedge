@@ -9,13 +9,14 @@ from fire import Fire
 from tqdm import tqdm
 
 from config import config
-from select_solution import select_solutions, get_select_solution_type
+from select_solution import select_solutions
 from utils import get_cf_problems, filter_problems
 from select_input import (
     select_slow_fast_input,
     select_slow_fast_input_for_multi_solution,
     select_most_differentiating_input,
 )
+from prompt import PromptTemplate
 
 FEEDBACK_COLLECTION_SCRIPT_DIR = (
     Path(__file__).parent / ".." / ".." / "feedback_collection"
@@ -26,15 +27,17 @@ COVERAGE_HIT_COUNT_OUTPUT_DIR = (
 debug = False
 
 
-def get_feedback_prompt_type(experiment_name: str):
+def get_feedback_type(experiment_name: str):
     if experiment_name == "feedback_diff_solution":
         return "diff_solution"
     elif experiment_name == "feedback_diff_input":
         return "diff_input"
     elif experiment_name == "feedback_multi_solution_diff_input":
         return "multi_solution_diff_input"
+    elif experiment_name in ["multi_solution_diff_input", "time_contrast"]:
+        raise ValueError("No feedback type")
     else:
-        return None
+        raise ValueError(f"Unknown experiment name: {experiment_name}")
 
 def collect_coverage_hit_count(
     solution_file: Path, input_file: Path, Language: Language, output_file: Path
@@ -65,8 +68,8 @@ def main(
     top_k: int = None,
 ):
     problem_root_dir = Path(problem_root_dir)
-    solution_selection_type = get_select_solution_type(experiment_name)
-    feedback_prompt_type = get_feedback_prompt_type(experiment_name)
+    solution_selection_type = PromptTemplate.get_select_solution_type(experiment_name)
+    feedback_prompt_type = get_feedback_type(experiment_name)
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
@@ -87,21 +90,20 @@ def main(
             )
             continue
 
-        solutions_stat_file = Path("./results/alphacode") / (problem_id + ".json")
         if feedback_prompt_type in ["diff_solution", "diff_input"]:
             fast_solution_id, slow_solution_id = selected_solution_ids
 
             most_differentiating_input_file_name = select_most_differentiating_input(
-                solutions_stat_file, fast_solution_id, slow_solution_id
+                problem_id, fast_solution_id, slow_solution_id
             )
 
             slow_input_file_name, fast_input_file_name = select_slow_fast_input(
-                solutions_stat_file, slow_solution_id
+                problem_id, slow_solution_id
             )
         elif feedback_prompt_type == "multi_solution_diff_input":
             slow_solution_ids = selected_solution_ids
             slow_input_file_name, fast_input_file_name = select_slow_fast_input_for_multi_solution(
-                solutions_stat_file, slow_solution_ids
+                problem_id, slow_solution_ids
             )
 
         # collect coverage and hit count
