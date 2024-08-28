@@ -34,7 +34,14 @@ def get_feedback_type(experiment_name: str):
         return "diff_input"
     elif experiment_name == "feedback_multi_solution_diff_input":
         return "multi_solution_diff_input"
-    elif experiment_name in ["multi_solution_diff_input", "time_contrast"]:
+    elif experiment_name in [
+        "multi_solution_diff_input",
+        "time_contrast",
+        "diff_solution_one_input", # no feedback, one input
+        "plain_problem",
+        "slow_solution",
+        "random_solution",
+        ]:
         raise ValueError("No feedback type")
     else:
         raise ValueError(f"Unknown experiment name: {experiment_name}")
@@ -84,10 +91,9 @@ def main(
             problem_id, problem, solution_selection_type, Language.str_to_lang(solution_language), top_k
         )
 
-        if len(selected_solution_ids) < 2 or (top_k and len(selected_solution_ids) < top_k):
-            print(
-                f"Not enough solutions to select for {problem_id} language: {solution_language}"
-            )
+        if (selected_solution_ids == None) or (top_k and len(selected_solution_ids) < top_k):
+            print(f"Not enough solutions to select for {problem_id}", end=" ")
+            print("language:", solution_language)
             continue
 
         if feedback_prompt_type in ["diff_solution", "diff_input"]:

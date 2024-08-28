@@ -123,6 +123,8 @@ def create_test_generator_with_retry(
                             experiment_output_dir,
                             write_output=True,
                         )
+                        # TODO: we didn't check consistency of the output 
+                        # across different solutions, may do that later
                         if len(os.listdir(experiment_output_dir)) >= len(os.listdir(experiment_input_dir)) / 2:
                             break
                         else:
@@ -144,7 +146,7 @@ def main(
     run_tests: bool = True,
     run_tests_language: Literal["python", "cpp", "python3", "java"] = "java",
     prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
-    prompt_template_path: str = "prompt_template.txt",
+    prompt_template: str = "prompt_template.txt",
     top_k: int = None,
 ):
     """Generates tests by test generator created by LLM.
@@ -157,7 +159,7 @@ def main(
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
-    prompt_template = PromptTemplate(Path(prompt_template_path), experiment_name)
+    prompt_template = PromptTemplate(Path(prompt_template), experiment_name)
     solution_selection_type = PromptTemplate.get_select_solution_type(experiment_name)
 
     for problem in tqdm(filtered_problems):
@@ -170,7 +172,7 @@ def main(
             problem_id, problem, solution_selection_type, Language.str_to_lang(prompt_language), top_k=top_k
         )
 
-        if len(selected_solution_ids) < 2 or (top_k and len(selected_solution_ids) < top_k):
+        if (selected_solution_ids == None) or (top_k and len(selected_solution_ids) < top_k):
             print(f"Not enough solutions to select for {problem_id}", end=" ")
             print("language:", prompt_language)
             continue

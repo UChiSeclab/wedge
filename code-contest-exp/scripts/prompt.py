@@ -1,9 +1,11 @@
 from typing import List
 from pathlib import Path
 
+from config import config
+
 class PromptTemplate:
-    def __init__(self, prompt_template_file: Path, experiment_name: str):
-        self.prompt_template_text = prompt_template_file.read_text()
+    def __init__(self, prompt_template_name: str, experiment_name: str):
+        self.prompt_template_text = (Path(config["prompt_template_root_dir"]) / prompt_template_name).read_text()
         self.experiment_name = experiment_name
         assert experiment_name in [
             "time_contrast",
@@ -11,6 +13,10 @@ class PromptTemplate:
             "feedback_diff_input",
             "feedback_multi_solution_diff_input",
             "multi_solution_diff_input",
+            "diff_solution_one_input",
+            "plain_problem",
+            "slow_solution",
+            "random_solution",
         ], f"experiment_name: {experiment_name}"
         self.select_solution_type = self.get_select_solution_type(experiment_name)
         self.fill_input_type = self.get_fill_input_type()
@@ -27,13 +33,26 @@ class PromptTemplate:
             "time_contrast", # no input, diff solution
             "feedback_diff_solution", # one input, diff solution with coverage
             "feedback_diff_input", # slow fast input, slow solution with coverage
+            "diff_solution_one_input", # one input, diff solution (no feedback)
         ]:
-            return "time_contrast"
+            return "slow_fast"
         elif experiment_name in [
             "feedback_multi_solution_diff_input", # slow fast input, 5 slow solutions with coverage
             "multi_solution_diff_input" # slow fast input, 5 slow solutions (no feedback)
         ]:
             return "multi_slow"
+        elif experiment_name in [
+            "slow_solution", # no input, slow solution
+        ]:
+            return "slow"
+        elif experiment_name in [
+            "random_solution", # no input, random solution
+        ]:
+            return "random"
+        elif experiment_name in [
+            "plain_problem", # no input, no solution
+        ]:
+            return "no_solution"
         else:
             raise ValueError(f"Unknown experiment name: {experiment_name}")
 
@@ -41,6 +60,7 @@ class PromptTemplate:
         """Get the fill solution type based on the experiment name."""
         if self.experiment_name in [
             "time_contrast",
+            "diff_solution_one_input",
             "feedback_diff_input",
             "feedback_diff_solution",
         ]:
@@ -50,16 +70,25 @@ class PromptTemplate:
             "multi_solution_diff_input",
         ]:
             return "multi_slow_solution"
+        elif self.experiment_name in [
+            "slow_solution",
+            "random_solution",
+        ]:
+            return "one_solution"
+        elif self.experiment_name in [
+            "plain_problem",
+        ]:
+            return "no_solution"
         else:
             raise ValueError(f"Unknown experiment name: {self.experiment_name}")
 
     def get_fill_input_type(self) -> str:
         """Get the fill input type based on the experiment name."""
         if self.experiment_name in [
-            "time_contrast",
+            "diff_solution_one_input",
             "feedback_diff_solution",
         ]:
-            return "slow_fast_solution"
+            return "most_differentiating_input"
         elif self.experiment_name in [
             "feedback_diff_input",
         ]:
@@ -69,6 +98,13 @@ class PromptTemplate:
             "multi_solution_diff_input",
         ]:
             return "slow_fast_input_multi_solution"
+        elif self.experiment_name in [
+            "time_contrast",
+            "plain_problem",
+            "slow_solution",
+            "random_solution",
+        ]:
+            return "no_input"
         else:
             raise ValueError(f"Unknown experiment name: {self.experiment_name}")
 
@@ -77,8 +113,12 @@ class PromptTemplate:
         if self.experiment_name in [
             "time_contrast",
             "multi_solution_diff_input",
+            "plain_problem",
+            "slow_solution",
+            "random_solution",
+            "diff_solution_one_input",
         ]:
-            return None
+            return "no_feedback"
         elif self.experiment_name in [
             "feedback_diff_solution",
         ]:

@@ -70,13 +70,14 @@ def select_solutions(
     selected_solutions = []
     selected_solution_idxs = []
 
-    if solution_selection_type == "time_contrast":
-        alphacode_result = get_alphacode_result(problem_id)
-        filtered_solution_idxs = __filter_solution_idx(
-            problem, problem_id, prompt_language, alphacode_result, solution_idxs
-        )
+    alphacode_result = get_alphacode_result(problem_id)
+    filtered_solution_idxs = __filter_solution_idx(
+        problem, problem_id, prompt_language, alphacode_result, solution_idxs
+    )
+
+    if solution_selection_type == "slow_fast":
         if len(filtered_solution_idxs) < 2:
-            return selected_solution_idxs, selected_solutions
+            return None, None
         filtered_solution_idxs.sort(
             key=lambda idx: mean(alphacode_result[f"solutions_{idx:04}"]["average_time"])
         )
@@ -89,10 +90,6 @@ def select_solutions(
         selected_solution_idxs = [fast_solution_idx, slow_solution_idx]
 
     elif solution_selection_type == "multi_slow":
-        alphacode_result = get_alphacode_result(problem_id)
-        filtered_solution_idxs = __filter_solution_idx(
-            problem, problem_id, prompt_language, alphacode_result, solution_idxs
-        )
         # select top k slow solutions
         assert top_k is not None and top_k > 1, f"top_k: {top_k}"
         # assert len(filtered_solution_idxs) >= top_k, f"len(filtered_solution_idxs): {len(filtered_solution_idxs)}"
@@ -103,6 +100,29 @@ def select_solutions(
         selected_solutions = [
             problem["solutions"]["solution"][idx] for idx in selected_solution_idxs
         ]
+
+    elif solution_selection_type == "slow":
+        if len(filtered_solution_idxs) < 1:
+            return None, None
+        filtered_solution_idxs.sort(
+            key=lambda idx: mean(alphacode_result[f"solutions_{idx:04}"]["average_time"])
+        )
+        slow_solution_idx = filtered_solution_idxs[-1]
+        selected_solutions = [problem["solutions"]["solution"][slow_solution_idx]]
+        selected_solution_idxs = [slow_solution_idx]
+
+    elif solution_selection_type == "random":
+        if len(filtered_solution_idxs) < 1:
+            return None, None
+
+        import random
+        random.seed(0)
+        selected_solution_idx = random.choice(filtered_solution_idxs)
+        selected_solutions = [problem["solutions"]["solution"][selected_solution_idx]]
+        selected_solution_idxs = [selected_solution_idx]
+    
+    elif solution_selection_type == "no_solution":
+        return [], []
 
     else:
         raise ValueError(f"Unknown solution selection type: {solution_selection_type}")

@@ -11,12 +11,10 @@ from config import config
 from utils import filter_problems, get_cf_problems
 from utils import squeeze_time_dict
 
-
-def plot_avg_over_problem(problem_statistics: Dict):
+def plot_avg_over_problem(problem_statistics: Dict, strategies: List[str]):
     # Prepare data for plotting
     problems = list(problem_statistics.keys())
     languages = set(lang for prob in problem_statistics.values() for lang in prob.keys())
-    strategies = ["time_contrast", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "alphacode"] # x-axis
 
     avg_time_values = {} # strategy -> List[float]
     max_time_values = {} # strategy -> List[float]
@@ -53,7 +51,7 @@ def plot_avg_over_problem(problem_statistics: Dict):
     ax1.set_ylabel('Average Time')
     ax1.set_title('Average "Average Time" by Strategy')
     ax1.set_xticks(index)
-    ax1.set_xticklabels(strategies, ha='center')
+    ax1.set_xticklabels(strategies, ha='center', rotation=45)
     ax1.legend()
 
     ax2.bar(index, avg_max_time_values.values(), bar_width, label='max_time', color='red')
@@ -61,7 +59,7 @@ def plot_avg_over_problem(problem_statistics: Dict):
     ax2.set_ylabel('Max Time')
     ax2.set_title('Average "Max Time" by Strategy')
     ax2.set_xticks(index)
-    ax2.set_xticklabels(strategies, ha='center')
+    ax2.set_xticklabels(strategies, ha='center', rotation=45)
     ax2.legend()
 
     # Adjust layout to prevent overlapping
@@ -69,11 +67,17 @@ def plot_avg_over_problem(problem_statistics: Dict):
     plt.savefig("./results/avg_over_problem.png")
 
 
-def plot_problem_statistics(problem_statistics: Dict):
+def plot_problem_statistics(
+    problem_statistics: Dict,
+    strategies: List[str],
+    colors:List[str] = ['purple', 'green', 'red', 'yellow', 'orange', 'blue', 'cyan', 'magenta', 'pink', 'brown', 'gray', 'olive', 'lime', 'teal', 'navy']
+):
     # Prepare data for plotting
     problems = list(problem_statistics.keys())
     languages = set(lang for prob in problem_statistics.values() for lang in prob.keys())
-    strategies = ["time_contrast", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "alphacode"]
+    if len(strategies) > len(colors):
+        raise ValueError(f"Number of strategies is more than number of colors: {len(strategies)} > {len(colors)}")
+    colors = colors[:len(strategies)]
 
     x_labels = []
     avg_time_values = []
@@ -101,18 +105,14 @@ def plot_problem_statistics(problem_statistics: Dict):
 
     # Define plot characteristics
     n_groups = len(x_labels)
-    bar_width = 0.15
+    bar_width = 0.08
     index = np.arange(n_groups)
 
     # Plot avg time
     fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(15, 10))
 
-    ax1.bar(index, avg_time_values[:, 0], bar_width, label='time_contrast', color='blue')
-    ax1.bar(index + bar_width, avg_time_values[:, 1], bar_width, label='feedback_diff_solution', color='green')
-    ax1.bar(index + 2 * bar_width, avg_time_values[:, 2], bar_width, label='feedback_diff_input', color='red')
-    ax1.bar(index + 3 * bar_width, avg_time_values[:, 3], bar_width, label='feedback_multi_solution_diff_input', color='yellow')
-    ax1.bar(index + 4 * bar_width, avg_time_values[:, 4], bar_width, label='multi_solution_diff_input', color='orange')
-    ax1.bar(index + 5 * bar_width, avg_time_values[:, 5], bar_width, label='alphacode', color='purple')
+    for i in range(len(strategies)):
+        ax1.bar(index + i * bar_width, avg_time_values[:, i], bar_width, label=strategies[i], color=colors[i])
 
     ax1.set_xlabel('Problem-Language')
     ax1.set_ylabel('Average Time')
@@ -122,12 +122,8 @@ def plot_problem_statistics(problem_statistics: Dict):
     ax1.legend()
 
     # Plot max time
-    ax2.bar(index, max_time_values[:, 0], bar_width, label='time_contrast', color='blue')
-    ax2.bar(index + bar_width, max_time_values[:, 1], bar_width, label='feedback_diff_solution', color='green')
-    ax2.bar(index + 2 * bar_width, avg_time_values[:, 2], bar_width, label='feedback_diff_input', color='red')
-    ax2.bar(index + 3 * bar_width, avg_time_values[:, 3], bar_width, label='feedback_multi_solution_diff_input', color='yellow')
-    ax2.bar(index + 4 * bar_width, avg_time_values[:, 4], bar_width, label='multi_solution_diff_input', color='orange')
-    ax2.bar(index + 5 * bar_width, avg_time_values[:, 5], bar_width, label='alphacode', color='purple')
+    for i in range(len(strategies)):
+        ax2.bar(index + i * bar_width, max_time_values[:, i], bar_width, label=strategies[i], color=colors[i])
 
     ax2.set_xlabel('Problem-Language')
     ax2.set_ylabel('Max Time')
@@ -166,7 +162,7 @@ def main(
         {}
     )  # strategy -> problem_id -> language -> (avg_time, max_time)
 
-    strategies = ["time_contrast", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "alphacode"]
+    strategies = ["alphacode", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "time_contrast", "plain_problem", "slow_solution", "random_solution", "diff_solution_one_input"]
     for strategy in strategies:  # experiment_name
         experiment_dir = Path("results") / strategy
         experiment_statistics[strategy] = {}
@@ -272,9 +268,9 @@ def main(
     )
     pp.pprint(problem_statistics)
 
-    plot_problem_statistics(problem_statistics)
+    plot_problem_statistics(problem_statistics, strategies)
 
-    plot_avg_over_problem(problem_statistics)
+    plot_avg_over_problem(problem_statistics, strategies)
 
 if __name__ == "__main__":
     Fire(main)

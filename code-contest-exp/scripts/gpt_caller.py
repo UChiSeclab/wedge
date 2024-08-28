@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Dict, Literal
+from typing import List, Dict
 import requests
 import subprocess
 
@@ -74,10 +74,12 @@ def write_test_generator(
     elif fill_solution_type == "slow_fast_solution":
         prompt = prompt.replace("<fast_solution>", selected_solution_codes[0])
         prompt = prompt.replace("<slow_solution>", selected_solution_codes[1])
+    elif fill_solution_type == "one_solution":
+        prompt = prompt.replace("<one_solution>", selected_solution_codes[0])
 
 
     # === fill input(s) ===
-    if fill_input_type == "perf_gap_input":
+    if fill_input_type == "most_differentiating_input":
         fast_solution_id, slow_solution_id = selected_solution_ids
         most_differentiating_input_file_name = select_most_differentiating_input(
             problem_id, fast_solution_id, slow_solution_id
