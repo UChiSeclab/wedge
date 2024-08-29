@@ -245,8 +245,7 @@ def input_sanitization(input_dir: Path, output_dir: Path):
 
     for invalid_input_file in invalid_input_files:
         print(
-            f"[WARNING] input file {invalid_input_file} does not have \
-            corresponding output file. The input likely runs into problems."
+            f"[WARNING] input file {invalid_input_file} does not have corresponding output file. The input likely runs into problems."
         )
         print(f"[WARNING] Removing invalid input file: {invalid_input_file}")
         os.remove(input_dir / invalid_input_file)
@@ -285,6 +284,7 @@ def main(
             experiment_dir = problem_dir / experiment_name
             Path(result_root_dir / experiment_name).mkdir(exist_ok=True, parents=True)
         result_path = Path(result_root_dir / experiment_name / f"{problem_id}.json")
+        result_path.parent.mkdir(exist_ok=True, parents=True)
         if result_path.exists():
             print(f"[INFO] {result_path} exists, skipping.")
             continue
@@ -335,9 +335,9 @@ def main(
                 "incorrect" if "incorrect" in str(test_arg[1]) else "correct"
             )
             problem_res["time_limit"] = test_arg[5]
-            problem_id = (str(test_arg[1]).split("/")[-1]).split(".")[0]
-            if problem_id not in problem_res.keys():
-                problem_res[problem_id] = {
+            solution_id = (str(test_arg[1]).split("/")[-1]).split(".")[0]
+            if solution_id not in problem_res.keys():
+                problem_res[solution_id] = {
                     "language": test_arg[2].name.lower(),
                     "online_judge_verdict": online_judge_verdict,
                     "verdict": [],
@@ -345,7 +345,7 @@ def main(
                     "max_time": [],
                     "time_dict": {},
                 }
-            solution_res = problem_res[problem_id]
+            solution_res = problem_res[solution_id]
             solution_res["verdict"].append(res[idx]["verdict"])
             if res[idx]["verdict"] in ["CE", "JE"]:
                 continue

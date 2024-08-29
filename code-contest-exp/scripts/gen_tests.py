@@ -2,9 +2,11 @@
 import os
 import subprocess
 from pathlib import Path
-from typing import Literal
+from typing import Literal, List, Dict, Tuple
 from tqdm import tqdm
 from fire import Fire
+from tempdir import TempDir
+import collections
 
 from common import Language
 from config import config
@@ -63,6 +65,69 @@ def create_test_generator(
 
     return True
 
+def record_gen_tests_output(
+    experiment_input_dir: Path,
+    solution_output_dir: Path,
+):
+    result = {}
+    for input_file_name in os.listdir(experiment_input_dir):
+        output_file = solution_output_dir / f"{input_file_name[:-3]}.out"
+        if not output_file.exists():
+            result[input_file_name] = "NO_OUTPUT"
+        else:
+            with open(output_file, "r") as f:
+                output = f.read()
+            if output == "":
+                result[input_file_name] = "NO_OUTPUT"
+            else:
+                result[input_file_name] = output
+
+    return result
+
+def check_consistency_of_gen_tests_output(
+    experiment_input_dir: Path,
+    solution_dir: Path,
+    correct_solution_file_names: List[str],
+) -> Tuple[List[str], Dict[str, str]]:
+    invalid_input_file_names = []
+    with TempDir() as temp_output_dir:
+        solution_result = {}
+        solution_major_output_dict = {}
+        for correct_solution_file_name in correct_solution_file_names:
+            correct_solution_file = solution_dir / correct_solution_file_name
+            solution_output_dir = Path(temp_output_dir) / correct_solution_file_name
+            solution_dir.mkdir(exist_ok=True, parents=True)
+            solution_output_dir.mkdir(exist_ok=True, parents=True)
+            test_result = run_solution(
+                "consistency_check",
+                correct_solution_file,
+                Language.JAVA,
+                experiment_input_dir,
+                solution_output_dir,
+                write_output=True,
+            )
+            solution_result[correct_solution_file_name] = record_gen_tests_output(
+                experiment_input_dir,
+                solution_output_dir,
+            )
+        
+        for input_file_name in os.listdir(experiment_input_dir):
+            outputs = [solution_result[correct_solution_file_name][input_file_name] for correct_solution_file_name in correct_solution_file_names]
+            outputs = [output.strip() for output in outputs if output != "NO_OUTPUT"]
+            # might need to cut the outputs if too long
+            output_counter = collections.Counter(outputs)
+            if len(output_counter) == 0:
+                invalid_input_file_names.append(input_file_name)
+                continue
+            majority_output = output_counter.most_common(1)[0][0]
+            majority_output_count = output_counter.most_common(1)[0][1]
+            if majority_output_count < len(correct_solution_file_names) * 0.95:
+                invalid_input_file_names.append(input_file_name)
+            else:
+                solution_major_output_dict[input_file_name] = majority_output
+
+    return invalid_input_file_names, solution_major_output_dict
+
 def create_test_generator_with_retry(
     experiment_name: str,
     problem,
@@ -110,28 +175,34 @@ def create_test_generator_with_retry(
         if run_tests:
             if run_tests_language == str(Language.JAVA):
                 solution_dir = experiment_dir.parent / "solutions" / str(run_tests_language)
-                for solution_file_name in os.listdir(solution_dir):
-                    if "incorrect" in solution_file_name:
-                        continue
-                    alphacode_verdict = alphacode_result[solution_file_name.split(".")[0]]["verdict"]
-                    if all(v == "AC" for v in alphacode_verdict):
-                        run_solution(
-                            experiment_name,
-                            solution_dir / solution_file_name,
-                            Language.JAVA,
-                            experiment_input_dir,
-                            experiment_output_dir,
-                            write_output=True,
-                        )
-                        # TODO: we didn't check consistency of the output 
-                        # across different solutions, may do that later
-                        if len(os.listdir(experiment_output_dir)) >= len(os.listdir(experiment_input_dir)) / 2:
-                            break
-                        else:
-                            [f.unlink() for f in experiment_output_dir.iterdir()]
+                correct_solution_file_names = [
+                    solution_file_name
+                    for solution_file_name in os.listdir(solution_dir)
+                    if ("incorrect" not in solution_file_name) and \
+                        all(v == "AC" for v in alphacode_result[solution_file_name.split(".")[0]]["verdict"])
+                ]
+
+                invalid_input_file_names, solution_major_output_dict = check_consistency_of_gen_tests_output(
+                    experiment_input_dir,
+                    solution_dir,
+                    correct_solution_file_names,
+                )
+
+                if len(invalid_input_file_names) > 0:
+                    print(f"[INFO] number of invalid_input_file_names: {len(invalid_input_file_names)}, try count: {try_cnt}")
+                    [Path(experiment_input_dir / invalid_input_file_name).unlink() for invalid_input_file_name in invalid_input_file_names]
+
+                if len(os.listdir(experiment_input_dir)) < config["num_tests"] / 2:
+                    print(f"[Warning] too few consistent inputs generated for {problem_id} from all solutions, try count: {try_cnt}")
+                    continue
+
+                for input_file_name, majority_output in solution_major_output_dict.items():
+                    with open(experiment_output_dir / f"{input_file_name[:-3]}.out", "w") as f:
+                        f.write(majority_output)
 
                 if len(os.listdir(experiment_output_dir)) < len(os.listdir(experiment_input_dir)) / 2:
                     print(f"[Warning] too manys inputs are invalid as so few output is generated for {problem_id} from all solutions, try count: {try_cnt}")
+                    [f.unlink() for f in experiment_output_dir.iterdir()]
             else:
                 raise NotImplementedError(
                     "Only JAVA is supported for running tests here."

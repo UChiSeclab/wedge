@@ -12,7 +12,8 @@ def main(problem_root_dir: str = config["problem_root_dir"]):
     """Inits necessary data for specified problems."""
     problem_root_dir = Path(problem_root_dir)
     filtered_problems = filter_problems(
-        get_cf_problems(use_specified_problem=config["use_specified_problem"])
+        get_cf_problems(use_specified_problem=config["use_specified_problem"]),
+        filter_with_inconsistency_threshold=False,
     )
 
     for problem in tqdm(filtered_problems):
