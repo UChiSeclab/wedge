@@ -10,7 +10,7 @@ import time
 from fire import Fire
 from tqdm import tqdm
 import tempdir
-from typing import List
+from typing import List, Dict
 
 from common import Language
 from config import config
@@ -105,7 +105,7 @@ def run_solution(
     output_dir: Path,
     time_limit: float = 1,
     write_output: bool = False,
-):
+) -> Dict:
     """Runs solution on tests.
 
     Args:
@@ -274,7 +274,7 @@ def main(
     for problem in tqdm(filtered_problems):
         problem_id = problem["name"].split(".")[0]
 
-        problem_dir = problem_root_dir / problem_id
+        problem_dir = Path(problem_root_dir) / str(problem_id)
         if experiment_name == "alphacode":
             experiment_dir = problem_dir
         else:

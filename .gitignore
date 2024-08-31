@@ -2,10 +2,9 @@ __pycache__/
 trash/
 
 *.pkl
-code-contest-exp/problems/
-code-contest-exp/results/
+code-contest-exp/problems*/
+code-contest-exp/results*/
 code-contest-exp/cov_hit_count/
-code-contest-exp/problems_java_feedback/
 code-contest-exp/log
 code-contest-analysis/
 archive/

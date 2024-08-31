@@ -7,6 +7,7 @@ from tqdm import tqdm
 from fire import Fire
 from tempdir import TempDir
 import collections
+from multiprocessing import Pool
 
 from common import Language
 from config import config
@@ -86,31 +87,41 @@ def record_gen_tests_output(
 
 def check_consistency_of_gen_tests_output(
     experiment_input_dir: Path,
-    solution_dir: Path,
+    solution_dir: Path, # solutions/java
     correct_solution_file_names: List[str],
+    early_stop: bool = False,
 ) -> Tuple[List[str], Dict[str, str]]:
-    invalid_input_file_names = []
+    """check and compare the output of generated tests of each solution, \
+        early stop if there is already 5% of the inputs are invalid or \
+        not consistent"""
+
+    time_limit = 300
     with TempDir() as temp_output_dir:
+        test_args = []
         solution_result = {}
+        invalid_input_file_names = []
         solution_major_output_dict = {}
         for correct_solution_file_name in correct_solution_file_names:
             correct_solution_file = solution_dir / correct_solution_file_name
             solution_output_dir = Path(temp_output_dir) / correct_solution_file_name
             solution_dir.mkdir(exist_ok=True, parents=True)
             solution_output_dir.mkdir(exist_ok=True, parents=True)
-            test_result = run_solution(
-                "consistency_check",
-                correct_solution_file,
-                Language.JAVA,
-                experiment_input_dir,
-                solution_output_dir,
-                write_output=True,
-            )
+
+            test_args.append(("consistency_check", correct_solution_file, Language.JAVA, experiment_input_dir, solution_output_dir, time_limit, True))
+
+        max_workers = max(1, int(0.75 * os.cpu_count()))
+        with Pool(processes=max_workers) as pool:
+            pool.starmap(run_solution, test_args)
+
+        # check after all solutions are run
+        for test_arg in test_args:
+            correct_solution_file_name = test_arg[1].name
+            solution_output_dir = Path(temp_output_dir) / correct_solution_file_name
             solution_result[correct_solution_file_name] = record_gen_tests_output(
                 experiment_input_dir,
                 solution_output_dir,
             )
-        
+
         for input_file_name in os.listdir(experiment_input_dir):
             outputs = [solution_result[correct_solution_file_name][input_file_name] for correct_solution_file_name in correct_solution_file_names]
             outputs = [output.strip() for output in outputs if output != "NO_OUTPUT"]
@@ -125,7 +136,7 @@ def check_consistency_of_gen_tests_output(
                 invalid_input_file_names.append(input_file_name)
             else:
                 solution_major_output_dict[input_file_name] = majority_output
-
+    
     return invalid_input_file_names, solution_major_output_dict
 
 def create_test_generator_with_retry(
