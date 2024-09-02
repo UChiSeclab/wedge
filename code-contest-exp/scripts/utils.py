@@ -143,7 +143,7 @@ def filter_problems(problems, filter_with_inconsistency_threshold=True):
                     labeled_correct += 1
                     if all(label == "AC" for label in data[item]["verdict"]):
                         actual_correct += 1
-            
+
             if actual_correct / labeled_correct > 0.95:
                 filtered_problems_with_inconsistency.append(problem)
             else:

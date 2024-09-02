@@ -8,6 +8,7 @@ from fire import Fire
 from tempdir import TempDir
 import collections
 from multiprocessing import Pool
+import time
 
 from common import Language
 from config import config
@@ -17,6 +18,85 @@ from gpt_caller import write_test_generator
 from run import run_solution
 from select_solution import select_solutions
 from prompt import PromptTemplate
+
+def early_stop_for_input_consistency(
+    input_dir: Path,
+    output_dir_of_solutions: Path,
+    correct_solution_file_names: List[str],
+) -> bool:
+    if len(os.listdir(input_dir)) < config["num_tests"] / 2:
+        return True
+    assert len(correct_solution_file_names) > 0, "No correct solution file names"
+    solution_result = {}
+    invalid_input_file_names = []
+    for correct_solution_file_name in correct_solution_file_names:
+        solution_output_dir = Path(output_dir_of_solutions) / correct_solution_file_name
+        if solution_output_dir.exists():
+            solution_result[correct_solution_file_name] = record_gen_tests_output(
+                input_dir,
+                solution_output_dir,
+            )
+
+    for input_file_name in os.listdir(input_dir):
+        outputs = [solution_result[correct_solution_file_name][input_file_name] for correct_solution_file_name in correct_solution_file_names]
+        num_empty_output = outputs.count("EMPTY_OUTPUT") # EMPTY_OUTPUT indicates the solution ran into an error
+        if num_empty_output > 0.05 * len(correct_solution_file_names):
+            print(f"input_file_name: {input_file_name}, num_empty_output: {num_empty_output}")
+            invalid_input_file_names.append(input_file_name)
+        else:
+            outputs = [output.strip() for output in outputs if output != "NO_OUTPUT" and output != "EMPTY_OUTPUT"]
+            if len(outputs) == 0:
+                continue
+            output_counter = collections.Counter(outputs)
+            majority_output_count = output_counter.most_common(1)[0][1]
+            non_majority_output_count = len(outputs) - majority_output_count
+            if non_majority_output_count + num_empty_output > 0.05 * len(correct_solution_file_names):
+                print(f"input_file_name: {input_file_name}, non_majority_output_count: {non_majority_output_count}, num_empty_output: {num_empty_output}")
+                invalid_input_file_names.append(input_file_name)
+
+    while len(invalid_input_file_names) > 0 and any((input_dir / invalid_input_file_name).exists() for invalid_input_file_name in invalid_input_file_names):
+        try:
+            [Path(input_dir / invalid_input_file_name).unlink() for invalid_input_file_name in invalid_input_file_names if (input_dir / invalid_input_file_name).exists()]
+        except FileNotFoundError as e:
+            print(f"Error during removing invalid inputs: {e}, try again")
+            time.sleep(0.1)
+            continue
+
+    return len(os.listdir(input_dir)) < config["num_tests"] / 2
+
+def run_solution_early_stop(
+    experiment_name: str,
+    solution_path: Path,
+    language: Language,
+    input_dir: Path,
+    output_dir: Path, # solution_output_dir (temp_output_dir / correct_solution_file_name)
+    time_limit: float = 1,
+    write_output: bool = False,
+    correct_solution_file_names: List[str] = None,
+    output_dir_of_solutions: Path = None,
+) -> Dict:
+    """check consistency of the output of the solution first, early stop if \
+        there is already 5% of the inputs are invalid or not consistent"""
+        
+    # remove the inputs that are already invalid
+    # check number of remaining inputs, stop if less than 50% of the total inputs
+    early_stop = early_stop_for_input_consistency(
+        input_dir,
+        output_dir_of_solutions,
+        correct_solution_file_names,
+    )
+    if early_stop:
+        return None
+
+    return run_solution(
+        experiment_name,
+        solution_path,
+        language,
+        input_dir,
+        output_dir,
+        time_limit,
+        write_output
+    )
 
 def create_test_generator(
     problem,
@@ -79,7 +159,7 @@ def record_gen_tests_output(
             with open(output_file, "r") as f:
                 output = f.read()
             if output == "":
-                result[input_file_name] = "NO_OUTPUT"
+                result[input_file_name] = "EMPTY_OUTPUT"
             else:
                 result[input_file_name] = output
 
@@ -89,7 +169,7 @@ def check_consistency_of_gen_tests_output(
     experiment_input_dir: Path,
     solution_dir: Path, # solutions/java
     correct_solution_file_names: List[str],
-    early_stop: bool = False,
+    early_stop: bool = True,
 ) -> Tuple[List[str], Dict[str, str]]:
     """check and compare the output of generated tests of each solution, \
         early stop if there is already 5% of the inputs are invalid or \
@@ -107,15 +187,17 @@ def check_consistency_of_gen_tests_output(
             solution_dir.mkdir(exist_ok=True, parents=True)
             solution_output_dir.mkdir(exist_ok=True, parents=True)
 
-            test_args.append(("consistency_check", correct_solution_file, Language.JAVA, experiment_input_dir, solution_output_dir, time_limit, True))
+            test_args.append(("consistency_check", correct_solution_file, Language.JAVA, experiment_input_dir, solution_output_dir, time_limit, True, correct_solution_file_names, Path(temp_output_dir)))
 
-        max_workers = max(1, int(0.75 * os.cpu_count()))
+        max_workers = max(1, int(0.25 * os.cpu_count()))
         with Pool(processes=max_workers) as pool:
-            pool.starmap(run_solution, test_args)
+            if early_stop:
+                pool.starmap(run_solution_early_stop, test_args)
+            else:
+                pool.starmap(run_solution, test_args[:-2])
 
         # check after all solutions are run
-        for test_arg in test_args:
-            correct_solution_file_name = test_arg[1].name
+        for correct_solution_file_name in correct_solution_file_names:
             solution_output_dir = Path(temp_output_dir) / correct_solution_file_name
             solution_result[correct_solution_file_name] = record_gen_tests_output(
                 experiment_input_dir,
@@ -124,7 +206,7 @@ def check_consistency_of_gen_tests_output(
 
         for input_file_name in os.listdir(experiment_input_dir):
             outputs = [solution_result[correct_solution_file_name][input_file_name] for correct_solution_file_name in correct_solution_file_names]
-            outputs = [output.strip() for output in outputs if output != "NO_OUTPUT"]
+            outputs = [output.strip() for output in outputs if output != "NO_OUTPUT" and output != "EMPTY_OUTPUT"]
             # might need to cut the outputs if too long
             output_counter = collections.Counter(outputs)
             if len(output_counter) == 0:
@@ -136,7 +218,7 @@ def check_consistency_of_gen_tests_output(
                 invalid_input_file_names.append(input_file_name)
             else:
                 solution_major_output_dict[input_file_name] = majority_output
-    
+
     return invalid_input_file_names, solution_major_output_dict
 
 def create_test_generator_with_retry(
@@ -201,18 +283,28 @@ def create_test_generator_with_retry(
 
                 if len(invalid_input_file_names) > 0:
                     print(f"[INFO] number of invalid_input_file_names: {len(invalid_input_file_names)}, try count: {try_cnt}")
-                    [Path(experiment_input_dir / invalid_input_file_name).unlink() for invalid_input_file_name in invalid_input_file_names]
+                    [Path(experiment_input_dir / invalid_input_file_name).unlink() for invalid_input_file_name in invalid_input_file_names if (experiment_input_dir / invalid_input_file_name).exists()]
 
                 if len(os.listdir(experiment_input_dir)) < config["num_tests"] / 2:
-                    print(f"[Warning] too few consistent inputs generated for {problem_id} from all solutions, try count: {try_cnt}")
+                    print(f"[Warning] too few consistent inputs generated for {problem_id} from all solutions, try count: {try_cnt}, inputs: {len(os.listdir(experiment_input_dir))}")
                     continue
 
                 for input_file_name, majority_output in solution_major_output_dict.items():
                     with open(experiment_output_dir / f"{input_file_name[:-3]}.out", "w") as f:
                         f.write(majority_output)
 
+                # remove empty output files
+                for f in experiment_output_dir.iterdir():
+                    if f.read_text().strip() == "":
+                        print(f"[Warning] removing empty output file: {f}")
+                        f.unlink()
+                # remove output files that do not have corresponding input files
+                for f in experiment_output_dir.iterdir():
+                    if not (experiment_input_dir / f"{f.stem}.in").exists():
+                        print(f"[Warning] removing output file without input file: {f}")
+                        f.unlink()
                 if len(os.listdir(experiment_output_dir)) < len(os.listdir(experiment_input_dir)) / 2:
-                    print(f"[Warning] too manys inputs are invalid as so few output is generated for {problem_id} from all solutions, try count: {try_cnt}")
+                    print(f"[Warning] too manys inputs are invalid as so few output is generated for {problem_id} from all solutions, try count: {try_cnt}, outputs: {len(os.listdir(experiment_output_dir))}, inputs: {len(os.listdir(experiment_input_dir))}")
                     [f.unlink() for f in experiment_output_dir.iterdir()]
             else:
                 raise NotImplementedError(

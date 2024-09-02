@@ -250,8 +250,7 @@ def main(
         {}
     )  # strategy -> problem_id -> language -> (avg_time, max_time)
 
-    # strategies = ["alphacode", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "time_contrast", "plain_problem", "slow_solution", "random_solution", "diff_solution_one_input"]
-    strategies = ["alphacode", "random_solution"]
+    strategies = ["alphacode", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "time_contrast", "plain_problem", "slow_solution", "diff_solution_one_input", "random_solution"]
     for strategy in strategies:  # experiment_name
         experiment_dir = Path("results") / strategy
         experiment_statistics[strategy] = {}

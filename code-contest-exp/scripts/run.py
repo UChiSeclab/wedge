@@ -140,6 +140,9 @@ def run_solution(
         for input_test in os.listdir(input_dir):
             input_path = input_dir / input_test
             output_path = output_dir / f"{input_test[:-3]}.out"
+            if not input_path.is_file():
+                print(f"[WARNING] {input_path} has been deleted by other processes.")
+                continue
             with open(input_path, "r", encoding="utf-8") as input_file:
                 try:
                     command = []
@@ -205,6 +208,9 @@ def run_solution(
                     else:
                         print("[WA]", "no output", solution_path, input_test, run_process.stderr.decode("utf-8"))
                         wrong_answer_flag = True
+                        if write_output:
+                            with open(output_path, "w", encoding="utf-8") as file:
+                                file.write("")
                 except subprocess.TimeoutExpired:
                     runtime = config["max_time_limit"]
             max_runtime = max(max_runtime, runtime)
