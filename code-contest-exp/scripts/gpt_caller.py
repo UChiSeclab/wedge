@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List, Dict
 import requests
 import subprocess
+from evalplus.perf.sampling import post_process as evalplus_post_process
 
 from utils import num_tokens_from_string
 from config import config
@@ -31,6 +32,8 @@ def request(instruction: str) -> str:
     if response.status_code == 200:
         result = response.json()
         return result["choices"][0]["message"]["content"]
+    else:
+        raise Exception(f"Error: {response.status_code} {response.text}")
 
 
 def cut_string(input_string: str, begin_token="```python\n", end_token="```") -> str:
@@ -166,6 +169,9 @@ def write_test_generator(
     with open(experiment_dir / "gpt_response.txt", "w", encoding="utf-8") as file:
         file.write(gpt_response)
     with open(experiment_dir / "gen.py", "w", encoding="utf-8") as file:
-        file.write(cut_string(gpt_response))
+        if experiment_name.startswith("evalperf"):
+            file.write(evalplus_post_process(gpt_response))
+        else:
+            file.write(cut_string(gpt_response))
 
     return cost

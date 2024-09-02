@@ -1,0 +1,71 @@
+You are an AI programming assistant, proficient in analyzing and generating Python code. \
+You are going to produce a self-contained Python function to generate a large input for a given function, \
+to test its performance at scale.
+
+Problem Statement (surronded by leading and trailing "--------"):
+
+-------- Problem begins
+
+<problem_statement>
+
+-------- Problem ends
+
+Example for generating tests for a simple problem:
+
+### Instruction:
+Generate a `perf_input_gen(scale: int)` function to produce a "large" input to exercise the performance of the `add` function:
+```python3
+def add(x: int, y: int):
+    """Add two numbers x and y
+    >>> add(2, 3)
+    5
+    >>> add(5, 7)
+    12
+    """
+    return x + y
+```
+### Response:
+Analysis:
+1. Input format: two integers `x` and `y`
+2. Is this task O(1) solvable? Yes
+### Instruction:
+Generate a `perf_input_gen(scale: int)` function to produce a "large" input to exercise the performance of the `prime_num` function:
+```python3
+"""
+Write a function to check if a number is prime or not.
+assert prime_num(2) == True
+"""
+import math
+def prime_num(num):
+    if num < 2: return False
+    for i in range(2, math.isqrt(num)):
+        if num % i == 0:
+            return False
+    return True
+```
+### Response:
+Analysis:
+1. Input format: An integer `n`
+2. Is this task O(1) solvable? No
+3. Time complexity: O(n)
+4. Space complexity: O(1)
+5. What kind of input can exercise its performance? Large prime numbers
+```python3
+# Can reuse the `prime_num` function
+# `scale` is a rough estimate of the input size -- larger `scale` means larger input
+# use case: prime_num(*perf_input_gen(scale))
+import random
+def perf_input_gen(scale: int):
+    for i in range(scale, 2, -1):
+        if prime_num(i):
+            return (i,)
+    return (2,)
+```
+### Instruction:
+Generate a `perf_input_gen(scale: int)` function to produce a "large" input to exercise the performance of the solution:
+```python3
+{one_solution}
+```
+### Response:
+Analysis:
+1. Input format: 

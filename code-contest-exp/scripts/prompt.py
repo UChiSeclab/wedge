@@ -17,6 +17,8 @@ class PromptTemplate:
             "plain_problem",
             "slow_solution",
             "random_solution",
+            "evalperf_slow_solution",
+            "evalperf_random_solution",
         ], f"experiment_name: {experiment_name}"
         self.select_solution_type = self.get_select_solution_type(experiment_name)
         self.fill_input_type = self.get_fill_input_type()
@@ -43,10 +45,12 @@ class PromptTemplate:
             return "multi_slow"
         elif experiment_name in [
             "slow_solution", # no input, slow solution
+            "evalperf_slow_solution",
         ]:
             return "slow"
         elif experiment_name in [
             "random_solution", # no input, random solution
+            "evalperf_random_solution",
         ]:
             return "random"
         elif experiment_name in [
@@ -73,6 +77,8 @@ class PromptTemplate:
         elif self.experiment_name in [
             "slow_solution",
             "random_solution",
+            "evalperf_slow_solution",
+            "evalperf_random_solution",
         ]:
             return "one_solution"
         elif self.experiment_name in [
@@ -103,6 +109,8 @@ class PromptTemplate:
             "plain_problem",
             "slow_solution",
             "random_solution",
+            "evalperf_slow_solution",
+            "evalperf_random_solution",
         ]:
             return "no_input"
         else:
@@ -117,6 +125,8 @@ class PromptTemplate:
             "slow_solution",
             "random_solution",
             "diff_solution_one_input",
+            "evalperf_slow_solution",
+            "evalperf_random_solution",
         ]:
             return "no_feedback"
         elif self.experiment_name in [
