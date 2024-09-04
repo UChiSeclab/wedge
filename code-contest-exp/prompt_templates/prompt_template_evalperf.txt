@@ -69,3 +69,22 @@ Generate a `perf_input_gen(scale: int)` function to produce a "large" input to e
 ### Response:
 Analysis:
 1. Input format: 
+
+Based on the above information, you will:
+Implement Test Generator
+    Write a Python script to generate the test described in the previous phase.
+    The script should:
+        -- Follow the input format specified in the problem statement.
+        -- Accept only one input argument "scale" from users, e.g., `python gen.py <scale>` to generate a large input, where scale is an int. E.g., 
+```python
+# implementation of the perf_input_gen function and other necessary functions
+# Usage: python gen.py <scale>
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        raise Exception("Usage: python gen.py <scale>")
+    else:
+        scale = int(sys.argv[1])
+        perf_input_gen(scale)
+```
+        -- Generate an input and print it to stdout in the required format.
+        -- Do not print anything other than the generated input to stdout.

@@ -9,6 +9,7 @@ from tempdir import TempDir
 import collections
 from multiprocessing import Pool
 import time
+import datetime
 
 from common import Language
 from config import config
@@ -18,6 +19,7 @@ from gpt_caller import write_test_generator
 from run import run_solution
 from select_solution import select_solutions
 from prompt import PromptTemplate
+from evalperf_driver import sample_inputs
 
 def early_stop_for_input_consistency(
     input_dir: Path,
@@ -98,7 +100,51 @@ def run_solution_early_stop(
         write_output
     )
 
+def run_generator(generator_file: Path, experiment_input_dir: Path) -> bool:
+    try:
+        start = datetime.now()
+        subprocess.run(
+            [
+                "python",
+                generator_file.as_posix(),
+                experiment_input_dir.as_posix(),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=300
+        ).check_returncode()
+        end = datetime.now()
+        print(f"Time taken: {end-start} seconds")
+    except subprocess.CalledProcessError as e:
+        print("Error during execution of gen.py:", e)
+        return False
+    except subprocess.TimeoutExpired as e:
+        print("Timeout during execution of gen.py:", e)
+        return False
+    except MemoryError as e:
+        print("Memory error during execution of gen.py:", e)
+        return False
+
+    return True
+
+def run_evalperf_generator(generator_file: Path, experiment_input_dir: Path) -> bool:
+    gen_inputs, selected_scales, well_defined_exit = sample_inputs(generator_file)
+    if not well_defined_exit:
+        return False
+    if len(gen_inputs) == 0:
+        return False
+    if len(gen_inputs) > config["num_tests"]:
+        # get the last num_tests inputs
+        gen_inputs = gen_inputs[-config["num_tests"]:]
+    for i, gen_input in enumerate(gen_inputs, 1):
+        with open(experiment_input_dir / f"test_{i:02}.in", "w") as f:
+            f.write(gen_input)
+
+    return True
+
 def create_test_generator(
+    experiment_name: str,
     problem,
     selected_solutions,
     selected_solution_ids,
@@ -125,26 +171,12 @@ def create_test_generator(
     if clear_input_dir:
         [f.unlink() for f in experiment_input_dir.iterdir()]
 
-    try:
-        subprocess.run(
-            [
-                "python",
-                (experiment_dir / "gen.py").as_posix(),
-                experiment_input_dir.as_posix(),
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=300
-        ).check_returncode()
-    except subprocess.CalledProcessError as e:
-        print("Error during execution of gen.py:", e)
-        return False
-    except subprocess.TimeoutExpired as e:
-        print("Timeout during execution of gen.py:", e)
-        return False
+    generator_file = experiment_dir / "gen.py"
 
-    return True
+    if experiment_name in ["evalperf_slow_solution", "evalperf_random_solution"]:
+        return run_evalperf_generator(generator_file, experiment_input_dir)
+    else:
+        return run_generator(generator_file, experiment_input_dir)
 
 def record_gen_tests_output(
     experiment_input_dir: Path,
@@ -248,6 +280,7 @@ def create_test_generator_with_retry(
         print(f"[INFO] gen_tests try {try_cnt}th for {problem_id}")
 
         gen_py_success = create_test_generator(
+            experiment_name,
             problem,
             selected_solutions,
             selected_solution_ids,

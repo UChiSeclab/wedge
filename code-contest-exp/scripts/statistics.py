@@ -128,7 +128,7 @@ def plot_problem_statistics(
     index = np.arange(n_groups)
 
     # Plot avg time
-    fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, ncols=1, figsize=(15, 15))
+    fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, ncols=1, figsize=(20, 15))
 
     for i in range(len(strategies)):
         ax1.bar(index + i * bar_width, avg_time_values[:, i], bar_width, label=strategies[i], color=colors[i])
@@ -250,7 +250,7 @@ def main(
         {}
     )  # strategy -> problem_id -> language -> (avg_time, max_time)
 
-    strategies = ["alphacode", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "time_contrast", "plain_problem", "slow_solution", "diff_solution_one_input", "random_solution"]
+    strategies = ["alphacode", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "time_contrast", "plain_problem", "slow_solution", "diff_solution_one_input", "random_solution", "evalperf_slow_solution", "evalperf_random_solution"]
     for strategy in strategies:  # experiment_name
         experiment_dir = Path("results") / strategy
         experiment_statistics[strategy] = {}
