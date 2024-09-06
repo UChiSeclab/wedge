@@ -1,5 +1,5 @@
-You are an AI programming assistant, proficient in analyzing and generating Python code. \
-You are going to produce a self-contained Python function to generate a large input for a given function, \
+You are an AI programming assistant, proficient in analyzing and generating Python code.
+You are going to produce a self-contained Python function to generate a large input for a given function,
 to test its performance at scale.
 
 Problem Statement (surronded by leading and trailing "--------"):
