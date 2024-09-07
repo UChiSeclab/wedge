@@ -3,6 +3,9 @@ from typing import List, Dict
 import requests
 import subprocess
 from evalplus.perf.sampling import post_process as evalplus_post_process
+import openai
+import time
+import traceback
 
 from utils import num_tokens_from_string
 from config import config
@@ -47,6 +50,43 @@ def cut_string(input_string: str, begin_token="```python\n", end_token="```") ->
         return input_string[start_index:]
     result = input_string[start_index:end_index]
     return result
+
+# TODO: add require_tools parameter, which uses stream=True and if the response does not call a tool, stop and retry immediately: https://community.openai.com/t/interrupting-completion-stream-in-python/30628/9
+def request_conversation(msg_list:List[Dict], model='gpt-4o', tools=None, tool_choice="none", debugInfo=None, max_retry=5, temperature=0.8):
+    openaiClient = openai.OpenAI(api_key=API_KEY)
+    while True:
+        try:
+            if tools is not None:
+                response = openaiClient.chat.completions.create(
+                    model=model, 
+                    messages=msg_list,
+                    tools=tools,
+                    tool_choice=tool_choice,
+                    temperature=temperature
+                )
+            else:
+                response = openaiClient.chat.completions.create(
+                    model=model, 
+                    messages=msg_list,
+                    temperature=temperature
+                )
+            return response
+        except openai.RateLimitError:
+            traceback.print_exc()
+            print('Rate limit exceeded, waiting 5 seconds...')
+            time.sleep(5)
+            continue
+        except openai.InternalServerError or openai.APIError as e:
+            max_retry -= 1
+            if max_retry < 0:
+                traceback.print_exc()
+                break
+            time.sleep(5)
+            continue
+        except Exception as e:
+            traceback.print_exc()
+            break
+    return None
 
 
 def write_test_generator(

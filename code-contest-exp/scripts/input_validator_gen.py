@@ -1,11 +1,26 @@
 from pathlib import Path
-from typing import Dict
+from typing import Tuple, List, Optional, Literal, Dict
 from tqdm import tqdm
 from fire import Fire
+import subprocess
 
 from config import config
 from gpt_caller import request, cut_string
 from utils import filter_problems, get_cf_problems
+from gpt_caller import request_conversation
+
+"""
+pipeline of input validator generation:
+first prompt=>validator=>run on public/private test cases=>if any failure is 
+detected, then regenerate validator (providing feedback, ie., error messages)
+
+"""
+
+REFELECT_MSG = '''
+The validator script you provided is incorrect as it failed on some good test inputs that follow the constraints of the problem statement. Please reflect and try again. You must include "Shape of the input:" and "Constraints:" sections as well (in addition to the validator script) in your new response, and you might need to fix them if there are incorrect ones.
+'''
+
+
 
 def make_validator_gen_prompt(problem_statement: str) -> str:
     example_validator_script = '''\
@@ -148,29 +163,156 @@ Generation a `validator.py` script for the following problem statement:
 
     return prompt
 
+def construct_feedback_msg(
+    failing_inputs: List[Tuple[Path, str]],
+    max_num: int = 3,
+    input_max_lines: int = 100
+) -> str:
+    # we only show the first max_num failing **public** inputs
+    # to avoid leaking private test cases and overfitting to them
+    feedback_msg = "The below inputs failed the validation:\n\n"
+    failing_public_inputs = [(input_file, error_msg) for input_file, error_msg in failing_inputs if "public" in input_file.name]
+    for input_file, error_msg in failing_public_inputs[:max_num]:
+        input_content = "\n".join(input_file.read_text().split("\n")[:input_max_lines])
+        feedback_msg += f"Input content:\n {input_content}\n"
+        feedback_msg += f"Error message:\n {error_msg}\n\n"
+    
+    if len(failing_public_inputs) == 0:
+        # no public inputs failed, fall back to self-reflect mode (no feedback)
+        feedback_msg = ""
 
-def generate_validator(problem_root_dir: Path, problem: Dict) -> str:
-    problem_id = problem["name"].split(".")[0]
-    problem_dir = problem_root_dir / problem_id
-    prompt = make_validator_gen_prompt(problem["description"])
-    validator_gen_dir = problem_dir / "validator_gen"
-    validator_gen_dir.mkdir(parents=True, exist_ok=True)
+    return feedback_msg
 
-    gpt_response = request(prompt)
 
-    with open(validator_gen_dir / "prompt.txt", "w") as f:
-        f.write(prompt)
+def validate_validator(validator_file: Path, input_dir: Path, skip_generated_tests: bool = True) -> List[Tuple[Path, str]]:
+    input_files = list(input_dir.glob("*.in"))
+    failing_inputs = []
+    for input_file in input_files:
+        if skip_generated_tests and "generated" in input_file.name:
+            continue
+        try:
+            res = subprocess.run(
+                ["python", validator_file.as_posix(), input_file.as_posix()],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=True
+            )
+            print(f"Output for {input_file}: {res.stdout}", end="")
+        except subprocess.CalledProcessError as e:
+            failing_inputs.append((input_file, e.stderr))
+            print(f"Validation failed for {input_file.absolute()}: {e.stderr}")
+        except subprocess.TimeoutExpired as e:
+            failing_inputs.append((input_file, "Validation timed out"))
+            print(f"[Warning] Validation timed out for {input_file.absolute()}: {e}")
 
-    with open(validator_gen_dir / "response.txt", "w") as f:
+    return failing_inputs
+
+
+def prompt_and_dump_results(
+    initial_prompt:str,
+    validator_gen_dir: Path,
+    input_dir: Path,
+    problem_id: str,
+    try_cnt: int,
+    msg_list:List[Dict],
+    mode:str=None,
+    feedback_msg:Optional[str]=None
+) -> Tuple[bool, List[Tuple[Path, str]]]:
+    validator_gen_try_cnt_dir = validator_gen_dir / f"try_{try_cnt}"
+    validator_gen_try_cnt_dir.mkdir(parents=True, exist_ok=True)
+    ori_msg_list = msg_list[:]
+    try:
+        if mode in ["direct", "resample"]:
+            # keep the msg_list
+            msg_list.append({"role": "user", "content": initial_prompt})
+        elif mode in ["self_reflect", "self_reflect_feedback"]:
+            if try_cnt == 0:
+                msg_list.append({"role": "user", "content": initial_prompt})
+            else:
+                msg_list.append(
+                    {
+                        "role": "user",
+                        "content": REFELECT_MSG
+                            if mode == "self_reflect" else REFELECT_MSG + feedback_msg
+                    }
+                )
+        gpt_response = request_conversation(
+            msg_list,
+            max_retry=5,
+            temperature=0.8
+        ).choices[0].message.content
+        validator_script_content = cut_string(gpt_response)
+    except Exception as e:
+        print(f"Failed to generate validator for problem {problem_id}: {e}")
+        return False, []
+    
+    msg_list.append({"role": "assistant", "content": gpt_response})
+
+    with open(validator_gen_try_cnt_dir / "response.txt", "w") as f:
         f.write(gpt_response)
 
-    with open(validator_gen_dir / "validator.py", "w") as f:
-        f.write(cut_string(gpt_response))
+    with open(validator_gen_try_cnt_dir / "validator.py", "w") as f:
+        f.write(validator_script_content)
 
-    return gpt_response
+    with open(validator_gen_try_cnt_dir / "conversations.txt", "w") as f:
+        # write formatted conversation
+        for msg in msg_list:
+            f.write(f"{msg['role']}: {msg['content']}\n")
+
+    failing_inputs = validate_validator(    
+        validator_gen_try_cnt_dir / "validator.py",
+        input_dir
+    )
+
+    if mode in ["direct", "resample"]:
+        # reset the msg_list for the next try for resample
+        msg_list = ori_msg_list
+
+    return len(failing_inputs) == 0, failing_inputs
+
+def generate_validator(problem_root_dir: Path, problem: Dict, mode: str, max_try: int = 5) -> bool:
+    problem_id = problem["name"].split(".")[0]
+    problem_dir = problem_root_dir / problem_id
+    initial_prompt = make_validator_gen_prompt(problem["description"])
+    alphacode_input_dir = problem_dir / "input"
+    validator_gen_mode_dir = problem_dir / "validator_gen" / mode
+
+    conversation = [{"role": "system", "content": "You are a helpful assistant good at coding."}]
+    if mode == "direct":
+        success, _ = prompt_and_dump_results(initial_prompt, validator_gen_mode_dir, alphacode_input_dir, problem_id, 0, conversation, mode)
+        if not success:
+            print(f"[Warning] [{mode}] Failed to generate validator for problem {problem_id}")
+            # we might want to delete the directory
+            return False
+    elif mode in ["resample", "self_reflect"]:
+        for i in range(max_try):
+            success, _ = prompt_and_dump_results(initial_prompt, validator_gen_mode_dir, alphacode_input_dir, problem_id, i, conversation, mode)
+            if success:
+                break
+            else:
+                if i == max_try - 1:
+                    print(f"[Warning] [{mode}] Failed to generate validator for problem {problem_id} after {max_try} tries")
+                    return False
+    elif mode == "self_reflect_feedback":
+        feedback_msg = None
+        failing_inputs = []
+        for i in range(max_try):
+            if i > 0:
+                feedback_msg = construct_feedback_msg(failing_inputs)
+            success, failing_inputs = prompt_and_dump_results(initial_prompt, validator_gen_mode_dir, alphacode_input_dir, problem_id, i, conversation, mode, feedback_msg)
+            if success:
+                break
+            else:
+                if i == max_try - 1:
+                    print(f"[Warning] [{mode}] Failed to generate validator for problem {problem_id} after {max_try} tries")
+                    return False
+
+    return True
 
 def main(
-    problem_root_dir: str = config["problem_root_dir"]
+    problem_root_dir: str = config["problem_root_dir"],
+    mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "direct"
 ):
     problem_root_dir = Path(problem_root_dir)
     filtered_problems = filter_problems(
@@ -178,7 +320,8 @@ def main(
     )
     
     for problem in tqdm(filtered_problems):
-        generate_validator(problem_root_dir, problem)
+        if not generate_validator(problem_root_dir, problem, mode):
+            print(f"Failed to generate validator for problem {problem['name'].split('.')[0]}")
 
 if __name__ == "__main__":
     Fire(main)

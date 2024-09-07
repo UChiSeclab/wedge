@@ -7,7 +7,7 @@ import subprocess
 from config import config
 from utils import filter_problems, get_cf_problems
 
-def run_validator(experiment_name:str, problem_root_dir: Path, problem: Dict, stat: Dict[str, int]):
+def run_validator(experiment_name:str, problem_root_dir: Path, problem: Dict, stat: Dict[str, int], skip_generated_tests: bool = True):
     problem_name = problem["name"].split(".")[0]
     problem_dir = problem_root_dir / str(problem_name)
     validator_file = problem_dir / "validator_gen" / "validator.py"
@@ -18,6 +18,8 @@ def run_validator(experiment_name:str, problem_root_dir: Path, problem: Dict, st
 
     input_files = list(input_dir.glob("*.in"))
     for input_file in input_files:
+        if skip_generated_tests and "generated" in input_file.name:
+            continue
         if "public" in input_file.name:
             stat["public_cnt"] += 1
         elif "private" in input_file.name:
