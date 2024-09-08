@@ -25,10 +25,29 @@ cd "$work_dir" || exit
 # the following code snippet is learned from
 # https://github.com/shenxianpeng/gcov-example/blob/master/makefile
 # compile the solution
-CFLAG="-fPIC -fprofile-arcs -ftest-coverage"
+CFLAG="-std=c++17 -fPIC -fprofile-arcs -ftest-coverage"
 obj_file="${wd_solution_file%.*}.o"
 exec_file="${wd_solution_file%.*}"
 g++ $CFLAG -c $wd_solution_file
+if [ $? -ne 0 ]; then
+    echo "Failed to compile the solution with ${CFLAG}"
+    CFLAG="-std=c++14 -fPIC -fprofile-arcs -ftest-coverage"
+    g++ $CFLAG -c $wd_solution_file
+    if [ $? -ne 0 ]; then
+        echo "Failed to compile the solution with ${CFLAG}"
+        CFLAG="-std=c++11 -fPIC -fprofile-arcs -ftest-coverage"
+        g++ $CFLAG -c $wd_solution_file
+        if [ $? -ne 0 ]; then
+            echo "Failed to compile the solution with ${CFLAG}"
+            CFLAG="-std=c++11 -O2 -fPIC -fprofile-arcs -ftest-coverage"
+            g++ $CFLAG -c $wd_solution_file
+            if [ $? -ne 0 ]; then
+                echo "Failed to compile the solution with ${CFLAG}"
+                exit 1
+            fi
+        fi
+    fi
+fi
 g++ $CFLAG -o $exec_file $obj_file
 ./$exec_file < "$input_file"
 gcov $wd_solution_file

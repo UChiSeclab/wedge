@@ -1,126 +1,351 @@
 """Generates input / output tests by prompting llm to write the test generator."""
 import os
 import subprocess
-import random
 from pathlib import Path
-from typing import List, Dict, Literal, Tuple
+from typing import Literal, List, Dict, Tuple
 from tqdm import tqdm
 from fire import Fire
-import json
+from tempdir import TempDir
+import collections
+from multiprocessing import Pool
+import time
+import datetime
 
 from common import Language
 from config import config
-from utils import get_cf_problems, filter_problems, mean
+from utils import get_cf_problems, filter_problems, get_alphacode_result, \
+    record_failing_problem
 from gpt_caller import write_test_generator
-from cluster import code_clustering
 from run import run_solution
+from select_solution import select_solutions
+from prompt import PromptTemplate
+from evalperf_driver import sample_inputs
 
+def early_stop_for_input_consistency(
+    input_dir: Path,
+    output_dir_of_solutions: Path,
+    correct_solution_file_names: List[str],
+) -> bool:
+    if len(os.listdir(input_dir)) < config["num_tests"] / 2:
+        return True
+    assert len(correct_solution_file_names) > 0, "No correct solution file names"
+    solution_result = {}
+    invalid_input_file_names = []
+    for correct_solution_file_name in correct_solution_file_names:
+        solution_output_dir = Path(output_dir_of_solutions) / correct_solution_file_name
+        if solution_output_dir.exists():
+            solution_result[correct_solution_file_name] = record_gen_tests_output(
+                input_dir,
+                solution_output_dir,
+            )
 
-def get_solutions_in_language(
-    problem: Dict, sol_language: Language
-) -> Tuple[List[int], List[str]]:
-    """Selects all solutions for a given language. Note that only correct solutions are considered."""
-    solutions = [
-        (idx, solution)
-        for idx, (solution, language) in enumerate(
-            zip(problem["solutions"]["solution"], problem["solutions"]["language"])
-        )
-        if language == sol_language.value
-    ]
-
-    solution_idxs, raw_solutions = zip(*solutions) if solutions else ([], [])
-
-    return list(solution_idxs), list(raw_solutions)
-
-
-def __filter_solution_idx(
-    problem_id: str, language: str, result: Dict, solution_idxs: List[int]
-) -> List[int]:
-    """Filter out the solution idxs that are not in the result (corner case).\
-        Also filter out the solution idxs that are not AC."""
-    black_listed_solution_ids = [
-        "1056_A_java_0607",  # This solution's format is in a mess
-        "484_B_java_0260",  # This solution does not work with cobertura
-    ]
-
-    filtered_solution_idxs = []
-    for solution_idx in solution_idxs:
-        if f"{problem_id}_{language}_{solution_idx:04}" in black_listed_solution_ids:
-            print(f"{problem_id}_{language}_{solution_idx:04} is blacklisted")
-            continue
-        if f"solutions_{solution_idx:04}" in result:
-            if all(
-                v == "AC" for v in result[f"solutions_{solution_idx:04}"]["verdict"]
-            ):
-                filtered_solution_idxs.append(solution_idx)
-            else:
-                print(f"solutions_{solution_idx:04} is not AC")
+    for input_file_name in os.listdir(input_dir):
+        outputs = [solution_result[correct_solution_file_name][input_file_name] for correct_solution_file_name in correct_solution_file_names]
+        num_empty_output = outputs.count("EMPTY_OUTPUT") # EMPTY_OUTPUT indicates the solution ran into an error
+        if num_empty_output > 0.05 * len(correct_solution_file_names):
+            print(f"input_file_name: {input_file_name}, num_empty_output: {num_empty_output}")
+            invalid_input_file_names.append(input_file_name)
         else:
-            print(f"Solution {solution_idx} is not in the result")
+            outputs = [output.strip() for output in outputs if output != "NO_OUTPUT" and output != "EMPTY_OUTPUT"]
+            if len(outputs) == 0:
+                continue
+            output_counter = collections.Counter(outputs)
+            majority_output_count = output_counter.most_common(1)[0][1]
+            non_majority_output_count = len(outputs) - majority_output_count
+            if non_majority_output_count + num_empty_output > 0.05 * len(correct_solution_file_names):
+                print(f"input_file_name: {input_file_name}, non_majority_output_count: {non_majority_output_count}, num_empty_output: {num_empty_output}")
+                invalid_input_file_names.append(input_file_name)
 
-    return filtered_solution_idxs
+    while len(invalid_input_file_names) > 0 and any((input_dir / invalid_input_file_name).exists() for invalid_input_file_name in invalid_input_file_names):
+        try:
+            [Path(input_dir / invalid_input_file_name).unlink() for invalid_input_file_name in invalid_input_file_names if (input_dir / invalid_input_file_name).exists()]
+        except FileNotFoundError as e:
+            print(f"Error during removing invalid inputs: {e}, try again")
+            time.sleep(0.1)
+            continue
 
+    return len(os.listdir(input_dir)) < config["num_tests"] / 2
 
-def select_solutions(
-    problem_id: str, problem: Dict, prompt_language: Language
-) -> Tuple[List[str], List[str]]:
-    """Selects solutions for feeding to the llm. Note that only correct solutions are considered."""
-    solution_idxs, raw_solutions = get_solutions_in_language(problem, prompt_language)
-    selected_solutions = []
-    selected_solution_idxs = []
+def run_solution_early_stop(
+    experiment_name: str,
+    solution_path: Path,
+    language: Language,
+    input_dir: Path,
+    output_dir: Path, # solution_output_dir (temp_output_dir / correct_solution_file_name)
+    time_limit: float = 1,
+    write_output: bool = False,
+    correct_solution_file_names: List[str] = None,
+    output_dir_of_solutions: Path = None,
+) -> Dict:
+    """check consistency of the output of the solution first, early stop if \
+        there is already 5% of the inputs are invalid or not consistent"""
+        
+    # remove the inputs that are already invalid
+    # check number of remaining inputs, stop if less than 50% of the total inputs
+    early_stop = early_stop_for_input_consistency(
+        input_dir,
+        output_dir_of_solutions,
+        correct_solution_file_names,
+    )
+    if early_stop:
+        return None
 
-    if config["solution_selection"] == "random":
-        # Select 5 solutions randomly
-        selected_solution_idxs = random.sample(solution_idxs, 5)
-        selected_solutions = [
-            problem["solutions"]["solution"][idx] for idx in selected_solution_idxs
-        ]
+    return run_solution(
+        experiment_name,
+        solution_path,
+        language,
+        input_dir,
+        output_dir,
+        time_limit,
+        write_output
+    )
 
-    elif config["solution_selection"] == "cluster_diff":
-        # Select 5 solutions from different clusters
-        solutions, labels = code_clustering(raw_solutions)
-        selected_solutions = ["", "", "", "", ""]
-        for idx, label in enumerate(labels):
-            selected_solutions[label] = solutions[idx]
-            # TODO: set selected_solution_idxs
+def run_generator(generator_file: Path, experiment_input_dir: Path) -> bool:
+    try:
+        start = datetime.now()
+        subprocess.run(
+            [
+                "python",
+                generator_file.as_posix(),
+                experiment_input_dir.as_posix(),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=300
+        ).check_returncode()
+        end = datetime.now()
+        print(f"Time taken: {end-start} seconds")
+    except subprocess.CalledProcessError as e:
+        print("Error during execution of gen.py:", e)
+        return False
+    except subprocess.TimeoutExpired as e:
+        print("Timeout during execution of gen.py:", e)
+        return False
+    except MemoryError as e:
+        print("Memory error during execution of gen.py:", e)
+        return False
 
-    elif config["solution_selection"] == "cluster_same":
-        # Select 5 solutions from the same cluster
-        solutions, labels = code_clustering(raw_solutions)
-        cnt_solutions = [0, 0, 0, 0, 0]
-        max_label = -1
-        for idx, label in enumerate(labels):
-            cnt_solutions[label] += 1
-            if cnt_solutions[label] >= cnt_solutions[max_label]:
-                max_label = labels[idx]
-        for idx, label in enumerate(labels):
-            if labels[idx] == max_label and len(selected_solutions) < 5:
-                selected_solutions.append(solutions[idx])
-                # TODO: set selected_solution_idxs
+    return True
 
-    elif config["solution_selection"] == "time_contrast":
-        alphacode_dir = Path("./results/alphacode")
-        with open(alphacode_dir / f"{problem_id}.json", "r", encoding="utf-8") as file:
-            result = json.load(file)
-        filtered_solution_idxs = __filter_solution_idx(
-            problem_id, prompt_language, result, solution_idxs
+def run_evalperf_generator(generator_file: Path, experiment_input_dir: Path) -> bool:
+    gen_inputs, selected_scales, well_defined_exit = sample_inputs(generator_file)
+    if not well_defined_exit:
+        return False
+    if len(gen_inputs) == 0:
+        return False
+    if len(gen_inputs) > config["num_tests"]:
+        # get the last num_tests inputs
+        gen_inputs = gen_inputs[-config["num_tests"]:]
+    for i, gen_input in enumerate(gen_inputs, 1):
+        with open(experiment_input_dir / f"test_{i:02}.in", "w") as f:
+            f.write(gen_input)
+
+    return True
+
+def create_test_generator(
+    experiment_name: str,
+    problem,
+    selected_solutions,
+    selected_solution_ids,
+    experiment_dir: Path,
+    experiment_input_dir: Path,
+    prompt_template: PromptTemplate,
+    prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
+    clear_input_dir: bool = True,
+) -> bool:
+    if not config["manual_prompt"]:
+        cost = write_test_generator(
+            experiment_dir,
+            problem,
+            selected_solutions,
+            selected_solution_ids,
+            prompt_template=prompt_template,
+            prompt_language=prompt_language,
         )
-        if len(filtered_solution_idxs) < 2:
-            return selected_solution_idxs, selected_solutions
-        filtered_solution_idxs.sort(
-            key=lambda idx: mean(result[f"solutions_{idx:04}"]["average_time"])
+        print("Cost on API call:", cost)
+    else:
+        print("Write file into", experiment_dir / "gen.py")
+        input("Press Enter to continue...")
+
+    if clear_input_dir:
+        [f.unlink() for f in experiment_input_dir.iterdir()]
+
+    generator_file = experiment_dir / "gen.py"
+
+    if experiment_name in ["evalperf_slow_solution", "evalperf_random_solution"]:
+        return run_evalperf_generator(generator_file, experiment_input_dir)
+    else:
+        return run_generator(generator_file, experiment_input_dir)
+
+def record_gen_tests_output(
+    experiment_input_dir: Path,
+    solution_output_dir: Path,
+):
+    result = {}
+    for input_file_name in os.listdir(experiment_input_dir):
+        output_file = solution_output_dir / f"{input_file_name[:-3]}.out"
+        if not output_file.exists():
+            result[input_file_name] = "NO_OUTPUT"
+        else:
+            with open(output_file, "r") as f:
+                output = f.read()
+            if output == "":
+                result[input_file_name] = "EMPTY_OUTPUT"
+            else:
+                result[input_file_name] = output
+
+    return result
+
+def check_consistency_of_gen_tests_output(
+    experiment_input_dir: Path,
+    solution_dir: Path, # solutions/java
+    correct_solution_file_names: List[str],
+    early_stop: bool = True,
+) -> Tuple[List[str], Dict[str, str]]:
+    """check and compare the output of generated tests of each solution, \
+        early stop if there is already 5% of the inputs are invalid or \
+        not consistent"""
+
+    time_limit = 300
+    with TempDir() as temp_output_dir:
+        test_args = []
+        solution_result = {}
+        invalid_input_file_names = []
+        solution_major_output_dict = {}
+        for correct_solution_file_name in correct_solution_file_names:
+            correct_solution_file = solution_dir / correct_solution_file_name
+            solution_output_dir = Path(temp_output_dir) / correct_solution_file_name
+            solution_dir.mkdir(exist_ok=True, parents=True)
+            solution_output_dir.mkdir(exist_ok=True, parents=True)
+
+            test_args.append(("consistency_check", correct_solution_file, Language.JAVA, experiment_input_dir, solution_output_dir, time_limit, True, correct_solution_file_names, Path(temp_output_dir)))
+
+        max_workers = max(1, int(0.25 * os.cpu_count()))
+        with Pool(processes=max_workers) as pool:
+            if early_stop:
+                pool.starmap(run_solution_early_stop, test_args)
+            else:
+                pool.starmap(run_solution, test_args[:-2])
+
+        # check after all solutions are run
+        for correct_solution_file_name in correct_solution_file_names:
+            solution_output_dir = Path(temp_output_dir) / correct_solution_file_name
+            solution_result[correct_solution_file_name] = record_gen_tests_output(
+                experiment_input_dir,
+                solution_output_dir,
+            )
+
+        for input_file_name in os.listdir(experiment_input_dir):
+            outputs = [solution_result[correct_solution_file_name][input_file_name] for correct_solution_file_name in correct_solution_file_names]
+            outputs = [output.strip() for output in outputs if output != "NO_OUTPUT" and output != "EMPTY_OUTPUT"]
+            # might need to cut the outputs if too long
+            output_counter = collections.Counter(outputs)
+            if len(output_counter) == 0:
+                invalid_input_file_names.append(input_file_name)
+                continue
+            majority_output = output_counter.most_common(1)[0][0]
+            majority_output_count = output_counter.most_common(1)[0][1]
+            if majority_output_count < len(correct_solution_file_names) * 0.95:
+                invalid_input_file_names.append(input_file_name)
+            else:
+                solution_major_output_dict[input_file_name] = majority_output
+
+    return invalid_input_file_names, solution_major_output_dict
+
+def create_test_generator_with_retry(
+    experiment_name: str,
+    problem,
+    selected_solutions,
+    selected_solution_ids,
+    experiment_dir: Path,
+    experiment_input_dir: Path,
+    prompt_template: PromptTemplate,
+    prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
+    max_retry: int = 10,
+    run_tests: bool = True,
+    run_tests_language: Literal["python", "cpp", "python3", "java"] = "java",
+) -> bool:
+    problem_id = problem["name"].split(".")[0]
+    alphacode_result = get_alphacode_result(problem_id)
+    try_cnt = 0
+    experiment_output_dir = experiment_dir / "output"
+    experiment_output_dir.mkdir(exist_ok=True, parents=True)
+    while try_cnt < max_retry and \
+        (len(os.listdir(experiment_input_dir)) < config["num_tests"] / 2 or \
+            (run_tests and \
+                len(os.listdir(experiment_output_dir)) < len(os.listdir(experiment_input_dir)) / 2)):
+        # Retry if the test generator fails to generate enough tests
+        try_cnt += 1
+        print(f"[INFO] gen_tests try {try_cnt}th for {problem_id}")
+
+        gen_py_success = create_test_generator(
+            experiment_name,
+            problem,
+            selected_solutions,
+            selected_solution_ids,
+            experiment_dir,
+            experiment_input_dir,
+            prompt_template,
+            prompt_language,
         )
-        fast_solution_idx = filtered_solution_idxs[0]
-        slow_solution_idx = filtered_solution_idxs[-1]
-        selected_solutions = [
-            problem["solutions"]["solution"][fast_solution_idx],
-            problem["solutions"]["solution"][slow_solution_idx],
-        ]
-        selected_solution_idxs = [fast_solution_idx, slow_solution_idx]
 
-    selected_solution_ids = [f"solutions_{idx:04}" for idx in selected_solution_idxs]
-    return selected_solution_ids, selected_solutions
+        if not gen_py_success:
+            print(f"[Error] gen_tests failed to generate tests for {problem_id}, try count: {try_cnt}")
+            continue
 
+        if len(os.listdir(experiment_input_dir)) < config["num_tests"] / 2:
+            print(f"[Error] too few inputs are generated for {problem_id}, try count: {try_cnt}")
+            continue
+
+        if run_tests:
+            if run_tests_language == str(Language.JAVA):
+                solution_dir = experiment_dir.parent / "solutions" / str(run_tests_language)
+                correct_solution_file_names = [
+                    solution_file_name
+                    for solution_file_name in os.listdir(solution_dir)
+                    if ("incorrect" not in solution_file_name) and \
+                        all(v == "AC" for v in alphacode_result[solution_file_name.split(".")[0]]["verdict"])
+                ]
+
+                invalid_input_file_names, solution_major_output_dict = check_consistency_of_gen_tests_output(
+                    experiment_input_dir,
+                    solution_dir,
+                    correct_solution_file_names,
+                )
+
+                if len(invalid_input_file_names) > 0:
+                    print(f"[INFO] number of invalid_input_file_names: {len(invalid_input_file_names)}, try count: {try_cnt}")
+                    [Path(experiment_input_dir / invalid_input_file_name).unlink() for invalid_input_file_name in invalid_input_file_names if (experiment_input_dir / invalid_input_file_name).exists()]
+
+                if len(os.listdir(experiment_input_dir)) < config["num_tests"] / 2:
+                    print(f"[Warning] too few consistent inputs generated for {problem_id} from all solutions, try count: {try_cnt}, inputs: {len(os.listdir(experiment_input_dir))}")
+                    continue
+
+                for input_file_name, majority_output in solution_major_output_dict.items():
+                    with open(experiment_output_dir / f"{input_file_name[:-3]}.out", "w") as f:
+                        f.write(majority_output)
+
+                # remove empty output files
+                for f in experiment_output_dir.iterdir():
+                    if f.read_text().strip() == "":
+                        print(f"[Warning] removing empty output file: {f}")
+                        f.unlink()
+                # remove output files that do not have corresponding input files
+                for f in experiment_output_dir.iterdir():
+                    if not (experiment_input_dir / f"{f.stem}.in").exists():
+                        print(f"[Warning] removing output file without input file: {f}")
+                        f.unlink()
+                if len(os.listdir(experiment_output_dir)) < len(os.listdir(experiment_input_dir)) / 2:
+                    print(f"[Warning] too manys inputs are invalid as so few output is generated for {problem_id} from all solutions, try count: {try_cnt}, outputs: {len(os.listdir(experiment_output_dir))}, inputs: {len(os.listdir(experiment_input_dir))}")
+                    [f.unlink() for f in experiment_output_dir.iterdir()]
+            else:
+                raise NotImplementedError(
+                    "Only JAVA is supported for running tests here."
+                )
+
+    return (len(os.listdir(experiment_input_dir)) >= config["num_tests"] / 2 and \
+        (not run_tests or len(os.listdir(experiment_output_dir)) >= len(os.listdir(experiment_input_dir)) / 2))
 
 def main(
     experiment_name: str = config["experiment_name"],
@@ -129,7 +354,7 @@ def main(
     run_tests_language: Literal["python", "cpp", "python3", "java"] = "java",
     prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
     prompt_template: str = "prompt_template.txt",
-    feedback_prompt_type: Literal["diff_solution", "diff_input"] = None,
+    top_k: int = None,
 ):
     """Generates tests by test generator created by LLM.
 
@@ -141,6 +366,8 @@ def main(
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
+    prompt_template = PromptTemplate(Path(prompt_template), experiment_name)
+    solution_selection_type = PromptTemplate.get_select_solution_type(experiment_name)
 
     for problem in tqdm(filtered_problems):
         problem_id = problem["name"].split(".")[0]
@@ -149,76 +376,36 @@ def main(
         experiment_dir = problem_dir / experiment_name
         experiment_dir.mkdir(exist_ok=True, parents=True)
         selected_solution_ids, selected_solutions = select_solutions(
-            problem_id, problem, config["prompt_language"]
+            problem_id, problem, solution_selection_type, Language.str_to_lang(prompt_language), top_k=top_k
         )
 
-        if len(selected_solution_ids) < 2:
-            # print(f"Not enough solutions to select for {problem_id}, language: {str(config["prompt_language"])}")
+        if (selected_solution_ids == None) or (top_k and len(selected_solution_ids) < top_k):
+            print(f"Not enough solutions to select for {problem_id}", end=" ")
+            print("language:", prompt_language)
             continue
 
-        test_generator_path = experiment_dir / "gen.py"
-
-        if not test_generator_path.exists():
-            if not config["manual_prompt"]:
-                cost = write_test_generator(
-                    experiment_dir,
-                    problem,
-                    selected_solutions,
-                    prompt_template=prompt_template,
-                    prompt_language=prompt_language,
-                    feedback_prompt_type=feedback_prompt_type,
-                )
-                print("Cost on API call:", cost)
-            else:
-                print("Write file into", experiment_dir / "gen.py")
-                input("Press Enter to continue...")
-        else:
-            raise FileExistsError("Test generator already exist.")
-
-        # Execute gen.py and write its output to a file
         experiment_input_dir = experiment_dir / "input"
         experiment_input_dir.mkdir(exist_ok=True, parents=True)
-        try:
-            subprocess.run(
-                [
-                    "python",
-                    test_generator_path.as_posix(),
-                    experiment_input_dir.as_posix(),
-                ],
-                capture_output=True,
-                text=True,
-                check=True,
-            ).check_returncode()
-        except subprocess.CalledProcessError as e:
-            print("Error during execution of gen.py:", e)
+        test_generator_path = experiment_dir / "gen.py"
+        if test_generator_path.exists() and len(os.listdir(experiment_input_dir)) > 0\
+            and (not run_tests or len(os.listdir(experiment_dir / "output")) > 0):
+            print(f"Experiment {experiment_name} already exists for {problem_id}")
             continue
 
-        if run_tests:
-            experiment_output_dir = experiment_dir / "output"
-            experiment_output_dir.mkdir(exist_ok=True, parents=True)
-
-            if run_tests_language == str(Language.JAVA):
-                solution_dir = problem_dir / "solutions" / str(run_tests_language)
-                for solution_file_name in os.listdir(solution_dir):
-                    if "incorrect" in solution_file_name:
-                        continue
-                    run_solution(
-                        solution_dir,
-                        solution_file_name,
-                        Language.JAVA,
-                        experiment_input_dir,
-                        experiment_output_dir,
-                        write_output=True,
-                    )
-                    if len(os.listdir(experiment_input_dir)) == len(
-                        os.listdir(experiment_output_dir)
-                    ):
-                        break
-            else:
-                raise NotImplementedError(
-                    "Only JAVA is supported for running tests here."
-                )
-
+        if not create_test_generator_with_retry(
+            experiment_name,
+            problem,
+            selected_solutions,
+            selected_solution_ids,
+            experiment_dir,
+            experiment_input_dir,
+            prompt_template=prompt_template,
+            prompt_language=prompt_language,
+            run_tests=run_tests,
+            run_tests_language=run_tests_language,
+        ):
+            print(f"[Error] Failed to generate enough valid tests for {problem_id}")
+            record_failing_problem(problem_id, experiment_name, "Failed to generate enough valid tests")
 
 if __name__ == "__main__":
     Fire(main)

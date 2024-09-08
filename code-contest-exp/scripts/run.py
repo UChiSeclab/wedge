@@ -10,116 +10,167 @@ import time
 from fire import Fire
 from tqdm import tqdm
 import tempdir
+from typing import List, Dict
 
 from common import Language
 from config import config
 from utils import get_cf_problems, filter_problems
 
 
-def compile_solution(language: Language, solution_dir: Path, solution_code: str):
+def compile_solution(tmp_dir: Path, solution_code: str, language: Language):
     """Compiles solution based on language."""
     if language == Language.JAVA:
-        class_match = re.search(r"public\s+class\s+(\w+)", solution_code)
+        class_match = None
+        for regex in [r"public\s+class\s+(\w+)", r"class\s+(\w+)"]:
+            class_match = re.search(regex, solution_code)
+            if class_match:
+                break
         if not class_match:
-            class_match = re.search(r"class\s+(\w+)", solution_code)
-            if not class_match:
-                print("Error: No class name found in the solution.")
-                return "error"
+            return "Judge Error"
         class_name = class_match.group(1)
-        file_path = solution_dir / f"{class_name}.java"
+        file_path = tmp_dir / f"{class_name}.java"
         with open(file_path, "w", encoding="utf-8") as file:
             file.write(solution_code)
         compile_process = subprocess.run(
             ["javac", file_path], capture_output=True, check=False
         )
         if compile_process.returncode != 0:
-            print("Error: Compilation failed.")
-            return "error"
+            return "Compile Error"
         return class_name
+
     if language == Language.CPP:
-        file_path = solution_dir / "solution.cpp"
+        file_path = tmp_dir / "solution.cpp"
         with open(file_path, "w", encoding="utf-8") as file:
             file.write(solution_code)
-        compile_process = subprocess.run(
-            ["g++", "-std=c++17", "-O3", file_path, "-o", solution_dir / "solution"],
-            capture_output=True,
-            check=False,
-        )
-        if compile_process.returncode != 0:
-            print("Error: Compilation failed.")
-            return "error"
-        return "solution"
+        for cpp_version in ["c++17", "c++14", "c++11"]:
+            compile_process = subprocess.run(
+                [
+                    "g++",
+                    f"-std={cpp_version}",
+                    "-O2",
+                    file_path,
+                    "-o",
+                    tmp_dir / "solution",
+                ],
+                capture_output=True,
+                check=False,
+            )
+            if compile_process.returncode == 0:
+                return "solution"
+        return "Compile Error"
+
     if language in [Language.PYTHON, Language.PYTHON3]:
-        file_path = solution_dir / "solution.py"
+        file_path = tmp_dir / "solution.py"
         with open(file_path, "w", encoding="utf-8") as file:
             file.write(solution_code)
         return "solution.py"
-    print("Error: Unsupported language.")
-    return "error"
+
+    return "Judge Error"
+
+
+def check_same_output(output_A: List[str], output_B: List[str]):
+    if len(output_A) != len(output_B):
+        return False
+    for idx, Ai in enumerate(output_A):
+        Bi = output_B[idx]
+
+        if Ai == Bi \
+            or (Ai.lower() == "yes" and Bi.lower() == "yes") \
+            or (Ai.lower() == "no" and Bi.lower() == "no"):
+            continue
+        try:
+            Ai = int(Ai)
+            Bi = int(Bi)
+            if Ai == Bi or abs(Ai - Bi) == pow(2, 32):
+                continue
+        except ValueError:
+            pass
+
+        try:
+            Ai = float(Ai)
+            Bi = float(Bi)
+            if abs(Ai - Bi) > 1e-5:
+                return False
+        except ValueError:
+            if Ai != Bi:
+                return False
+    return True
 
 
 def run_solution(
-    solution_dir: Path,
-    solution_file_name: str,
+    experiment_name: str,
+    solution_path: Path,
     language: Language,
     input_dir: Path,
     output_dir: Path,
-    write_output: bool = False,
     time_limit: float = 1,
-    repeat_test_idx: int = 0,
-):
+    write_output: bool = False,
+) -> Dict:
     """Runs solution on tests.
 
     Args:
-        soltuion_dir (Path): The directory of the solution.
-        solution_file_name (str): The file name of the solution.
-        language (Language): The solution language.
-        input_dir (Path): The directory which stores input files.
-        output_dir (Path): The directory which stores output files.
-        write_output (bool): Whether to write the output to the output_dir or not. Set true for the first run with correct solutions to obtain the gt output. Set false for the later runs to compare the output with the gt output.
-        time_limit (float): The actual time limit for this problem.
-        repeat_test_idx (int): The index of repeat test.
+        soltuion_path: The path of the solution.
+        language: The solution language.
+        input_dir: The directory which stores input files.
+        output_dir: The directory which stores output files.
+        time_limit: The actual time limit for this problem.
+        write_output: Whether to write the output to the output_dir or not. Set true for the first run with correct solutions to obtain the gt output. Set false for the later runs to compare the output with the ground truth output.
 
     Returns:
         test_results (Dict): A dictionary to store the test results.
             verdict: "AC" / "WA" / "TLE" / "KILL"
     """
 
-    assert (
-        repeat_test_idx == 0 or not write_output
-    ), "write_output should be true for gt solution and false for submitted solutions"
-
-    with open(solution_dir / solution_file_name, "r", encoding="utf-8") as file:
+    with open(solution_path, "r", encoding="utf-8") as file:
         solution_code = file.read()
 
     with tempdir.TempDir() as tmp_dir:
         tmp_dir = Path(tmp_dir)
-        executable_name = compile_solution(language, tmp_dir, solution_code)
-        if executable_name == "error":
-            print("Error: Compilation failed.")
-            return
+        executable_name = compile_solution(tmp_dir, solution_code, language)
+        if executable_name == "Compile Error":
+            return {"verdict": "CE"}
+        if executable_name == "Judge Error":
+            return {"verdict": "JE"}
 
-        max_time = 0
+        max_runtime = 0
         test_cnt = 0
-        total_time = 0
-        time_dict = {}
+        total_runtime = 0
+        runtime_dict = {}
         wrong_answer_flag = False
         for input_test in os.listdir(input_dir):
             input_path = input_dir / input_test
             output_path = output_dir / f"{input_test[:-3]}.out"
+            if not input_path.is_file():
+                print(f"[WARNING] {input_path} has been deleted by other processes.")
+                continue
             with open(input_path, "r", encoding="utf-8") as input_file:
                 try:
-                    start_time = time.time()
                     command = []
                     if language == Language.JAVA:
-                        command = ["java", "-Xmx512m", "-cp", tmp_dir, executable_name]
+                        command = [
+                            "java",
+                            "-Xmx2048m",
+                            "-DONLINE_JUDGE=true",
+                            "-cp",
+                            tmp_dir,
+                            executable_name,
+                        ]
                     elif language == Language.CPP:
                         command = [tmp_dir / "solution"]
                     elif language == Language.PYTHON:
-                        command = ["python", tmp_dir / "solution.py"]
+                        command = [
+                            f"/home/{os.environ.get('USER')}/miniconda3/envs/py27/bin/python",
+                            tmp_dir / "solution.py",
+                        ]
+                        # should change based on the path of python2.7
                     elif language == Language.PYTHON3:
-                        command = ["python3", tmp_dir / "solution.py"]
+                        command = [
+                            f"/home/{os.environ.get('USER')}/miniconda3/envs/py38/bin/python",
+                            tmp_dir / "solution.py",
+                        ]
+                        # should change based on the path of python3.8
 
+                    start_time = time.time()
                     run_process = subprocess.run(
                         command,
                         stdin=input_file,
@@ -129,41 +180,59 @@ def run_solution(
                         check=False,
                     )
                     runtime = time.time() - start_time
-                    if run_process.returncode == 0 and run_process.stdout:
-                        if not write_output:
-                            try:
-                                program_output = run_process.stdout.decode(
-                                    "utf-8"
-                                ).split()
+                    if run_process.stdout:
+                        try:
+                            program_output = run_process.stdout.decode("utf-8")
+                            if write_output:
+                                # write output for the first in gen_tests.py
+                                with open(output_path, "w", encoding="utf-8") as file:
+                                    file.write(program_output)
+                            else:
+                                # don't write output for the later runs when 
+                                # collecting the execution statistics in run.py
+                                program_output = program_output.split()
                                 with open(output_path, "r", encoding="utf-8") as file:
-                                    actual_output = file.read().split()
-                                if actual_output != program_output:
+                                    gt_output = file.read().split()
+                                if not check_same_output(gt_output, program_output):
+                                    print(
+                                        "[WA]",
+                                        gt_output[:100],
+                                        "..." if len(gt_output) > 100 else "",
+                                        program_output[:100],
+                                        "..." if len(program_output) > 100 else ""
+                                    )
                                     wrong_answer_flag = True
-                            except UnicodeError:
-                                wrong_answer_flag = True
-                        else:
+                        except UnicodeError:
+                            print("[WA]", "Unicode Error")
+                            wrong_answer_flag = True
+                    else:
+                        print("[WA]", "no output", solution_path, input_test, run_process.stderr.decode("utf-8"))
+                        wrong_answer_flag = True
+                        if write_output:
                             with open(output_path, "w", encoding="utf-8") as file:
-                                file.write(run_process.stdout.decode("utf-8"))
+                                file.write("")
                 except subprocess.TimeoutExpired:
                     runtime = config["max_time_limit"]
-            max_time = max(max_time, runtime)
-            total_time += runtime
+            max_runtime = max(max_runtime, runtime)
+            total_runtime += runtime
             test_cnt += 1
-            time_dict[input_test] = runtime
-            if wrong_answer_flag or runtime == config["max_time_limit"]:
+            runtime_dict[input_test] = runtime
+            if experiment_name == "alphacode" and \
+                (wrong_answer_flag or runtime >= config["max_time_limit"]):
+                # we only do early exit for alphacode
                 break
 
     test_result = {
         "verdict": "AC",
-        "average_time": total_time / test_cnt,
-        "max_time": max_time,
-        "time_dict": time_dict,
+        "average_time": total_runtime / test_cnt,
+        "max_time": max_runtime,
+        "time_dict": runtime_dict,
     }
     if wrong_answer_flag:
         test_result["verdict"] = "WA"
-    elif max_time == config["max_time_limit"]:
+    elif max_runtime == config["max_time_limit"]:
         test_result["verdict"] = "KILL"
-    elif max_time > time_limit:
+    elif max_runtime > time_limit:
         test_result["verdict"] = "TLE"
     return test_result
 
@@ -173,27 +242,58 @@ def run_solution_wrapper(args):
     return run_solution(*args)
 
 
+def input_sanitization(input_dir: Path, output_dir: Path):
+    invalid_input_files = []
+    for input_test in os.listdir(input_dir):
+        output_path = output_dir / f"{input_test[:-3]}.out"
+        if not os.path.isfile(output_path):
+            invalid_input_files.append(input_test)
+
+    for invalid_input_file in invalid_input_files:
+        print(
+            f"[WARNING] input file {invalid_input_file} does not have corresponding output file. The input likely runs into problems."
+        )
+        print(f"[WARNING] Removing invalid input file: {invalid_input_file}")
+        os.remove(input_dir / invalid_input_file)
+
+
+def problem_test_gen_failed(problem_id: str, experiment_name: str):
+    gen_tests_failing_problem_record = config["gen_tests_failing_problem_record"]
+    if not os.path.exists(gen_tests_failing_problem_record):
+        return False
+    data = json.load(open(gen_tests_failing_problem_record, "r"))
+    return problem_id in data and experiment_name in data[problem_id]
+
 def main(
     experiment_name: str = config["experiment_name"],
     problem_root_dir: str = config["problem_root_dir"],
+    result_root_dir: str = config["result_root_dir"],
 ):
-    """Runs all java solutions in the folder"""
+    """Runs all solutions in the folder."""
     problem_root_dir = Path(problem_root_dir)
+    result_root_dir = Path(result_root_dir)
     filtered_problems = filter_problems(
-        get_cf_problems(use_specified_problem=config["use_specified_problem"])
+        get_cf_problems(use_specified_problem=config["use_specified_problem"]),
+        filter_with_inconsistency_threshold=experiment_name != "alphacode",
     )
 
     for problem in tqdm(filtered_problems):
         problem_id = problem["name"].split(".")[0]
 
-        problem_dir = problem_root_dir / problem["name"].split(".")[0]
-        if experiment_name == "none":
+        problem_dir = Path(problem_root_dir) / str(problem_id)
+        if experiment_name == "alphacode":
             experiment_dir = problem_dir
-            result_path = Path(f"results/alphacode/{problem_id}.json")
         else:
+            if problem_test_gen_failed(problem_id, experiment_name):
+                print(f"[INFO] Test generation failed for {experiment_name} of {problem_id}, skipping.")
+                continue
             experiment_dir = problem_dir / experiment_name
-            Path(f"results/{experiment_name}").mkdir(exist_ok=True, parents=True)
-            result_path = Path(f"results/{experiment_name}/{problem_id}.json")
+            Path(result_root_dir / experiment_name).mkdir(exist_ok=True, parents=True)
+        result_path = Path(result_root_dir / experiment_name / f"{problem_id}.json")
+        result_path.parent.mkdir(exist_ok=True, parents=True)
+        if result_path.exists():
+            print(f"[INFO] {result_path} exists, skipping.")
+            continue
         solution_dir = problem_dir / "solutions"
         input_dir = experiment_dir / "input"
         output_dir = experiment_dir / "output"
@@ -201,32 +301,31 @@ def main(
             problem["time_limit"]["seconds"] + problem["time_limit"]["nanos"] / 10**9
         )
 
-        if os.path.isfile(result_path):
-            continue
         problem_res = {}
 
         print(problem["name"])
         print(f"# of tests: {len(os.listdir(input_dir))}")
+        input_sanitization(input_dir, output_dir)
         test_args = []
-        for sol_type in ["solutions", "incorrect_solutions"]:
-            for solution_idx, _ in enumerate(problem[sol_type]["solution"]):
-                language = Language(problem[sol_type]["language"][solution_idx])
-                solution_file_name = (
-                    f"{sol_type}_{solution_idx:04}.{language.to_suffix()}"
-                )
-                for idx in range(config["repeat_test"]):
-                    test_args.append(
-                        (
-                            solution_dir / language.name.lower(),
-                            solution_file_name,
-                            language,
-                            input_dir,
-                            output_dir,
-                            False,
-                            time_limit,
-                            idx,
-                        )
+        sol_type = "solutions"
+        for solution_idx, _ in enumerate(problem[sol_type]["solution"]):
+            # TODO: we ensured the selected problems have consistency > 95%.
+            # Are we going to discard inconsistent solutions here? Currently not
+            language = Language(problem[sol_type]["language"][solution_idx])
+            solution_file_name = f"{sol_type}_{solution_idx:04}.{language.to_suffix()}"
+            solution_path = solution_dir / language.name.lower() / solution_file_name
+            for _ in range(config["repeat_test"]):
+                test_args.append(
+                    (
+                        experiment_name,
+                        solution_path,
+                        language,
+                        input_dir,
+                        output_dir,
+                        time_limit,
+                        False,
                     )
+                )
         random.shuffle(test_args)
 
         max_workers = max(1, int(0.75 * os.cpu_count()))
@@ -239,20 +338,23 @@ def main(
             if not res[idx]:
                 continue
             online_judge_verdict = (
-                "incorrect" if "incorrect" in test_arg[1] else "correct"
+                "incorrect" if "incorrect" in str(test_arg[1]) else "correct"
             )
-            problem_res["time_limit"] = test_arg[6]
-            if test_arg[1].split(".")[0] not in problem_res.keys():
-                problem_res[test_arg[1].split(".")[0]] = {
-                    "language": str(test_arg[2]),
+            problem_res["time_limit"] = test_arg[5]
+            solution_id = (str(test_arg[1]).split("/")[-1]).split(".")[0]
+            if solution_id not in problem_res.keys():
+                problem_res[solution_id] = {
+                    "language": test_arg[2].name.lower(),
                     "online_judge_verdict": online_judge_verdict,
                     "verdict": [],
                     "average_time": [],
                     "max_time": [],
                     "time_dict": {},
                 }
-            solution_res = problem_res[test_arg[1].split(".")[0]]
+            solution_res = problem_res[solution_id]
             solution_res["verdict"].append(res[idx]["verdict"])
+            if res[idx]["verdict"] in ["CE", "JE"]:
+                continue
             solution_res["average_time"].append(res[idx]["average_time"])
             solution_res["max_time"].append(res[idx]["max_time"])
             for test_name in res[idx]["time_dict"].keys():

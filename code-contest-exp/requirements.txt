@@ -6,3 +6,6 @@ scikit-learn==1.5.1
 tiktoken==0.7.0
 numpy==1.26.0
 plotly==5.23.0
+matplotlib==3.9.2
+pygount==1.8.0
+evalplus==0.3.0.dev54

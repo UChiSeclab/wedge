@@ -1,13 +1,51 @@
 """Utility functions."""
 import os
 import pickle
-from datasets import load_dataset, concatenate_datasets
+from datasets import load_dataset
 import tiktoken
-from typing import Dict
+from typing import Dict, List, Literal
 from pathlib import Path
+import json
+import datetime
 
 from config import abandoned_list, config
-from common import Language
+
+
+def squeeze_time_dict(
+    time_dict: Dict[str, List[float]], use_max_or_avg: Literal["max", "avg"]
+) -> Dict[str, float]:
+    result = {}
+    for input_name, time_list in time_dict.items():
+        if use_max_or_avg == "max":
+            result[input_name] = max(time_list)
+        elif use_max_or_avg == "avg":
+            result[input_name] = sum(time_list) / len(time_list)
+
+    return result
+
+
+def get_alphacode_result(problem_id: str) -> Dict:
+    alphacode_dir = Path("./results/alphacode")
+    with open(alphacode_dir / f"{problem_id}.json", "r", encoding="utf-8") as file:
+        result = json.load(file)
+    return result
+
+
+def record_failing_problem(problem_id: str, experiment_name: str, reason: str, try_cnt: int = 10):
+    """Record the failing problem in the failing_problems.json"""
+    failing_problems = {}
+    failing_problems_path = Path(config["gen_tests_failing_problem_record"])
+    if failing_problems_path.exists():
+        with open(failing_problems_path, "r") as file:
+            failing_problems = json.load(file)
+    failing_problems[problem_id] = failing_problems.get(problem_id, {})
+    failing_problems[problem_id][experiment_name] = {
+        "reason": reason,
+        "try_cnt": try_cnt,
+        "timestamp": str(datetime.datetime.now())
+    }
+    with open(failing_problems_path, "w") as file:
+        json.dump(failing_problems, file, indent=4)
 
 
 def mean(lst):
@@ -17,12 +55,17 @@ def mean(lst):
 def num_tokens_from_string(string: str, encoding_name: str = "cl100k_base") -> int:
     """Counts number of token for a given string."""
     encoding = tiktoken.get_encoding(encoding_name)
-    num_tokens = len(encoding.encode(string))
+    try:
+        num_tokens = len(encoding.encode(string))
+    except Exception as e:
+        print(f"Error: {e}")
+        print(f"String: {string}")
+        num_tokens = 0
     return num_tokens
 
 
 def get_cf_problems(use_specified_problem: bool = False):
-    """Get Codeforces datasets
+    """Get Codeforces datasets.
 
     Load the datasets from dataset.pkl (if existed) or code_contests
     and filter codeforces problems.
@@ -68,10 +111,11 @@ def get_cf_problems(use_specified_problem: bool = False):
     return cf_problems
 
 
-def filter_problems(problems):
-    """Filters problems
+def filter_problems(problems, filter_with_inconsistency_threshold=True):
+    """Filter problems.
 
     Skip if the problem accept multiple answers or the problem is not on the list.
+    Skip if the problem has >5% "correct" solutions that do not pass the test cases.
 
     Args:
     - A list of problems
@@ -84,4 +128,27 @@ def filter_problems(problems):
         for problem in problems
         if not any(abandoned in problem["description"] for abandoned in abandoned_list)
     ]
-    return filtered_problems
+    
+    if filter_with_inconsistency_threshold:
+        alphacode_dir = Path(config["result_root_dir"]) / "alphacode"
+        filtered_problems_with_inconsistency = []
+        for problem in filtered_problems:
+            problem_name = problem["name"].split(".")[0]
+            result_path = alphacode_dir / f"{problem_name}.json"
+            labeled_correct = 0
+            actual_correct = 0
+            data = json.load(open(result_path, "r"))
+            for item in data:
+                if item.startswith("solutions_"):
+                    labeled_correct += 1
+                    if all(label == "AC" for label in data[item]["verdict"]):
+                        actual_correct += 1
+
+            if actual_correct / labeled_correct > 0.95:
+                filtered_problems_with_inconsistency.append(problem)
+            else:
+                print(f"Problem {problem_name} has more than 5% incorrect solutions labeled as correct.")
+
+        return filtered_problems_with_inconsistency
+    else:
+        return filtered_problems
