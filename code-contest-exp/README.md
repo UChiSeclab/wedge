@@ -14,7 +14,7 @@ Setup the config file (`./scripts/config.py`)
 config = {
     "problem_root_dir": "./problems",
     "max_time_limit": 20,
-    "experiment_name": "none",             # set experiment name to 'none'
+    "experiment_name": "alphacode",             # set experiment name to 'alphacode'
     "solution_selection": "time_contrast", # doesn't matter
     "manual_prompt": False,                # set to False
     "prompt_language": Language.JAVA,      # doesn't matter
