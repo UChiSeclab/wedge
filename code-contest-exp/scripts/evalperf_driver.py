@@ -3,7 +3,6 @@ import subprocess
 from typing import List, Tuple
 from traceback import print_exc
 from pympler.asizeof import asizeof
-from datetime import datetime
 
 MAX_FACTOR = 26 # we follow the setting in evalperf
 CURATION_TIMEOUT_PER_TEST_SECOND = 20 # we follow the setting in evalperf
@@ -23,17 +22,14 @@ def sample_inputs(generator_file: Path) -> Tuple[List[str], List[int], bool]:
         print(f"[INPUT GEN] scale=2**{fac}")
         
         try:
-            start = datetime.now()
             res = subprocess.run(
                 ["python", generator_file.as_posix(), str(scale)],
                 capture_output=True,
                 text=True,
-                timeout=300, #CURATION_TIMEOUT_PER_TEST_SECOND,
+                timeout=20, #CURATION_TIMEOUT_PER_TEST_SECOND,
                 check=True
             )
             res.check_returncode()
-            end = datetime.now()
-            print(f"[INPUT GEN] Time taken: {end-start} seconds for scale=2**{fac}")
             gen_input = res.stdout.strip()
             
             if gen_input == "":

@@ -143,76 +143,80 @@ def run_solution(
             if not input_path.is_file():
                 print(f"[WARNING] {input_path} has been deleted by other processes.")
                 continue
-            with open(input_path, "r", encoding="utf-8") as input_file:
-                try:
-                    command = []
-                    if language == Language.JAVA:
-                        command = [
-                            "java",
-                            "-Xmx2048m",
-                            "-DONLINE_JUDGE=true",
-                            "-cp",
-                            tmp_dir,
-                            executable_name,
-                        ]
-                    elif language == Language.CPP:
-                        command = [tmp_dir / "solution"]
-                    elif language == Language.PYTHON:
-                        command = [
-                            f"/home/{os.environ.get('USER')}/miniconda3/envs/py27/bin/python",
-                            tmp_dir / "solution.py",
-                        ]
-                        # should change based on the path of python2.7
-                    elif language == Language.PYTHON3:
-                        command = [
-                            f"/home/{os.environ.get('USER')}/miniconda3/envs/py38/bin/python",
-                            tmp_dir / "solution.py",
-                        ]
-                        # should change based on the path of python3.8
+            try: 
+                with open(input_path, "r", encoding="utf-8") as input_file:
+                    try:
+                        command = []
+                        if language == Language.JAVA:
+                            command = [
+                                "java",
+                                "-Xmx2048m",
+                                "-DONLINE_JUDGE=true",
+                                "-cp",
+                                tmp_dir,
+                                executable_name,
+                            ]
+                        elif language == Language.CPP:
+                            command = [tmp_dir / "solution"]
+                        elif language == Language.PYTHON:
+                            command = [
+                                f"/home/{os.environ.get('USER')}/miniconda3/envs/py27/bin/python",
+                                tmp_dir / "solution.py",
+                            ]
+                            # should change based on the path of python2.7
+                        elif language == Language.PYTHON3:
+                            command = [
+                                f"/home/{os.environ.get('USER')}/miniconda3/envs/py38/bin/python",
+                                tmp_dir / "solution.py",
+                            ]
+                            # should change based on the path of python3.8
 
-                    start_time = time.time()
-                    run_process = subprocess.run(
-                        command,
-                        stdin=input_file,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        timeout=config["max_time_limit"],
-                        check=False,
-                    )
-                    runtime = time.time() - start_time
-                    if run_process.stdout:
-                        try:
-                            program_output = run_process.stdout.decode("utf-8")
-                            if write_output:
-                                # write output for the first in gen_tests.py
-                                with open(output_path, "w", encoding="utf-8") as file:
-                                    file.write(program_output)
-                            else:
-                                # don't write output for the later runs when 
-                                # collecting the execution statistics in run.py
-                                program_output = program_output.split()
-                                with open(output_path, "r", encoding="utf-8") as file:
-                                    gt_output = file.read().split()
-                                if not check_same_output(gt_output, program_output):
-                                    print(
-                                        "[WA]",
-                                        gt_output[:100],
-                                        "..." if len(gt_output) > 100 else "",
-                                        program_output[:100],
-                                        "..." if len(program_output) > 100 else ""
-                                    )
-                                    wrong_answer_flag = True
-                        except UnicodeError:
-                            print("[WA]", "Unicode Error")
+                        start_time = time.time()
+                        run_process = subprocess.run(
+                            command,
+                            stdin=input_file,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            timeout=config["max_time_limit"],
+                            check=False,
+                        )
+                        runtime = time.time() - start_time
+                        if run_process.stdout:
+                            try:
+                                program_output = run_process.stdout.decode("utf-8")
+                                if write_output:
+                                    # write output for the first in gen_tests.py
+                                    with open(output_path, "w", encoding="utf-8") as file:
+                                        file.write(program_output)
+                                else:
+                                    # don't write output for the later runs when 
+                                    # collecting the execution statistics in run.py
+                                    program_output = program_output.split()
+                                    with open(output_path, "r", encoding="utf-8") as file:
+                                        gt_output = file.read().split()
+                                    if not check_same_output(gt_output, program_output):
+                                        print(
+                                            "[WA]",
+                                            gt_output[:100],
+                                            "..." if len(gt_output) > 100 else "",
+                                            program_output[:100],
+                                            "..." if len(program_output) > 100 else ""
+                                        )
+                                        wrong_answer_flag = True
+                            except UnicodeError:
+                                print("[WA]", "Unicode Error")
+                                wrong_answer_flag = True
+                        else:
+                            print("[WA]", "no output", solution_path, input_test, run_process.stderr.decode("utf-8"))
                             wrong_answer_flag = True
-                    else:
-                        print("[WA]", "no output", solution_path, input_test, run_process.stderr.decode("utf-8"))
-                        wrong_answer_flag = True
-                        if write_output:
-                            with open(output_path, "w", encoding="utf-8") as file:
-                                file.write("")
-                except subprocess.TimeoutExpired:
-                    runtime = config["max_time_limit"]
+                            if write_output:
+                                with open(output_path, "w", encoding="utf-8") as file:
+                                    file.write("")
+                    except subprocess.TimeoutExpired:
+                        runtime = config["max_time_limit"]
+            except FileNotFoundError:
+                print(f"[WARNING] {input_path} has been deleted by other processes.")
+                continue
             max_runtime = max(max_runtime, runtime)
             total_runtime += runtime
             test_cnt += 1
