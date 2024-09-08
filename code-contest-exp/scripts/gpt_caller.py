@@ -24,19 +24,7 @@ API_KEY = "sk-proj-agKWhu46RVJSx5PbRea7T3BlbkFJB3jZFl9KGevQ0QC9vatB"
 
 def request(instruction: str) -> str:
     """Makes a request to gpt"""
-    url = "https://api.openai.com/v1/chat/completions"
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"}
-    data = {
-        "model": "gpt-4o",
-        "messages": [{"role": "user", "content": instruction}],
-        "temperature": 0.8,
-    }
-    response = requests.post(url, json=data, headers=headers, timeout=60)
-    if response.status_code == 200:
-        result = response.json()
-        return result["choices"][0]["message"]["content"]
-    else:
-        raise Exception(f"Error: {response.status_code} {response.text}")
+    return request_conversation([{"role": "user", "content": instruction}]).choices[0].message.content
 
 
 def cut_string(input_string: str, begin_token="```python\n", end_token="```") -> str:

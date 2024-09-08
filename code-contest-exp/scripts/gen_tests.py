@@ -9,7 +9,6 @@ from tempdir import TempDir
 import collections
 from multiprocessing import Pool
 import time
-import datetime
 
 from common import Language
 from config import config
@@ -20,6 +19,7 @@ from run import run_solution
 from select_solution import select_solutions
 from prompt import PromptTemplate
 from evalperf_driver import sample_inputs
+from input_validator_run import run_validator
 
 def early_stop_for_input_consistency(
     input_dir: Path,
@@ -102,7 +102,6 @@ def run_solution_early_stop(
 
 def run_generator(generator_file: Path, experiment_input_dir: Path) -> bool:
     try:
-        start = datetime.now()
         subprocess.run(
             [
                 "python",
@@ -112,10 +111,8 @@ def run_generator(generator_file: Path, experiment_input_dir: Path) -> bool:
             capture_output=True,
             text=True,
             check=True,
-            timeout=300
+            timeout=20,
         ).check_returncode()
-        end = datetime.now()
-        print(f"Time taken: {end-start} seconds")
     except subprocess.CalledProcessError as e:
         print("Error during execution of gen.py:", e)
         return False
@@ -254,6 +251,7 @@ def check_consistency_of_gen_tests_output(
     return invalid_input_file_names, solution_major_output_dict
 
 def create_test_generator_with_retry(
+    problem_root_dir: Path,
     experiment_name: str,
     problem,
     selected_solutions,
@@ -265,6 +263,8 @@ def create_test_generator_with_retry(
     max_retry: int = 10,
     run_tests: bool = True,
     run_tests_language: Literal["python", "cpp", "python3", "java"] = "java",
+    validate_tests: bool = True,
+    validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "self_reflect_feedback",
 ) -> bool:
     problem_id = problem["name"].split(".")[0]
     alphacode_result = get_alphacode_result(problem_id)
@@ -293,6 +293,21 @@ def create_test_generator_with_retry(
         if not gen_py_success:
             print(f"[Error] gen_tests failed to generate tests for {problem_id}, try count: {try_cnt}")
             continue
+
+        if validate_tests:
+            validation_result = run_validator(
+                experiment_name,
+                validator_mode,
+                problem_root_dir,
+                problem,
+                skip_alphacode_generated_tests=True,
+                update_validation_result=False,
+            )
+            # remove invalid inputs
+            for input_file_name in validation_result:
+                if validation_result[input_file_name] != "PASS":
+                    if (experiment_input_dir / input_file_name).exists():
+                        (experiment_input_dir / input_file_name).unlink()
 
         if len(os.listdir(experiment_input_dir)) < config["num_tests"] / 2:
             print(f"[Error] too few inputs are generated for {problem_id}, try count: {try_cnt}")
@@ -355,6 +370,8 @@ def main(
     prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
     prompt_template: str = "prompt_template.txt",
     top_k: int = None,
+    validate_tests: bool = True,
+    validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "self_reflect_feedback",
 ):
     """Generates tests by test generator created by LLM.
 
@@ -393,6 +410,7 @@ def main(
             continue
 
         if not create_test_generator_with_retry(
+            problem_root_dir,
             experiment_name,
             problem,
             selected_solutions,
@@ -403,6 +421,8 @@ def main(
             prompt_language=prompt_language,
             run_tests=run_tests,
             run_tests_language=run_tests_language,
+            validate_tests=validate_tests,
+            validator_mode=validator_mode,
         ):
             print(f"[Error] Failed to generate enough valid tests for {problem_id}")
             record_failing_problem(problem_id, experiment_name, "Failed to generate enough valid tests")

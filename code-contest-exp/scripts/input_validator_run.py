@@ -10,13 +10,21 @@ from utils import filter_problems, get_cf_problems
 
 def find_validator_file(validator_dir: Path):
     validator_try_dirs = list(validator_dir.glob("try_*"))
+    assert len(validator_try_dirs) > 0, f"No try dirs found in {validator_dir}"
     validator_last_try = sorted(
         validator_try_dirs, key=lambda x: int(x.name.split("_")[-1])
     )[-1]
     return validator_last_try / "validator.py"
 
 
-def run_validator(experiment_name:str, validator_mode:str, problem_root_dir: Path, problem: Dict, stat: Dict[str, int], skip_alphacode_generated_tests: bool = True):
+def run_validator(
+    experiment_name:str,
+    validator_mode:str,
+    problem_root_dir: Path,
+    problem: Dict,
+    skip_alphacode_generated_tests: bool = True,
+    update_validation_result: bool = False
+) -> Dict[str, str]:
     problem_name = problem["name"].split(".")[0]
     problem_dir = problem_root_dir / str(problem_name)
     validator_dir = problem_dir / "validator_gen" / validator_mode
@@ -43,12 +51,6 @@ def run_validator(experiment_name:str, validator_mode:str, problem_root_dir: Pat
     for input_file in input_files:
         if skip_alphacode_generated_tests and "generated" in input_file.name:
             continue
-        if "public" in input_file.name:
-            stat["public_cnt"] += 1
-        elif "private" in input_file.name:
-            stat["private_cnt"] += 1
-        else:
-            stat["generated_cnt"] += 1
         try:
             res = subprocess.run(
                 ["python", validator_file.as_posix(), input_file.as_posix()],
@@ -58,25 +60,19 @@ def run_validator(experiment_name:str, validator_mode:str, problem_root_dir: Pat
                 check=True
             )
             print(f"Output for {input_file}: {res.stdout}", end="")
-            stat["pass_cnt"] += 1
-            validation_result[experiment_name][input_file.name] = "pass"
+            validation_result[experiment_name][input_file.name] = "PASS"
         except subprocess.CalledProcessError as e:
-            stat["fail_cnt"] += 1
-            if "public" in input_file.name:
-                stat["fail_public_cnt"] += 1
-            elif "private" in input_file.name:
-                stat["fail_private_cnt"] += 1
-            else:
-                stat["fail_generated_cnt"] += 1
             print(f"Validation failed for {input_file.absolute()}: {e.stderr}")
-            validation_result[experiment_name][input_file.name] = "fail"
+            validation_result[experiment_name][input_file.name] = "FAIL"
         except subprocess.TimeoutExpired as e:
             print(f"Validation timed out for {input_file.absolute()}: {e}")
-            validation_result[experiment_name][input_file.name] = "timeout"
+            validation_result[experiment_name][input_file.name] = "TIMEOUT"
 
-    with open(validation_result_file, "w") as f:
-        json.dump(validation_result, f, indent=4)
+    if update_validation_result:
+        with open(validation_result_file, "w") as f:
+            json.dump(validation_result, f, indent=4)
 
+    return validation_result[experiment_name]
 
 def main(
     problem_root_dir: str = config["problem_root_dir"],
@@ -88,22 +84,10 @@ def main(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
 
-    stat = {
-        "pass_cnt": 0,
-        "fail_cnt": 0,
-        "fail_public_cnt": 0,
-        "fail_private_cnt": 0,
-        "fail_generated_cnt": 0,
-        "public_cnt": 0,
-        "private_cnt": 0,
-        "generated_cnt": 0
-    }
-
     for problem in filtered_problems:
         print(f"Running validator for {problem['name'].split('.')[0]}")
-        run_validator(experiment_name, validator_mode, problem_root_dir, problem, stat)
+        run_validator(experiment_name, validator_mode, problem_root_dir, problem, update_validation_result=True)
 
-    print(stat)
 
 if __name__ == "__main__":
     Fire(main)
