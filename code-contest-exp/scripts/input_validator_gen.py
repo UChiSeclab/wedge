@@ -322,6 +322,9 @@ def main(
     for problem in tqdm(filtered_problems):
         if not generate_validator(problem_root_dir, problem, mode):
             print(f"Failed to generate validator for problem {problem['name'].split('.')[0]}")
+        else:
+            status_file = problem_root_dir / problem["name"].split(".")[0] / "validator_gen" / mode / "VAL_GT_INPUT_PASS"
+            status_file.touch()
 
 if __name__ == "__main__":
     Fire(main)
