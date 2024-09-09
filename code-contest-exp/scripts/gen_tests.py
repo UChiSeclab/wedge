@@ -301,7 +301,7 @@ def create_test_generator_with_retry(
                 problem_root_dir,
                 problem,
                 skip_alphacode_generated_tests=True,
-                update_validation_result=False,
+                update_validation_result_file=False,
             )
             # remove invalid inputs
             for input_file_name in validation_result:
