@@ -93,6 +93,8 @@ You are an AI programming assistant, proficient in Python. You will be given a p
 
 In summary, you need to 1) read the problem statement, 2) extract the constraints, 3) write a Python script that can validate the input. The script works by reading the input from the standard input, e.g., `python validator.py <input_file_path>` and print "VALID" if the input is valid, and raise an AssertionError with a readable error message if the input is invalid.
 
+Note that for extracting the constraints, you must follow the format in the example, summarizing both the shape of input and constraints. And you must use "<shape_of_input_start>" and "<shape_of_input_end>" to mark the start and end of the shape of the input, and use "<constraints_start>" and "<constraints_end>" to mark the start and end of the constraints.
+
 Example of generating a validator script:
 
 ### Instruction:
@@ -130,17 +132,20 @@ R23C55
 
 ### Response:
 1. Shape of the input: 
-The input consists of:
-	- An integer n (1 ≤ n ≤ 10⁵), the number of cell coordinates to process.
-	- n lines following that each contain a cell coordinate in one of two formats:
-        1) RXCY format (e.g., R23C55), where X is a row number and Y is a column number.
-        2) Column-row format (e.g., BC23), where the letters represent the column and the number represents the row.
+<shape_of_input_start>
+- An integer n (1 ≤ n ≤ 10⁵), the number of cell coordinates to process.
+- n lines following that each contain a cell coordinate in one of two formats:
+    1) RXCY format (e.g., R23C55), where X is a row number and Y is a column number.
+    2) Column-row format (e.g., BC23), where the letters represent the column and the number represents the row.
+<shape_of_input_start>
 2. Constraints:
-	- 1 ≤ n ≤ 10⁵: The number of coordinates is between 1 and 100,000.
-	- The cell coordinates are always valid.
-	- Cell rows and columns are bounded:
-        - Row numbers (X in RXCY) and (Row in Column-row) can be between 1 and 10⁶.
-        - Column numbers (Y in RXCY) or their alphabetical equivalents in Column-row can be between 1 and 10⁶.
+<constraints_start>
+- 1 ≤ n ≤ 10⁵: The number of coordinates is between 1 and 100,000.
+- The cell coordinates are always valid.
+- Cell rows and columns are bounded:
+    - Row numbers (X in RXCY) and (Row in Column-row) can be between 1 and 10⁶.
+    - Column numbers (Y in RXCY) or their alphabetical equivalents in Column-row can be between 1 and 10⁶.
+<constraints_end>
 3. Python Script to Validate the Input:
 The script will:
 	- Read the input from a file.
@@ -182,6 +187,21 @@ def construct_feedback_msg(
         feedback_msg = ""
 
     return feedback_msg
+
+
+def extract_shape_of_input_and_constraints(response: str) -> Tuple[str, str]:
+    shape_of_input_start = response.find("<shape_of_input_start>")
+    shape_of_input_end = response.find("<shape_of_input_end>")
+    constraints_start = response.find("<constraints_start>")
+    constraints_end = response.find("<constraints_end>")
+
+    if shape_of_input_start == -1 or shape_of_input_end == -1 or constraints_start == -1 or constraints_end == -1:
+        raise ValueError("Failed to find shape of input or constraints tags in the response. Please make sure to include them in the response.")
+
+    shape_of_input = response[shape_of_input_start + len("<shape_of_input_start>"):shape_of_input_end]
+    constraints = response[constraints_start + len("<constraints_start>"):constraints_end]
+
+    return shape_of_input, constraints
 
 
 def validate_validator(validator_file: Path, input_dir: Path, skip_generated_tests: bool = True) -> List[Tuple[Path, str]]:
@@ -243,6 +263,8 @@ def prompt_and_dump_results(
             temperature=0.8
         ).choices[0].message.content
         validator_script_content = cut_string(gpt_response)
+
+        shape_of_input, constraints = extract_shape_of_input_and_constraints(gpt_response)
     except Exception as e:
         print(f"Failed to generate validator for problem {problem_id}: {e}")
         return False, []
@@ -259,6 +281,9 @@ def prompt_and_dump_results(
         # write formatted conversation
         for msg in msg_list:
             f.write(f"{msg['role']}: {msg['content']}\n")
+
+    with open(validator_gen_try_cnt_dir / "input_shape_constraints.txt", "w") as f:
+        f.write(f"Shape of the input:\n{shape_of_input}\n\nConstraints:\n{constraints}")
 
     failing_inputs = validate_validator(    
         validator_gen_try_cnt_dir / "validator.py",
@@ -312,7 +337,7 @@ def generate_validator(problem_root_dir: Path, problem: Dict, mode: str, max_try
 
 def main(
     problem_root_dir: str = config["problem_root_dir"],
-    mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "direct"
+    validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "direct"
 ):
     problem_root_dir = Path(problem_root_dir)
     filtered_problems = filter_problems(
@@ -320,10 +345,10 @@ def main(
     )
     
     for problem in tqdm(filtered_problems):
-        if not generate_validator(problem_root_dir, problem, mode):
+        if not generate_validator(problem_root_dir, problem, validator_mode):
             print(f"Failed to generate validator for problem {problem['name'].split('.')[0]}")
         else:
-            status_file = problem_root_dir / problem["name"].split(".")[0] / "validator_gen" / mode / "VAL_GT_INPUT_PASS"
+            status_file = problem_root_dir / problem["name"].split(".")[0] / "validator_gen" / validator_mode / "VAL_GT_INPUT_PASS"
             status_file.touch()
 
 if __name__ == "__main__":
