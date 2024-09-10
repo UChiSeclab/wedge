@@ -53,7 +53,6 @@ def plot_avg_over_problem(problem_statistics: Dict, strategies: List[str]):
     fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, ncols=1, figsize=(15, 15))
     
     ax1.bar(index, avg_avg_time_values.values(), bar_width, label='avg_time', color='blue')
-    ax1.set_xlabel('Strategy')
     ax1.set_ylabel('Average Time')
     ax1.set_title('Average "Average Time" by Strategy')
     ax1.set_xticks(index)
@@ -61,7 +60,6 @@ def plot_avg_over_problem(problem_statistics: Dict, strategies: List[str]):
     ax1.legend()
 
     ax2.bar(index, avg_max_time_values.values(), bar_width, label='max_time', color='red')
-    ax2.set_xlabel('Strategy')
     ax2.set_ylabel('Max Time')
     ax2.set_title('Average "Max Time" by Strategy')
     ax2.set_xticks(index)
@@ -69,9 +67,8 @@ def plot_avg_over_problem(problem_statistics: Dict, strategies: List[str]):
     ax2.legend()
     
     ax3.bar(index, avg_var_time_values.values(), bar_width, label='var_time', color='green')
-    ax3.set_xlabel('Strategy')
-    ax3.set_ylabel('Variance Time')
-    ax3.set_title('Average "Variance Time" by Strategy')
+    ax3.set_ylabel('Coefficient of Variation')
+    ax3.set_title('Average "Coefficient of Variation" by Strategy')
     ax3.set_xticks(index)
     ax3.set_xticklabels(strategies, ha='center', rotation=45)
     ax3.legend()
@@ -151,13 +148,13 @@ def plot_problem_statistics(
     ax2.set_xticklabels(x_labels, rotation=45, ha='right')
     ax2.legend()
 
-    # Plot variance time
+    # Plot Coefficient of Variation
     for i in range(len(strategies)):
         ax3.bar(index + i * bar_width, var_time_values[:, i], bar_width, label=strategies[i], color=colors[i])
 
     ax3.set_xlabel('Problem-Language')
-    ax3.set_ylabel('Variance Time')
-    ax3.set_title('Variance Time by Problem-Language and Strategy')
+    ax3.set_ylabel('Coefficient of Variation')
+    ax3.set_title('Coefficient of Variation by Problem-Language and Strategy')
     ax3.set_xticks(index + bar_width)
     ax3.set_xticklabels(x_labels, rotation=45, ha='right')
     ax3.legend()
@@ -211,27 +208,28 @@ def get_top_k_slow_inputs_over_all_solutions(experiment_data: Dict[str, Dict], t
 
     return inputs_lang_stat, top_k_slowest_inputs
 
-def get_input_time_variance(inputs_lang_stat: Dict[str, Dict[str, float]]) -> Dict[str, Dict[str, float]]:
-    inputs_lang_time_variance = {} # input_name -> language -> variance
+def get_input_time_cv(inputs_lang_stat: Dict[str, Dict[str, float]]) -> Dict[str, Dict[str, float]]:
+    inputs_lang_time_cv = {} # input_name -> language -> cv
     for input_name, lang_stat in inputs_lang_stat.items():
         for lang, time_stat in lang_stat.items():
             times = list(time_stat.values())
-            variance = np.var(times)
-            inputs_lang_time_variance[input_name] = inputs_lang_time_variance.get(input_name, {})
-            inputs_lang_time_variance[input_name][lang] = variance
+            # get cv
+            cv = np.std(times) / np.mean(times) * 100
+            inputs_lang_time_cv[input_name] = inputs_lang_time_cv.get(input_name, {})
+            inputs_lang_time_cv[input_name][lang] = cv
 
-    return inputs_lang_time_variance
+    return inputs_lang_time_cv
 
 
-def get_avg_variance_time_of_top_k_slow_inputs(inputs_lang_time_variance: Dict[str, Dict[str, float]], top_k_slowest_inputs: List[str]) -> Dict[str, float]:
-    avg_variance_time = {} # language -> avg_variance_time
+def get_avg_cv_time_of_top_k_slow_inputs(inputs_lang_time_cv: Dict[str, Dict[str, float]], top_k_slowest_inputs: List[str]) -> Dict[str, float]:
+    avg_cv_time = {} # language -> avg_cv_time
     for input_name in top_k_slowest_inputs:
-        for lang, variance in inputs_lang_time_variance[input_name].items():
-            avg_variance_time[lang] = avg_variance_time.get(lang, [])
-            avg_variance_time[lang].append(variance)
+        for lang, cv in inputs_lang_time_cv[input_name].items():
+            avg_cv_time[lang] = avg_cv_time.get(lang, [])
+            avg_cv_time[lang].append(cv)
 
-    avg_variance_time = {lang: mean(variances) for lang, variances in avg_variance_time.items()}
-    return avg_variance_time
+    avg_cv_time = {lang: mean(cvs) for lang, cvs in avg_cv_time.items()}
+    return avg_cv_time
 
 
 def main(
@@ -296,13 +294,13 @@ def main(
                 solutions_data[language].append((avg_time, max_time))
 
             inputs_lang_stat, slowest_inputs_cpp = get_top_k_slow_inputs_over_all_solutions(experiment_data, top_k=top_k_slow_inputs)
-            inputs_lang_time_variance = get_input_time_variance(inputs_lang_stat)
-            lang_avg_variance_time = get_avg_variance_time_of_top_k_slow_inputs(inputs_lang_time_variance, slowest_inputs_cpp)
+            inputs_lang_time_cv = get_input_time_cv(inputs_lang_stat)
+            lang_avg_cv_time = get_avg_cv_time_of_top_k_slow_inputs(inputs_lang_time_cv, slowest_inputs_cpp)
             mean_solutions_data = {}  # language -> (avg_time, max_time)
             for language, times in solutions_data.items():
                 avg_times = [time[0] for time in times]
                 max_times = [time[1] for time in times]
-                mean_solutions_data[language] = (mean(avg_times), mean(max_times), lang_avg_variance_time.get(language, 0))
+                mean_solutions_data[language] = (mean(avg_times), mean(max_times), lang_avg_cv_time.get(language, 0))
                 problem_statistics[problem_id][language][
                     strategy
                 ] = mean_solutions_data[language]

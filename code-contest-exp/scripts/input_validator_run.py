@@ -23,7 +23,7 @@ def run_validator(
     problem_root_dir: Path,
     problem: Dict,
     skip_alphacode_generated_tests: bool = True,
-    update_validation_result: bool = False
+    update_validation_result_file: bool = False
 ) -> Dict[str, str]:
     problem_name = problem["name"].split(".")[0]
     problem_dir = problem_root_dir / str(problem_name)
@@ -32,7 +32,7 @@ def run_validator(
         print(f"[Warning] {validator_dir} does not have a good validator. Skipping...")
         return
     validation_result_file = validator_dir / "validation_result.json"
-    if validation_result_file.exists():
+    if update_validation_result_file and validation_result_file.exists():
         with open(validation_result_file, "r") as f:
             validation_result = json.load(f)
     else:
@@ -68,7 +68,7 @@ def run_validator(
             print(f"Validation timed out for {input_file.absolute()}: {e}")
             validation_result[experiment_name][input_file.name] = "TIMEOUT"
 
-    if update_validation_result:
+    if update_validation_result_file:
         with open(validation_result_file, "w") as f:
             json.dump(validation_result, f, indent=4)
 
@@ -86,7 +86,7 @@ def main(
 
     for problem in filtered_problems:
         print(f"Running validator for {problem['name'].split('.')[0]}")
-        run_validator(experiment_name, validator_mode, problem_root_dir, problem, update_validation_result=True)
+        run_validator(experiment_name, validator_mode, problem_root_dir, problem, update_validation_result_file=True)
 
 
 if __name__ == "__main__":

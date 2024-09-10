@@ -334,7 +334,7 @@ def main(
                 )
         random.shuffle(test_args)
 
-        max_workers = max(1, int(0.75 * os.cpu_count()))
+        max_workers = max(1, int(0.5 * os.cpu_count()))
         with Pool(processes=max_workers) as pool:
             res = list(
                 tqdm(pool.imap(run_solution_wrapper, test_args), total=len(test_args))

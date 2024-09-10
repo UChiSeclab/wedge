@@ -197,6 +197,7 @@ def record_gen_tests_output(
 def check_consistency_of_gen_tests_output(
     experiment_input_dir: Path,
     solution_dir: Path, # solutions/java
+    time_limit: float,
     correct_solution_file_names: List[str],
     early_stop: bool = True,
 ) -> Tuple[List[str], Dict[str, str]]:
@@ -204,7 +205,6 @@ def check_consistency_of_gen_tests_output(
         early stop if there is already 5% of the inputs are invalid or \
         not consistent"""
 
-    time_limit = 300
     with TempDir() as temp_output_dir:
         test_args = []
         solution_result = {}
@@ -263,14 +263,16 @@ def create_test_generator_with_retry(
     max_retry: int = 10,
     run_tests: bool = True,
     run_tests_language: Literal["python", "cpp", "python3", "java"] = "java",
-    validate_tests: bool = True,
+    check_input_validity: bool = True,
     validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "self_reflect_feedback",
+    check_consistency: bool = True, # this flag is useful only when run_tests is True
 ) -> bool:
     problem_id = problem["name"].split(".")[0]
     alphacode_result = get_alphacode_result(problem_id)
     try_cnt = 0
     experiment_output_dir = experiment_dir / "output"
     experiment_output_dir.mkdir(exist_ok=True, parents=True)
+    run_time_limit = problem["time_limit"]["seconds"] + problem["time_limit"]["nanos"] / 10**9
     while try_cnt < max_retry and \
         (len(os.listdir(experiment_input_dir)) < config["num_tests"] / 2 or \
             (run_tests and \
@@ -294,14 +296,14 @@ def create_test_generator_with_retry(
             print(f"[Error] gen_tests failed to generate tests for {problem_id}, try count: {try_cnt}")
             continue
 
-        if validate_tests:
+        if check_input_validity:
             validation_result = run_validator(
                 experiment_name,
                 validator_mode,
                 problem_root_dir,
                 problem,
                 skip_alphacode_generated_tests=True,
-                update_validation_result=False,
+                update_validation_result_file=False,
             )
             # remove invalid inputs
             for input_file_name in validation_result:
@@ -323,29 +325,49 @@ def create_test_generator_with_retry(
                         all(v == "AC" for v in alphacode_result[solution_file_name.split(".")[0]]["verdict"])
                 ]
 
-                invalid_input_file_names, solution_major_output_dict = check_consistency_of_gen_tests_output(
-                    experiment_input_dir,
-                    solution_dir,
-                    correct_solution_file_names,
-                )
+                if check_consistency:
+                    inconsistent_input_file_names, solution_major_output_dict = check_consistency_of_gen_tests_output(
+                        experiment_input_dir,
+                        solution_dir,
+                        run_time_limit,
+                        correct_solution_file_names,
+                        early_stop=True,
+                    )
 
-                if len(invalid_input_file_names) > 0:
-                    print(f"[INFO] number of invalid_input_file_names: {len(invalid_input_file_names)}, try count: {try_cnt}")
-                    [Path(experiment_input_dir / invalid_input_file_name).unlink() for invalid_input_file_name in invalid_input_file_names if (experiment_input_dir / invalid_input_file_name).exists()]
+                    if len(inconsistent_input_file_names) > 0:
+                        print(f"[INFO] number of inconsistent_input_file_names: {len(inconsistent_input_file_names)}, try count: {try_cnt}")
+                        [Path(experiment_input_dir / inconsistent_input_file_name).unlink() for inconsistent_input_file_name in inconsistent_input_file_names if (experiment_input_dir / inconsistent_input_file_name).exists()]
 
-                if len(os.listdir(experiment_input_dir)) < config["num_tests"] / 2:
-                    print(f"[Warning] too few consistent inputs generated for {problem_id} from all solutions, try count: {try_cnt}, inputs: {len(os.listdir(experiment_input_dir))}")
-                    continue
+                    if len(os.listdir(experiment_input_dir)) < config["num_tests"] / 2:
+                        print(f"[Warning] too few consistent inputs generated for {problem_id} from all solutions, try count: {try_cnt}, inputs: {len(os.listdir(experiment_input_dir))}")
+                        continue
 
-                for input_file_name, majority_output in solution_major_output_dict.items():
-                    with open(experiment_output_dir / f"{input_file_name[:-3]}.out", "w") as f:
-                        f.write(majority_output)
+                    for input_file_name, majority_output in solution_major_output_dict.items():
+                        with open(experiment_output_dir / f"{input_file_name[:-3]}.out", "w") as f:
+                            f.write(majority_output)
 
-                # remove empty output files
-                for f in experiment_output_dir.iterdir():
-                    if f.read_text().strip() == "":
-                        print(f"[Warning] removing empty output file: {f}")
-                        f.unlink()
+                    [f.unlink() for f in experiment_output_dir.iterdir() if f.read_text().strip() == ""]
+
+                else:
+                    for correct_solution_file_name in correct_solution_file_names:
+                        run_solution(
+                            experiment_name,
+                            solution_dir / correct_solution_file_name,
+                            Language.JAVA,
+                            experiment_input_dir,
+                            experiment_output_dir,
+                            run_time_limit,
+                            write_output=True,
+                        )
+
+                        # remove empty output files
+                        [f.unlink() for f in experiment_output_dir.iterdir() if f.read_text().strip() == ""]
+
+                        if len(os.listdir(experiment_output_dir)) >= len(os.listdir(experiment_input_dir)) / 2:
+                            break
+                        else:
+                            [f.unlink() for f in experiment_output_dir.iterdir()]
+
                 # remove output files that do not have corresponding input files
                 for f in experiment_output_dir.iterdir():
                     if not (experiment_input_dir / f"{f.stem}.in").exists():
@@ -370,8 +392,9 @@ def main(
     prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
     prompt_template: str = "prompt_template.txt",
     top_k: int = None,
-    validate_tests: bool = True,
+    check_input_validity: bool = True,
     validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "self_reflect_feedback",
+    check_consistency: bool = False,
 ):
     """Generates tests by test generator created by LLM.
 
@@ -421,8 +444,9 @@ def main(
             prompt_language=prompt_language,
             run_tests=run_tests,
             run_tests_language=run_tests_language,
-            validate_tests=validate_tests,
+            check_input_validity=check_input_validity,
             validator_mode=validator_mode,
+            check_consistency=check_consistency,
         ):
             print(f"[Error] Failed to generate enough valid tests for {problem_id}")
             record_failing_problem(problem_id, experiment_name, "Failed to generate enough valid tests")
