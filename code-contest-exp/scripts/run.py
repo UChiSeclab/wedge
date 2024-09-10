@@ -228,6 +228,8 @@ def run_solution(
                 # we only do early exit for alphacode
                 break
 
+    if test_cnt == 0:
+        test_cnt = 1
     test_result = {
         "verdict": "AC",
         "average_time": total_runtime / test_cnt,
