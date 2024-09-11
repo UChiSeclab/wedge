@@ -195,6 +195,7 @@ def run_solution(
                                     with open(output_path, "r", encoding="utf-8") as file:
                                         gt_output = file.read().split()
                                     if not check_same_output(gt_output, program_output):
+                                        """
                                         print(
                                             "[WA]",
                                             gt_output[:100],
@@ -202,12 +203,13 @@ def run_solution(
                                             program_output[:100],
                                             "..." if len(program_output) > 100 else ""
                                         )
+                                        """
                                         wrong_answer_flag = True
                             except UnicodeError:
-                                print("[WA]", "Unicode Error")
+                                # print("[WA]", "Unicode Error")
                                 wrong_answer_flag = True
                         else:
-                            print("[WA]", "no output", solution_path, input_test, run_process.stderr.decode("utf-8"))
+                            # print("[WA]", "no output", solution_path, input_test, run_process.stderr.decode("utf-8"))
                             wrong_answer_flag = True
                             if write_output:
                                 with open(output_path, "w", encoding="utf-8") as file:
@@ -226,6 +228,8 @@ def run_solution(
                 # we only do early exit for alphacode
                 break
 
+    if test_cnt == 0:
+        test_cnt = 1
     test_result = {
         "verdict": "AC",
         "average_time": total_runtime / test_cnt,
