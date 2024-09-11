@@ -23,6 +23,8 @@ def __filter_input(slow_time_stat: Dict[str, float], fast_time_stat: Dict[str, f
 def find_slow_fast_input_cov_file(
     problem_id: str, experiment_name: str, prompt_language: str
 ):
+    if experiment_name.endswith("_contract"):
+        experiment_name = experiment_name[:-9]
     cov_dir = (
         Path(config["coverage_hit_count_output_dir"])
         / problem_id

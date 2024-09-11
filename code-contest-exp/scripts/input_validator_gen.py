@@ -301,7 +301,7 @@ def generate_validator(problem_root_dir: Path, problem: Dict, mode: str, max_try
     problem_dir = problem_root_dir / problem_id
     initial_prompt = make_validator_gen_prompt(problem["description"])
     alphacode_input_dir = problem_dir / "input"
-    validator_gen_mode_dir = problem_dir / "validator_gen" / mode
+    validator_gen_mode_dir = problem_dir / config["validator_dir_name"] / mode
 
     conversation = [{"role": "system", "content": "You are a helpful assistant good at coding."}]
     if mode == "direct":
@@ -348,7 +348,7 @@ def main(
         if not generate_validator(problem_root_dir, problem, validator_mode):
             print(f"Failed to generate validator for problem {problem['name'].split('.')[0]}")
         else:
-            status_file = problem_root_dir / problem["name"].split(".")[0] / "validator_gen" / validator_mode / "VAL_GT_INPUT_PASS"
+            status_file = problem_root_dir / problem["name"].split(".")[0] / config["validator_dir_name"] / validator_mode / "VAL_GT_INPUT_PASS"
             status_file.touch()
 
 if __name__ == "__main__":

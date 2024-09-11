@@ -150,6 +150,7 @@ def create_test_generator(
     prompt_template: PromptTemplate,
     prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
     clear_input_dir: bool = True,
+    contract_val_mode: str = None,
 ) -> bool:
     if not config["manual_prompt"]:
         cost = write_test_generator(
@@ -159,6 +160,7 @@ def create_test_generator(
             selected_solution_ids,
             prompt_template=prompt_template,
             prompt_language=prompt_language,
+            contract_val_mode=contract_val_mode,
         )
         print("Cost on API call:", cost)
     else:
@@ -170,7 +172,12 @@ def create_test_generator(
 
     generator_file = experiment_dir / "gen.py"
 
-    if experiment_name in ["evalperf_slow_solution", "evalperf_random_solution"]:
+    if experiment_name in [
+        "evalperf_slow_solution",
+        "evalperf_random_solution",
+        "evalperf_slow_solution_contract",
+        "evalperf_random_solution_contract",
+    ]:
         return run_evalperf_generator(generator_file, experiment_input_dir)
     else:
         return run_generator(generator_file, experiment_input_dir)
@@ -264,7 +271,7 @@ def create_test_generator_with_retry(
     run_tests: bool = True,
     run_tests_language: Literal["python", "cpp", "python3", "java"] = "java",
     check_input_validity: bool = True,
-    validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "self_reflect_feedback",
+    validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = None,
     check_consistency: bool = True, # this flag is useful only when run_tests is True
 ) -> bool:
     problem_id = problem["name"].split(".")[0]
@@ -290,6 +297,7 @@ def create_test_generator_with_retry(
             experiment_input_dir,
             prompt_template,
             prompt_language,
+            contract_val_mode=validator_mode,
         )
 
         if not gen_py_success:

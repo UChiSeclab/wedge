@@ -81,6 +81,7 @@ config = {
     "use_specified_problem": True,
     "coverage_hit_count_output_dir": "cov_hit_count",
     "gen_tests_failing_problem_record": "./results/gen_tests_failing_problems.json",
+    "validator_dir_name": "validator_gen",
 }
 
 # Manual Test

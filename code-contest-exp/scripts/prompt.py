@@ -19,6 +19,10 @@ class PromptTemplate:
             "random_solution",
             "evalperf_slow_solution",
             "evalperf_random_solution",
+            "plain_problem_contract",
+            "evalperf_slow_solution_contract",
+            "evalperf_random_solution_contract",
+            "feedback_diff_input_contract",
         ], f"experiment_name: {experiment_name}"
         self.select_solution_type = self.get_select_solution_type(experiment_name)
         self.fill_input_type = self.get_fill_input_type()
@@ -36,6 +40,7 @@ class PromptTemplate:
             "feedback_diff_solution", # one input, diff solution with coverage
             "feedback_diff_input", # slow fast input, slow solution with coverage
             "diff_solution_one_input", # one input, diff solution (no feedback)
+            "feedback_diff_input_contract",
         ]:
             return "slow_fast"
         elif experiment_name in [
@@ -46,15 +51,18 @@ class PromptTemplate:
         elif experiment_name in [
             "slow_solution", # no input, slow solution
             "evalperf_slow_solution",
+            "evalperf_slow_solution_contract",
         ]:
             return "slow"
         elif experiment_name in [
             "random_solution", # no input, random solution
             "evalperf_random_solution",
+            "evalperf_random_solution_contract",
         ]:
             return "random"
         elif experiment_name in [
             "plain_problem", # no input, no solution
+            "plain_problem_contract",
         ]:
             return "no_solution"
         else:
@@ -67,6 +75,7 @@ class PromptTemplate:
             "diff_solution_one_input",
             "feedback_diff_input",
             "feedback_diff_solution",
+            "feedback_diff_input_contract",
         ]:
             return "slow_fast_solution"
         elif self.experiment_name in [
@@ -79,10 +88,13 @@ class PromptTemplate:
             "random_solution",
             "evalperf_slow_solution",
             "evalperf_random_solution",
+            "evalperf_slow_solution_contract",
+            "evalperf_random_solution_contract",
         ]:
             return "one_solution"
         elif self.experiment_name in [
             "plain_problem",
+            "plain_problem_contract",
         ]:
             return "no_solution"
         else:
@@ -97,6 +109,7 @@ class PromptTemplate:
             return "most_differentiating_input"
         elif self.experiment_name in [
             "feedback_diff_input",
+            "feedback_diff_input_contract",
         ]:
             return "slow_fast_input"
         elif self.experiment_name in [
@@ -111,6 +124,9 @@ class PromptTemplate:
             "random_solution",
             "evalperf_slow_solution",
             "evalperf_random_solution",
+            "plain_problem_contract",
+            "evalperf_slow_solution_contract",
+            "evalperf_random_solution_contract",
         ]:
             return "no_input"
         else:
@@ -127,6 +143,9 @@ class PromptTemplate:
             "diff_solution_one_input",
             "evalperf_slow_solution",
             "evalperf_random_solution",
+            "plain_problem_contract",
+            "evalperf_slow_solution_contract",
+            "evalperf_random_solution_contract",
         ]:
             return "no_feedback"
         elif self.experiment_name in [
@@ -135,6 +154,7 @@ class PromptTemplate:
             return "slow_fast_solution"
         elif self.experiment_name in [
             "feedback_diff_input",
+            "feedback_diff_input_contract",
         ]:
             return "slow_fast_input"
         elif self.experiment_name in [

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Tuple
 from fire import Fire
 import subprocess
 import json
@@ -8,13 +8,13 @@ from config import config
 from utils import filter_problems, get_cf_problems
 
 
-def find_validator_file(validator_dir: Path):
+def find_validator_files(validator_dir: Path) -> Tuple[Path, Path]:
     validator_try_dirs = list(validator_dir.glob("try_*"))
     assert len(validator_try_dirs) > 0, f"No try dirs found in {validator_dir}"
     validator_last_try = sorted(
         validator_try_dirs, key=lambda x: int(x.name.split("_")[-1])
     )[-1]
-    return validator_last_try / "validator.py"
+    return validator_last_try / "validator.py", validator_last_try / "input_shape_constraints.txt"
 
 
 def run_validator(
@@ -27,7 +27,7 @@ def run_validator(
 ) -> Dict[str, str]:
     problem_name = problem["name"].split(".")[0]
     problem_dir = problem_root_dir / str(problem_name)
-    validator_dir = problem_dir / "validator_gen" / validator_mode
+    validator_dir = problem_dir / config["validator_dir_name"] / validator_mode
     if not (validator_dir / "VAL_GT_INPUT_PASS").exists():
         print(f"[Warning] {validator_dir} does not have a good validator. Skipping...")
         return
@@ -40,7 +40,7 @@ def run_validator(
     
     validation_result[experiment_name] = validation_result.get(experiment_name, {})
 
-    validator_file = find_validator_file(validator_dir)
+    validator_file, _ = find_validator_files(validator_dir)
 
     if experiment_name == "alphacode":
         input_dir = problem_dir / "input"

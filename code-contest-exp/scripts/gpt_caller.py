@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import List, Dict
-import requests
 import subprocess
 from evalplus.perf.sampling import post_process as evalplus_post_process
 import openai
@@ -18,6 +17,7 @@ from select_input import (
     select_slow_fast_input,
     select_slow_fast_input_for_multi_solution,
 )
+from input_validator_run import find_validator_files
 
 API_KEY = "sk-proj-agKWhu46RVJSx5PbRea7T3BlbkFJB3jZFl9KGevQ0QC9vatB"
 
@@ -83,6 +83,7 @@ def write_test_generator(
     selected_solution_codes: List[str],  # List of [fast_solution, slow_solution] or [slow_solution_1, slow_solution_2, ...]
     selected_solution_ids: List[str],
     prompt_template: PromptTemplate,
+    contract_val_mode: str = None, # "direct", "resample", "self_reflect", "self_reflect_feedback"
     ill_tests: str = None,
     error: subprocess.CalledProcessError = None,
     prompt_language: str = "java",
@@ -185,6 +186,16 @@ def write_test_generator(
         prompt = fill_multi_slow_solutions_feedback(
             prompt, fast_input_cov_files, slow_input_cov_files
         )
+
+    if contract_val_mode is not None:
+        assert contract_val_mode in ["direct", "resample", "self_reflect", "self_reflect_feedback"]
+        validator_gen_dir = Path(config["problem_root_dir"]) / problem_id / config["validator_dir_name"] / contract_val_mode
+        _, constraint_file = find_validator_files(validator_gen_dir)
+        mid_msg = "-------- Problem ends"
+        assert mid_msg in prompt
+        constraint_instruction = "The below are the input shape and constraints that you need to follow to ensure the validity of generated inputs:"
+        prompt = prompt.replace(mid_msg, f"{mid_msg}\n\n{constraint_instruction}\n{constraint_file.read_text()}\n")
+
 
     gpt_response = request(prompt)
     cost = (
