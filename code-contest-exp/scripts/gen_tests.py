@@ -225,7 +225,7 @@ def check_consistency_of_gen_tests_output(
 
             test_args.append(("consistency_check", correct_solution_file, Language.JAVA, experiment_input_dir, solution_output_dir, time_limit, True, correct_solution_file_names, Path(temp_output_dir)))
 
-        max_workers = max(1, int(0.25 * os.cpu_count()))
+        max_workers = max(1, int(0.5 * os.cpu_count()))
         with Pool(processes=max_workers) as pool:
             if early_stop:
                 pool.starmap(run_solution_early_stop, test_args)
@@ -274,6 +274,7 @@ def create_test_generator_with_retry(
     validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = None,
     check_consistency: bool = True, # this flag is useful only when run_tests is True
 ) -> bool:
+    assert experiment_name != "alphacode"
     problem_id = problem["name"].split(".")[0]
     alphacode_result = get_alphacode_result(problem_id)
     try_cnt = 0

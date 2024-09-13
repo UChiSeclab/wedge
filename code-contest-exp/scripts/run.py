@@ -105,6 +105,7 @@ def run_solution(
     output_dir: Path,
     time_limit: float = 1,
     write_output: bool = False,
+    include_public_private_tests_only: bool = False,
 ) -> Dict:
     """Runs solution on tests.
 
@@ -138,6 +139,9 @@ def run_solution(
         runtime_dict = {}
         wrong_answer_flag = False
         for input_test in os.listdir(input_dir):
+            if include_public_private_tests_only and not \
+                (input_test.startswith("public") or input_test.startswith("private")):
+                continue
             input_path = input_dir / input_test
             output_path = output_dir / f"{input_test[:-3]}.out"
             if not input_path.is_file():
@@ -276,6 +280,7 @@ def main(
     experiment_name: str = config["experiment_name"],
     problem_root_dir: str = config["problem_root_dir"],
     result_root_dir: str = config["result_root_dir"],
+    include_public_private_tests_only: bool = False,
 ):
     """Runs all solutions in the folder."""
     problem_root_dir = Path(problem_root_dir)
@@ -332,6 +337,7 @@ def main(
                         output_dir,
                         time_limit,
                         False,
+                        include_public_private_tests_only,
                     )
                 )
         random.shuffle(test_args)
