@@ -47,7 +47,7 @@ def get_feedback_type(experiment_name: str):
         raise ValueError(f"Unknown experiment name: {experiment_name}")
 
 def collect_coverage_hit_count(
-    solution_file: Path, input_file: Path, Language: Language, output_file: Path
+    solution_file: Path, input_file: Path, Language: Language, output_file: Path, output_report_file: Path = None
 ):
     print("solution_file:", solution_file)
     feedback_script_file = (
@@ -63,9 +63,23 @@ def collect_coverage_hit_count(
         output_dir = Path(work_dir) / "output"
         output_dir.mkdir(parents=True)
         command = f"{feedback_script_file} {solution_file} {input_file} {work_dir} {output_dir}"
-        subprocess.run(command, shell=True, check=True)
+        try:
+            subprocess.run(command, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Error in {command}")
+            print(e)
+            return
         src_with_cov_file = list(output_dir.glob("*.cov"))[0]
         shutil.move(src_with_cov_file, output_file)
+
+        if output_report_file:
+            src_report_file = Path(work_dir) / "cobertura.xml"
+            # only support cpp now
+            assert Language == Language.CPP
+            # cpp: cobertura.xml
+            # java: coverage.xml, xml_report.xml
+            # python: coverage.xml
+            shutil.move(src_report_file, output_report_file)
 
 
 def main(

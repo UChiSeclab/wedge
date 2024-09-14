@@ -23,6 +23,7 @@ config = {
     "coverage_hit_count_output_dir": "cov_hit_count",
     "gen_tests_failing_problem_record": "./results/gen_tests_failing_problems.json",
     "validator_dir_name": "validator_gen",
+    "cov_data_dir": "./results_cov_data",
 }
 
 # Manual Test
