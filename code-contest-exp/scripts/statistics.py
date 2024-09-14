@@ -47,12 +47,12 @@ def get_time_values(problem_statistics: Dict, strategies: List[str]):
 def plot_violin_plot(problem_statistics: Dict, strategies: List[str]):
     # Prepare data for plotting
     avg_time_values, max_time_values, cv_time_values = get_time_values(problem_statistics, strategies)
-    
+
     # Define plot characteristics
     n_groups = len(strategies)
     index = np.arange(n_groups)
     fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, ncols=1, figsize=(15, 15))
-    
+
     # Plot avg time
     ax1.violinplot(avg_time_values.values(), showmeans=True)
     ax1.set_xlabel('Strategy')
@@ -224,7 +224,7 @@ def get_top_k_slow_inputs_over_all_solutions(experiment_data: Dict[str, Dict], t
             continue
         if solution.startswith("incorrect_solutions"):
             continue
-        if not all(verdict == "AC" for verdict in data["verdict"]):
+        if not all(verdict in ["AC", "TLE"] for verdict in data["verdict"]):
             continue
 
         time_dict = data["time_dict"]
@@ -285,14 +285,14 @@ def main(
 
     problem_statistics = (
         {}
-    )  # problem_id -> language -> strategy -> (avg_time, max_time)
+    )  # problem_id -> language -> strategy -> (avg_time, max_time, cv_time)
     experiment_statistics = (
         {}
-    )  # strategy -> problem_id -> language -> (avg_time, max_time)
+    )  # strategy -> problem_id -> language -> (avg_time, max_time, cv_time)
 
     strategies = ["alphacode", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "time_contrast", "plain_problem", "slow_solution", "diff_solution_one_input", "random_solution", "evalperf_slow_solution", "evalperf_random_solution", "plain_problem_contract", "evalperf_slow_solution_contract", "evalperf_random_solution_contract", "feedback_diff_input_contract"]
     for strategy in strategies:  # experiment_name
-        experiment_dir = Path("results") / strategy
+        experiment_dir = Path(config["result_root_dir"]) / strategy
         experiment_statistics[strategy] = {}
         for problem in filtered_problems:
             problem_id = problem["name"].split(".")[0]
@@ -310,7 +310,7 @@ def main(
                     continue
                 if solution.startswith("incorrect_solutions"):
                     continue
-                if not all(verdict == "AC" for verdict in data["verdict"]):
+                if not all(verdict in ["AC", "TLE"] for verdict in data["verdict"]):
                     continue
                 language = data["language"].lower()
                 if language == "python3":
