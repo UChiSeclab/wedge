@@ -25,31 +25,48 @@ cd "$work_dir" || exit
 # the following code snippet is learned from
 # https://github.com/shenxianpeng/gcov-example/blob/master/makefile
 # compile the solution
-CFLAG="-std=c++17 -fPIC -fprofile-arcs -ftest-coverage"
+CFLAG="-std=c++17 -fPIC -fprofile-arcs -ftest-coverage -fpermissive"
 obj_file="${wd_solution_file%.*}.o"
 exec_file="${wd_solution_file%.*}"
 g++ $CFLAG -c $wd_solution_file
 if [ $? -ne 0 ]; then
     echo "Failed to compile the solution with ${CFLAG}"
-    CFLAG="-std=c++14 -fPIC -fprofile-arcs -ftest-coverage"
+    CFLAG="-fPIC -fprofile-arcs -ftest-coverage -fpermissive"
     g++ $CFLAG -c $wd_solution_file
     if [ $? -ne 0 ]; then
         echo "Failed to compile the solution with ${CFLAG}"
-        CFLAG="-std=c++11 -fPIC -fprofile-arcs -ftest-coverage"
+        CFLAG="-std=c++14 -fPIC -fprofile-arcs -ftest-coverage -fpermissive"
         g++ $CFLAG -c $wd_solution_file
         if [ $? -ne 0 ]; then
             echo "Failed to compile the solution with ${CFLAG}"
-            CFLAG="-std=c++11 -O2 -fPIC -fprofile-arcs -ftest-coverage"
+            CFLAG="-std=c++23 -fPIC -fprofile-arcs -ftest-coverage -fpermissive"
             g++ $CFLAG -c $wd_solution_file
             if [ $? -ne 0 ]; then
                 echo "Failed to compile the solution with ${CFLAG}"
-                exit 1
+                CFLAG="-std=c++11 -fPIC -fprofile-arcs -ftest-coverage -fpermissive"
+                g++ $CFLAG -c $wd_solution_file
+                if [ $? -ne 0 ]; then
+                    echo "Failed to compile the solution with ${CFLAG}"
+                    CFLAG="-std=c++11 -O2 -fPIC -fprofile-arcs -ftest-coverage -fpermissive"
+                    g++ $CFLAG -c $wd_solution_file
+                    if [ $? -ne 0 ]; then
+                        echo "Failed to compile the solution with ${CFLAG}"
+                        exit 1
+                    fi
+                fi
             fi
         fi
     fi
 fi
 g++ $CFLAG -o $exec_file $obj_file
-./$exec_file < "$input_file"
+timeout 60 ./$exec_file < "$input_file"
+
+# complain if timeout
+if [ $? -eq 124 ]; then
+    echo "Solution execution timeout"
+    echo "cmd: ./$exec_file < $input_file"
+    exit 1
+fi
 gcov $wd_solution_file
 gcovr --root . --cobertura-pretty --cobertura cobertura.xml
 

@@ -64,7 +64,11 @@ def collect_coverage_hit_count(
         output_dir.mkdir(parents=True)
         command = f"{feedback_script_file} {solution_file} {input_file} {work_dir} {output_dir}"
         try:
-            subprocess.run(command, shell=True, check=True)
+            subprocess.run(command, shell=True, check=True, timeout=90)
+        except subprocess.TimeoutExpired as e:
+            print(f"Timeout in {command}")
+            print(e)
+            return
         except subprocess.CalledProcessError as e:
             print(f"Error in {command}")
             print(e)
