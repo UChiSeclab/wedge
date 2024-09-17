@@ -140,7 +140,7 @@ def run_evalperf_generator(generator_file: Path, experiment_input_dir: Path) -> 
 
     return True
 
-def create_test_generator(
+def create_and_run_test_generator(
     experiment_name: str,
     problem,
     selected_solutions,
@@ -289,7 +289,7 @@ def create_test_generator_with_retry(
         try_cnt += 1
         print(f"[INFO] gen_tests try {try_cnt}th for {problem_id}")
 
-        gen_py_success = create_test_generator(
+        gen_py_success = create_and_run_test_generator(
             experiment_name,
             problem,
             selected_solutions,
@@ -334,6 +334,8 @@ def create_test_generator_with_retry(
                         all(v == "AC" for v in alphacode_result[solution_file_name.split(".")[0]]["verdict"])
                 ]
 
+                assert len(correct_solution_file_names) > 0, "No correct solution file names"
+
                 if check_consistency:
                     inconsistent_input_file_names, solution_major_output_dict = check_consistency_of_gen_tests_output(
                         experiment_input_dir,
@@ -359,6 +361,7 @@ def create_test_generator_with_retry(
 
                 else:
                     for correct_solution_file_name in correct_solution_file_names:
+                        print(f"[INFO] run solution for {correct_solution_file_name}")
                         run_solution(
                             experiment_name,
                             solution_dir / correct_solution_file_name,
@@ -375,7 +378,10 @@ def create_test_generator_with_retry(
                         if len(os.listdir(experiment_output_dir)) >= len(os.listdir(experiment_input_dir)) / 2:
                             break
                         else:
-                            [f.unlink() for f in experiment_output_dir.iterdir()]
+                            for f in experiment_output_dir.iterdir():
+                                if not (experiment_input_dir / f"{f.stem}.in").exists():
+                                    print(f"[Warning] removing output file without input file: {f}")
+                                    f.unlink()
 
                 # remove output files that do not have corresponding input files
                 for f in experiment_output_dir.iterdir():
@@ -385,6 +391,12 @@ def create_test_generator_with_retry(
                 if len(os.listdir(experiment_output_dir)) < len(os.listdir(experiment_input_dir)) / 2:
                     print(f"[Warning] too manys inputs are invalid as so few output is generated for {problem_id} from all solutions, try count: {try_cnt}, outputs: {len(os.listdir(experiment_output_dir))}, inputs: {len(os.listdir(experiment_input_dir))}")
                     [f.unlink() for f in experiment_output_dir.iterdir()]
+                else:
+                    # remove input files that do not have corresponding output files
+                    for f in experiment_input_dir.iterdir():
+                        if not (experiment_output_dir / f"{f.stem}.out").exists():
+                            print(f"[Warning] removing input file without output file: {f}")
+                            f.unlink()
             else:
                 raise NotImplementedError(
                     "Only JAVA is supported for running tests here."

@@ -59,7 +59,7 @@ if [ $? -ne 0 ]; then
     fi
 fi
 g++ $CFLAG -o $exec_file $obj_file
-timeout 60 ./$exec_file < "$input_file"
+timeout 180 ./$exec_file < "$input_file"
 
 # complain if timeout
 if [ $? -eq 124 ]; then

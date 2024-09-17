@@ -11,7 +11,7 @@ config = {
     "problem_root_dir": "./problems",
     "result_root_dir": "./results",
     "prompt_template_root_dir": "./prompt_templates",
-    "max_time_limit": 20,
+    "max_time_limit": 60,
     "experiment_name": "alphacode",  # set it to 'alphacode' to run it on alphacode tests
     "manual_prompt": False,
     "prompt_language": Language.JAVA,

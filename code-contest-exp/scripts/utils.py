@@ -48,6 +48,21 @@ def record_failing_problem(problem_id: str, experiment_name: str, reason: str, t
         json.dump(failing_problems, file, indent=4)
 
 
+def problem_test_gen_failed(problem_id: str, experiment_name: str):
+    gen_tests_failing_problem_record = config["gen_tests_failing_problem_record"]
+    if not os.path.exists(gen_tests_failing_problem_record):
+        return False
+    data = json.load(open(gen_tests_failing_problem_record, "r"))
+    return problem_id in data and experiment_name in data[problem_id]
+
+
+def problem_has_failed_test_gen(problem_id: str):
+    gen_tests_failing_problem_record = config["gen_tests_failing_problem_record"]
+    if not os.path.exists(gen_tests_failing_problem_record):
+        return False
+    data = json.load(open(gen_tests_failing_problem_record, "r"))
+    return problem_id in data
+
 def mean(lst):
     return sum(lst) / len(lst)
 

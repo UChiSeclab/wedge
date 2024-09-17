@@ -1,5 +1,6 @@
 #!/bin/bash
 
+JAVA_FLAGS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:NewRatio=5 -Xms8M -Xmx2048M -Xss64M -DONLINE_JUDGE=true"
 SCRIPTS_DIR=$(dirname $(realpath "${BASH_SOURCE[0]}"))
 source ${SCRIPTS_DIR}/utils.sh
 
@@ -34,7 +35,7 @@ JACOCO_CLI_JAR_PATH=$(realpath ${SCRIPTS_DIR}/../../lib/jacococli.jar)
 java -javaagent:${JACOCO_AGENT_JAR_PATH} "$class_name" < "$input_file"
 
 # generate the Jacoco coverage report
-java -jar ${JACOCO_CLI_JAR_PATH} report jacoco.exec --classfiles ${class_name}.class --classfiles . --xml xml_report.xml --html html_report --sourcefiles .
+java ${JAVA_FLAGS} -jar ${JACOCO_CLI_JAR_PATH} report jacoco.exec --classfiles ${class_name}.class --classfiles . --xml xml_report.xml --html html_report --sourcefiles .
 
 COBERTURA_DIR=${SCRIPTS_DIR}/../../lib/cobertura-2.1.1
 COBERTURA_INSTRUMENT_SH=${COBERTURA_DIR}/cobertura-instrument.sh

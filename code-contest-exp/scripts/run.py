@@ -14,7 +14,7 @@ from typing import List, Dict
 
 from common import Language
 from config import config
-from utils import get_cf_problems, filter_problems
+from utils import get_cf_problems, filter_problems, problem_test_gen_failed
 
 
 def compile_solution(tmp_dir: Path, solution_code: str, language: Language):
@@ -46,7 +46,14 @@ def compile_solution(tmp_dir: Path, solution_code: str, language: Language):
             compile_process = subprocess.run(
                 [
                     "g++",
+                    "-Wall",
+                    "-Wextra",
+                    "-Wconversion",
+                    "-static",
+                    "-DONLINE_JUDGE",
+                    "-Wl,--stack=268435456",
                     f"-std={cpp_version}",
+                    "-lstdc++exp",
                     "-O2",
                     file_path,
                     "-o",
@@ -154,7 +161,12 @@ def run_solution(
                         if language == Language.JAVA:
                             command = [
                                 "java",
-                                "-Xmx2048m",
+                                "-XX:+UseSerialGC",
+                                "-XX:TieredStopAtLevel=1",
+                                "-XX:NewRatio=5",
+                                "-Xms8M",
+                                "-Xmx2048M",
+                                "-Xss64M",
                                 "-DONLINE_JUDGE=true",
                                 "-cp",
                                 tmp_dir,
@@ -199,7 +211,6 @@ def run_solution(
                                     with open(output_path, "r", encoding="utf-8") as file:
                                         gt_output = file.read().split()
                                     if not check_same_output(gt_output, program_output):
-                                        """
                                         print(
                                             "[WA]",
                                             gt_output[:100],
@@ -207,13 +218,12 @@ def run_solution(
                                             program_output[:100],
                                             "..." if len(program_output) > 100 else ""
                                         )
-                                        """
                                         wrong_answer_flag = True
                             except UnicodeError:
-                                # print("[WA]", "Unicode Error")
+                                print("[WA]", "Unicode Error")
                                 wrong_answer_flag = True
                         else:
-                            # print("[WA]", "no output", solution_path, input_test, run_process.stderr.decode("utf-8"))
+                            print("[WA]", "no output", solution_path, input_test, run_process.stderr.decode("utf-8"))
                             wrong_answer_flag = True
                             if write_output:
                                 with open(output_path, "w", encoding="utf-8") as file:
@@ -268,13 +278,6 @@ def input_sanitization(input_dir: Path, output_dir: Path):
         print(f"[WARNING] Removing invalid input file: {invalid_input_file}")
         os.remove(input_dir / invalid_input_file)
 
-
-def problem_test_gen_failed(problem_id: str, experiment_name: str):
-    gen_tests_failing_problem_record = config["gen_tests_failing_problem_record"]
-    if not os.path.exists(gen_tests_failing_problem_record):
-        return False
-    data = json.load(open(gen_tests_failing_problem_record, "r"))
-    return problem_id in data and experiment_name in data[problem_id]
 
 def main(
     experiment_name: str = config["experiment_name"],
