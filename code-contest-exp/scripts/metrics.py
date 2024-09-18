@@ -8,11 +8,11 @@ def run_command(cmd: list[str], cwd: str):
   Run a command in a subprocess and display the output in real-time.
 
   Arguments:
-   cmd (list): The command to run.
-   cwd (str): The working directory.
+    cmd (list): The command to run.
+    cwd (str): The working directory.
 
   Returns:
-   CompletedProcess: The result of the command execution.
+    CompletedProcess: The result of the command execution.
   """
   print(f"Running command: {' '.join(cmd)}")
   process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -22,6 +22,8 @@ def run_command(cmd: list[str], cwd: str):
 
   try:
     for stdout_line in iter(process.stdout.readline, ""):
+      if stdout_line == '' and process.poll() is not None:
+        break
       stdout_lines.append(stdout_line)
       print(stdout_line, end="")
 
@@ -36,15 +38,46 @@ def run_command(cmd: list[str], cwd: str):
     process.kill()
     raise e
 
+def compile_source(source_file: str, compiler_flags: list[str], cwd: str):
+  """
+  Compile the source code using the appropriate compiler (e.g., gcc, java, etc.) 
+  based on the file extension.
+
+  Arguments:
+    source_file (str): The source file name.
+    cwd (str): The working directory.
+
+  Returns:
+    str: The name of the compiled binary.
+  """
+  base_name, extension = os.path.splitext(source_file)
+
+  if extension == '.c':
+    compiler = 'gcc'
+  elif extension == '.cpp':
+    compiler = 'g++'
+  else:
+    raise ValueError('Unsupported source file extension. Please provide a .c or .cpp file.')
+
+  binary_name = base_name
+  compile_cmd = [compiler] + compiler_flags + [binary_name, source_file]
+
+  print(f"\nCompiling {source_file} with {compiler}...")
+  result = run_command(compile_cmd, cwd)
+  if result.returncode != 0:
+    raise RuntimeError(f"Compilation failed:\n{result.stderr}")
+
+  return binary_name
+
 def extract_running_time(stderr_output: str):
   """
   Extract the end-to-end running time from perf stat output.
 
   Arguments:
-   stderr_output (str): The stderr output from the perf stat command.
+    stderr_output (str): The stderr output from the perf stat command.
 
   Returns:
-   float or None: The elapsed time in seconds, or None if not found.
+    float or None: The elapsed time in seconds, or None if not found.
   """
   match = re.search(r'^\s*([\d\.]+)\s+seconds time elapsed', stderr_output, re.MULTILINE)
   if match:
@@ -58,10 +91,10 @@ def extract_instructions(stderr_output: str):
   Extract the number of instructions executed from perf stat output.
 
   Arguments:
-   stderr_output (str): The stderr output from the perf stat command.
+    stderr_output (str): The stderr output from the perf stat command.
 
   Returns:
-   int or None: The number of instructions executed, or None if not found.
+    int or None: The number of instructions executed, or None if not found.
   """
   match = re.search(r'^\s*([\d,]+)\s+instructions', stderr_output, re.MULTILINE)
   if match:
@@ -75,10 +108,10 @@ def extract_peak_heap_massif(massif_out_file: str):
   Extract the peak heap memory allocated from massif output file.
 
   Arguments:
-   massif_out_file (str): The filename of the massif output.
+    massif_out_file (str): The filename of the massif output.
 
   Returns:
-   int: The peak heap memory usage in bytes.
+    int: The peak heap memory usage in bytes.
   """
   with open(massif_out_file, 'r') as f:
     lines = f.readlines()
@@ -99,7 +132,7 @@ def extract_peak_heap_massif(massif_out_file: str):
     elif '=' in line:
       key, value = line.split('=')
       snapshot[key.strip()] = value.strip()
-  
+
   if snapshot:
     if 'mem_heap_B' in snapshot:
       mem_heap = int(snapshot['mem_heap_B'])
@@ -107,47 +140,40 @@ def extract_peak_heap_massif(massif_out_file: str):
         peak_heap = mem_heap
   return peak_heap
 
-def compile_source(source_file: str, cwd: str):
+def extract_coverage_percentages(source_file: str, cwd: str):
   """
-  Compile the source code using gcc or g++ based on the file extension.
+  Run gcov on the source file and extract line and branch coverage percentages.
 
   Arguments:
-   source_file (str): The source file name.
-   cwd (str): The working directory.
+    source_file (str): The source file name.
+    cwd (str): The working directory.
 
   Returns:
-   str: The name of the compiled binary.
-
-  Raises:
-   RuntimeError: If the compilation fails.
+    Tuple[float, float]: A tuple containing (line_coverage_percent, branch_coverage_percent)
   """
-  base_name, extension = os.path.splitext(source_file)
-  if extension == '.c':
-    compiler = 'gcc'
-  elif extension == '.cpp':
-    compiler = 'g++'
-  else:
-    raise ValueError('Unsupported source file extension. Please provide a .c or .cpp file.')
+  # Run gcov with -b option
+  cmd = ['gcov', '-b', source_file]
+  result = run_command(cmd, cwd)
+  output = result.stdout
 
-  binary_name = base_name + '.o'
-  compile_cmd = [compiler, '-g', '-o', binary_name, source_file]
+  # Extract percentages using regular expressions
+  lines_executed = re.search(r'Lines executed:([0-9\.]+)%', output)
+  branches_executed = re.search(r'Branches executed:([0-9\.]+)%', output)
 
-  print(f"\nCompiling {source_file} with {compiler}...")
-  result = run_command(compile_cmd, cwd)
-  if result.returncode != 0:
-    raise RuntimeError(f"Compilation failed:\n{result.stderr}")
+  lines_percent = float(lines_executed.group(1)) if lines_executed else None
+  branches_percent = float(branches_executed.group(1)) if branches_executed else None
 
-  return binary_name
-
+  return lines_percent, branches_percent
 
 def main():
   """
-  Main function to execute performance measurements on a given binary.
+  This script compiles the source code with debug and coverage flags, runs performance measurements,
+  measures peak heap memory usage, and calculates code coverage percentages.
 
-  Ussage:
-  
-    python3 metrics.py --dir /home/xyz/example/ --binary myprog.c --binary_args /home/xyz/example/input.txt
-  
+  Usage:
+
+    python3 metrics.py --dir /home/xyz/example/ --source heapsort.c --source_args /home/xyz/example/input.txt
+
   """
   parser = argparse.ArgumentParser(description='Compile source code and measure performance metrics.')
   parser.add_argument('--dir', default='.', help='Working directory of the program')
@@ -156,12 +182,12 @@ def main():
   args = parser.parse_args()
 
   cwd = args.dir
-  source_base = args.source
+  source_file = args.source
   source_args = args.source_args if args.source_args else []
 
-  # Compile the source code
+  # Compile the source code with debug flags
   try:
-    binary_name = compile_source(source_base, cwd)
+    binary_name = compile_source(source_file, ["-g", "-o"], cwd)
   except Exception as e:
     print(f"Error: {e}")
     return
@@ -190,7 +216,7 @@ def main():
   else:
     print("Could not extract instruction count.")
 
-  # Compute peak memory usage with Valgrind
+  # Measure Peak Heap Memory Usage with Valgrind
   massif_out_file = os.path.join(cwd, 'massif.out')
   if os.path.exists(massif_out_file):
     os.remove(massif_out_file)
@@ -200,6 +226,38 @@ def main():
   result_massif = run_command(cmd_heap_usage, cwd)
   peak_heap = extract_peak_heap_massif(massif_out_file)
   print(f"Peak Heap Memory Usage: {peak_heap} bytes")
+
+  # Compile the source code with gcog code coverage flags
+  try:
+    binary_name = compile_source(source_file, ['-g', '-fprofile-arcs', '-ftest-coverage', '-o'], cwd)
+  except Exception as e:
+    print(f"Error: {e}")
+    return
+
+  binary_path = os.path.join(cwd, binary_name)
+  if not os.path.exists(binary_path):
+    print(f"Compiled binary not found: {binary_path}")
+    return
+
+  # Run the program to generate coverage data
+  print("\nRunning the program to generate coverage data...")
+  cmd_run_program = [f'./{binary_name}'] + source_args
+  result_run_program = run_command(cmd_run_program, cwd)
+
+  # Measure code coverage with gcov
+  print("Measuring code coverage with gcov...")
+  try:
+    line_coverage, branch_coverage = extract_coverage_percentages(source_file, cwd)
+    if line_coverage is not None:
+      print(f"Line Coverage: {line_coverage}%")
+    else:
+      print("Could not extract line coverage.")
+    if branch_coverage is not None:
+      print(f"Branch Coverage: {branch_coverage}%")
+    else:
+      print("Could not extract branch coverage.")
+  except Exception as e:
+    print(f"Error during coverage measurement: {e}")
 
 if __name__ == '__main__':
   main()
