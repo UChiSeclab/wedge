@@ -146,7 +146,7 @@ def main():
 
   Ussage:
   
-    python3 metrics.py --dir /home/xyz/example/ --binary ./heapsort --binary_args /home/xyz/example/input.txt
+    python3 metrics.py --dir /home/xyz/example/ --binary myprog.c --binary_args /home/xyz/example/input.txt
   
   """
   parser = argparse.ArgumentParser(description='Compile source code and measure performance metrics.')
