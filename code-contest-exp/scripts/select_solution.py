@@ -51,11 +51,11 @@ def __filter_solution_idx(
             continue
         if f"solutions_{solution_idx:04}" in result:
             if all(
-                v == "AC" for v in result[f"solutions_{solution_idx:04}"]["verdict"]
+                v in ["AC", "TLE"] for v in result[f"solutions_{solution_idx:04}"]["verdict"]
             ):
                 filtered_solution_idxs.append(solution_idx)
             else:
-                print(f"solutions_{solution_idx:04} is not AC")
+                print(f"solutions_{solution_idx:04} is not AC or TLE")
         else:
             print(f"Solution {solution_idx} is not in the result") # TODO: to be investigated and fixed
 

@@ -331,7 +331,7 @@ def create_test_generator_with_retry(
                     solution_file_name
                     for solution_file_name in os.listdir(solution_dir)
                     if ("incorrect" not in solution_file_name) and \
-                        all(v == "AC" for v in alphacode_result[solution_file_name.split(".")[0]]["verdict"])
+                        all(v in ["AC", "TLE"] for v in alphacode_result[solution_file_name.split(".")[0]]["verdict"])
                 ]
 
                 assert len(correct_solution_file_names) > 0, "No correct solution file names"

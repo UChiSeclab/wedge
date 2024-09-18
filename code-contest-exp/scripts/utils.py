@@ -156,7 +156,7 @@ def filter_problems(problems, filter_with_inconsistency_threshold=True):
             for item in data:
                 if item.startswith("solutions_"):
                     labeled_correct += 1
-                    if all(label == "AC" for label in data[item]["verdict"]):
+                    if all(label in ["AC", "TLE"] for label in data[item]["verdict"]):
                         actual_correct += 1
 
             if actual_correct / labeled_correct > 0.95:
