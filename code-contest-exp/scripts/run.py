@@ -11,6 +11,7 @@ from fire import Fire
 from tqdm import tqdm
 import tempdir
 from typing import List, Dict
+import sys
 
 from common import Language
 from config import config
@@ -94,10 +95,11 @@ def check_same_output(output_A: List[str], output_B: List[str]):
             pass
 
         try:
-            Ai = float(Ai)
-            Bi = float(Bi)
-            if abs(Ai - Bi) > 1e-5:
-                return False
+            if int(Ai) < sys.float_info.max and int(Bi) < sys.float_info.max:
+                Ai = float(Ai)
+                Bi = float(Bi)
+                if abs(Ai - Bi) > 1e-5:
+                    return False
         except ValueError:
             if Ai != Bi:
                 return False
