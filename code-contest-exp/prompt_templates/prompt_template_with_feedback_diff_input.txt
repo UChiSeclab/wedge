@@ -59,5 +59,6 @@ Phase 4: Implement Test Generator
     The script should:
         -- Follow the input format specified in the problem statement.
         -- Maximize stress on the programs to make those inefficient programs get TLE or MLE.
+        -- Avoid using random generator with a large range of values when generating the size input (e.g., length of array, etc.), e.g., random.randint(1, 10000) (say 10000 is the upper bound), as it may not stress the program enough. Instead, use values that are more likely to cause inefficiencies, for example, values closer to the upper bound, like 10000, 9999, 9990 or random.randint(9900, 10000), etc. But for numbers that are not the size of the input, you may want to generate random values to improve the input diversity and cover different patterns.
         -- The test generator should generate a total of <number_of_tests> test cases.
         -- Read an argument that specifies a directory and write all test cases as 'test_01.in', 'test_02.in', etc., into the directory. E.g., executing `python gen.py <output_directory>` will produce 'test_01.in', 'test_02.in', etc., in the <output_directory> directory.
