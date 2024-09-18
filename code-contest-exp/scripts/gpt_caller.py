@@ -83,7 +83,7 @@ def write_test_generator(
     selected_solution_codes: List[str],  # List of [fast_solution, slow_solution] or [slow_solution_1, slow_solution_2, ...]
     selected_solution_ids: List[str],
     prompt_template: PromptTemplate,
-    contract_val_mode: str = None, # "direct", "resample", "self_reflect", "self_reflect_feedback"
+    insert_contract_val_mode: str = None, # "direct", "resample", "self_reflect", "self_reflect_feedback"
     ill_tests: str = None,
     error: subprocess.CalledProcessError = None,
     prompt_language: str = "java",
@@ -187,9 +187,9 @@ def write_test_generator(
             prompt, fast_input_cov_files, slow_input_cov_files
         )
 
-    if contract_val_mode is not None:
-        assert contract_val_mode in ["direct", "resample", "self_reflect", "self_reflect_feedback"]
-        validator_gen_dir = Path(config["problem_root_dir"]) / problem_id / config["validator_dir_name"] / contract_val_mode
+    if insert_contract_val_mode is not None:
+        assert insert_contract_val_mode in ["direct", "resample", "self_reflect", "self_reflect_feedback"]
+        validator_gen_dir = Path(config["problem_root_dir"]) / problem_id / config["validator_dir_name"] / insert_contract_val_mode
         _, constraint_file = find_validator_files(validator_gen_dir)
         mid_msg = "-------- Problem ends"
         assert mid_msg in prompt

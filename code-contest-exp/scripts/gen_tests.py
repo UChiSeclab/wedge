@@ -150,7 +150,7 @@ def create_and_run_test_generator(
     prompt_template: PromptTemplate,
     prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
     clear_input_dir: bool = True,
-    contract_val_mode: str = None,
+    insert_contract_val_mode: str = None,
 ) -> bool:
     if not config["manual_prompt"]:
         cost = write_test_generator(
@@ -160,7 +160,7 @@ def create_and_run_test_generator(
             selected_solution_ids,
             prompt_template=prompt_template,
             prompt_language=prompt_language,
-            contract_val_mode=contract_val_mode,
+            insert_contract_val_mode=insert_contract_val_mode,
         )
         print("Cost on API call:", cost)
     else:
@@ -271,7 +271,8 @@ def create_test_generator_with_retry(
     run_tests: bool = True,
     run_tests_language: Literal["python", "cpp", "python3", "java"] = "java",
     check_input_validity: bool = True,
-    validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = None,
+    validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "self_reflect_feedback",
+    insert_validator_contract: bool = False,
     check_consistency: bool = True, # this flag is useful only when run_tests is True
 ) -> bool:
     assert experiment_name != "alphacode"
@@ -298,7 +299,7 @@ def create_test_generator_with_retry(
             experiment_input_dir,
             prompt_template,
             prompt_language,
-            contract_val_mode=validator_mode,
+            insert_contract_val_mode=validator_mode if insert_validator_contract else None,
         )
 
         if not gen_py_success:
@@ -314,6 +315,10 @@ def create_test_generator_with_retry(
                 skip_alphacode_generated_tests=True,
                 update_validation_result_file=False,
             )
+            if validation_result is None:
+                print(f"[Error] no available validator for {problem_id}")
+                record_failing_problem(problem_id, experiment_name, "No available validator")
+                return False
             # remove invalid inputs
             for input_file_name in validation_result:
                 if validation_result[input_file_name] != "PASS":
@@ -334,7 +339,10 @@ def create_test_generator_with_retry(
                         all(v in ["AC", "TLE"] for v in alphacode_result[solution_file_name.split(".")[0]]["verdict"])
                 ]
 
-                assert len(correct_solution_file_names) > 0, "No correct solution file names"
+                if len(correct_solution_file_names) == 0:
+                    print(f"[Error] no correct solution found for {problem_id}")
+                    record_failing_problem(problem_id, experiment_name, "No correct solution found")
+                    return False
 
                 if check_consistency:
                     inconsistent_input_file_names, solution_major_output_dict = check_consistency_of_gen_tests_output(

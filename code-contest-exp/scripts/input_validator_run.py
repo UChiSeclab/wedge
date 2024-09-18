@@ -30,7 +30,7 @@ def run_validator(
     validator_dir = problem_dir / config["validator_dir_name"] / validator_mode
     if not (validator_dir / "VAL_GT_INPUT_PASS").exists():
         print(f"[Warning] {validator_dir} does not have a good validator. Skipping...")
-        return
+        return None
     validation_result_file = validator_dir / "validation_result.json"
     if update_validation_result_file and validation_result_file.exists():
         with open(validation_result_file, "r") as f:

@@ -38,7 +38,7 @@ def sample_inputs(generator_file: Path) -> Tuple[List[str], List[int], bool]:
 
             # integers should stay in the range of 64-bit
             if any(
-                arg.isdigit() and not (-(2**63) <= int(arg) < 2**63)
+                arg.isdigit() and (len(arg) > 4300 or not (-(2**63) <= int(arg) < 2**63))
                 for arg in gen_input.split()
             ):
                 print(f"[INPUT GEN] Int overflow against 64bit")

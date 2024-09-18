@@ -39,6 +39,11 @@ def record_failing_problem(problem_id: str, experiment_name: str, reason: str, t
         with open(failing_problems_path, "r") as file:
             failing_problems = json.load(file)
     failing_problems[problem_id] = failing_problems.get(problem_id, {})
+
+    # Skip if the experiment_name is already in the record
+    if experiment_name in failing_problems[problem_id]:
+        return
+
     failing_problems[problem_id][experiment_name] = {
         "reason": reason,
         "try_cnt": try_cnt,
