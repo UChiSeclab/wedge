@@ -2,8 +2,9 @@ import subprocess
 import re
 import os
 import argparse
+from pathlib import Path
 
-def run_command(cmd: list[str], cwd: str):
+def run_command(cmd: list[str], cwd: str, input_file=None):
   """
   Run a command in a subprocess and display the output in real-time.
 
@@ -14,8 +15,12 @@ def run_command(cmd: list[str], cwd: str):
   Returns:
     CompletedProcess: The result of the command execution.
   """
-  print(f"Running command: {' '.join(cmd)}")
-  process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+  print(f"Running command: {' '.join(cmd)}, input_file: {input_file}")
+  if input_file:
+    with open(input_file) as f:
+      process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, stdin=f)
+  else:
+    process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
   stdout_lines = []
   stderr_lines = []
@@ -103,7 +108,7 @@ def extract_instructions(stderr_output: str):
   else:
     return None
 
-def extract_peak_heap_massif(massif_out_file: str):
+def extract_peak_heap_massif(massif_out_file: Path):
   """
   Extract the peak heap memory allocated from massif output file.
 
@@ -153,6 +158,8 @@ def extract_coverage_percentages(source_file: str, cwd: str):
   """
   cmd = ['gcov', '-b', source_file]
   result = run_command(cmd, cwd)
+  print("coverage output:")
+  print(result.stdout)
   output = result.stdout
 
   lines_executed = re.search(r'Lines executed:([0-9\.]+)%', output)
@@ -177,11 +184,13 @@ def main():
   parser.add_argument('--dir', default='.', help='Working directory of the program')
   parser.add_argument('--source', required=True, help='The name of the target source code file')
   parser.add_argument('--source_args', nargs=argparse.REMAINDER, help='Arguments for the target')
+  parser.add_argument('--input', required=True, help='Input file')
   args = parser.parse_args()
 
   cwd = args.dir
   source_file = args.source
   source_args = args.source_args if args.source_args else []
+  input_file = args.input
 
   # Compile the source code with debug flags
   try:
@@ -199,7 +208,10 @@ def main():
   binary_cmd = [f'./{binary_name}'] + source_args
   cmd_perf = ['perf', 'stat', '-e', 'instructions', '--'] + binary_cmd
   print("\nMeasuring performance metrics...")
-  result_perf = run_command(cmd_perf, cwd)
+  result_perf = run_command(cmd_perf, cwd, input_file=input_file)
+  print("perf output:")
+  print(result_perf.stdout)
+  print(result_perf.stderr)
 
   time_elapsed = extract_running_time(result_perf.stderr)
   instructions = extract_instructions(result_perf.stderr)
@@ -215,13 +227,13 @@ def main():
     print("Could not extract instruction count.")
 
   # Measure Peak Heap Memory Usage with Valgrind
-  massif_out_file = os.path.join(cwd, 'massif.out')
-  if os.path.exists(massif_out_file):
+  massif_out_file = Path(cwd) / "massif.out"
+  if massif_out_file.is_file():
     os.remove(massif_out_file)
 
-  cmd_heap_usage = ['valgrind', '--tool=massif', f'--massif-out-file={massif_out_file}'] + binary_cmd
+  cmd_heap_usage = ['valgrind', '--tool=massif', f'--massif-out-file={massif_out_file.name}'] + binary_cmd
   print("Measuring Peak Heap Memory Usage...")
-  result_massif = run_command(cmd_heap_usage, cwd)
+  result_massif = run_command(cmd_heap_usage, cwd, input_file=input_file)
   peak_heap = extract_peak_heap_massif(massif_out_file)
   print(f"Peak Heap Memory Usage: {peak_heap} bytes")
 
@@ -240,7 +252,7 @@ def main():
   # Run the program to generate coverage data
   print("\nRunning the program to generate coverage data...")
   cmd_run_program = [f'./{binary_name}'] + source_args
-  result_run_program = run_command(cmd_run_program, cwd)
+  result_run_program = run_command(cmd_run_program, cwd, input_file=input_file)
 
   # Measure code coverage with gcov
   print("Measuring code coverage with gcov...")
