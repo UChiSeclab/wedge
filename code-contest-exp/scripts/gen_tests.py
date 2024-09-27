@@ -153,16 +153,20 @@ def create_and_run_test_generator(
     insert_contract_val_mode: str = None,
 ) -> bool:
     if not config["manual_prompt"]:
-        cost = write_test_generator(
-            experiment_dir,
-            problem,
-            selected_solutions,
-            selected_solution_ids,
-            prompt_template=prompt_template,
-            prompt_language=prompt_language,
-            insert_contract_val_mode=insert_contract_val_mode,
-        )
-        print("Cost on API call:", cost)
+        try:
+            cost = write_test_generator(
+                experiment_dir,
+                problem,
+                selected_solutions,
+                selected_solution_ids,
+                prompt_template=prompt_template,
+                prompt_language=prompt_language,
+                insert_contract_val_mode=insert_contract_val_mode,
+            )
+            print("Cost on API call:", cost)
+        except Exception as e:
+            print("Error during writing test generator:", e)
+            return False
     else:
         print("Write file into", experiment_dir / "gen.py")
         input("Press Enter to continue...")
@@ -282,6 +286,7 @@ def create_test_generator_with_retry(
     experiment_output_dir = experiment_dir / "output"
     experiment_output_dir.mkdir(exist_ok=True, parents=True)
     run_time_limit = problem["time_limit"]["seconds"] + problem["time_limit"]["nanos"] / 10**9
+    num_gen_tests = len(os.listdir(experiment_input_dir))
     while try_cnt < max_retry and \
         (len(os.listdir(experiment_input_dir)) < config["num_tests"] / 2 or \
             (run_tests and \
@@ -306,6 +311,7 @@ def create_test_generator_with_retry(
             print(f"[Error] gen_tests failed to generate tests for {problem_id}, try count: {try_cnt}")
             continue
 
+        num_gen_tests = len(os.listdir(experiment_input_dir))
         if check_input_validity:
             validation_result = run_validator(
                 experiment_name,
@@ -411,7 +417,7 @@ def create_test_generator_with_retry(
                 )
 
     return (len(os.listdir(experiment_input_dir)) >= config["num_tests"] / 2 and \
-        (not run_tests or len(os.listdir(experiment_output_dir)) >= len(os.listdir(experiment_input_dir)) / 2))
+        (not run_tests or len(os.listdir(experiment_output_dir)) >= num_gen_tests / 2))
 
 def main(
     experiment_name: str = config["experiment_name"],
