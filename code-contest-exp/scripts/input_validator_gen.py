@@ -89,7 +89,7 @@ if __name__ == "__main__":
 '''
 
     prompt = f'''\
-You are an AI programming assistant, proficient in Python. You will be given a problem statement of a programming task. The problem statement contains the description of the task and could contain some example inputs that are going to be fed to the solutions submitted by users. Your task is to read the problem statement, extract the constraints on the input (possibly also learn from the example inputs), and write a Python script that can validate whether a given input strictly follows the constraints. Note that 10000(10^5) is usally written as 105, 100000(10^6) is usually written as 106, etc. Specifically, the script should contain a number of assertion statements along with necessary helper functions. The script should takes an input from the input argument and successfully validate it if it follows the constraints. The script should print "VALID" if the input is valid, and raise an AssertionError with a readable error message if the input is invalid.
+You are an AI programming assistant, proficient in Python. You will be given a problem statement of a programming task. The problem statement contains the description of the task and could contain some example inputs that are going to be fed to the solutions submitted by users. Your task is to read the problem statement, extract the constraints on the input (possibly also learn from the example inputs), and write a Python script that can validate whether a given input strictly follows the constraints. Note that 10000(10^5) is usually written as 105, 100000(10^6) is usually written as 106, etc. Specifically, the script should contain a number of assertion statements along with necessary helper functions. The script should takes an input from the input argument and successfully validate it if it follows the constraints. The script should print "VALID" if the input is valid, and raise an AssertionError with a readable error message if the input is invalid.
 
 In summary, you need to 1) read the problem statement, 2) extract the constraints, 3) write a Python script that can validate the input. The script works by reading the input from the standard input, e.g., `python validator.py <input_file_path>` and print "VALID" if the input is valid, and raise an AssertionError with a readable error message if the input is invalid.
 
@@ -98,7 +98,7 @@ Note that for extracting the constraints, you must follow the format in the exam
 Example of generating a validator script:
 
 ### Instruction:
-Generation a `validator.py` script for the following problem statement:
+Generate a `validator.py` script for the following problem statement:
 
 In the popular spreadsheets systems (for example, in Excel) the following numeration of columns is used. The first column has number A, the second — number B, etc. till column 26 that is marked by Z. Then there are two-letter numbers: column 27 has number AA, 28 — AB, column 52 is marked by AZ. After ZZ there follow three-letter numbers, etc.
 

@@ -74,7 +74,7 @@ Based on the above information, you will:
 Implement Test Generator
     Write a Python script to generate the test described in the previous phase.
     The script should:
-        -- Follow the input format specified in the problem statement.
+        -- Follow the input format specified in the problem statement. Note that 10000(10^5) is usually written as 105, 100000(10^6) is usually written as 106, etc.
         -- Accept only one input argument "scale" from users, e.g., `python gen.py <scale>` to generate a large input, where scale is an int. E.g., 
 ```python
 # implementation of the perf_input_gen function and other necessary functions
