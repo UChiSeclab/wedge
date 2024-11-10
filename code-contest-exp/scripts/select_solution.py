@@ -110,6 +110,28 @@ def select_solutions(
         slow_solution_idx = filtered_solution_idxs[-1]
         selected_solutions = [problem["solutions"]["solution"][slow_solution_idx]]
         selected_solution_idxs = [slow_solution_idx]
+    
+    elif solution_selection_type == "multi_fast":
+        # select top k fast solutions
+        assert top_k is not None and top_k > 1, f"top_k: {top_k}"
+        # assert len(filtered_solution_idxs) >= top_k, f"len(filtered_solution_idxs): {len(filtered_solution_idxs)}"
+        filtered_solution_idxs.sort(
+            key=lambda idx: mean(alphacode_result[f"solutions_{idx:04}"]["average_time"])
+        )
+        selected_solution_idxs = filtered_solution_idxs[:top_k]
+        selected_solutions = [
+            problem["solutions"]["solution"][idx] for idx in selected_solution_idxs
+        ]
+
+    elif solution_selection_type == "fast":
+        if len(filtered_solution_idxs) < 1:
+            return None, None
+        filtered_solution_idxs.sort(
+            key=lambda idx: mean(alphacode_result[f"solutions_{idx:04}"]["average_time"])
+        )
+        fast_solution_idx = filtered_solution_idxs[0]
+        selected_solutions = [problem["solutions"]["solution"][fast_solution_idx]]
+        selected_solution_idxs = [fast_solution_idx]
 
     elif solution_selection_type == "random":
         if len(filtered_solution_idxs) < 1:
