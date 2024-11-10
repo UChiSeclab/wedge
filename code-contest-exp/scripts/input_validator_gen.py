@@ -231,15 +231,15 @@ def validate_validator(validator_file: Path, input_dir: Path, skip_generated_tes
 
 def prompt_and_dump_results(
     initial_prompt:str,
-    validator_gen_dir: Path,
+    validator_gen_mode_dir: Path,
     input_dir: Path,
     problem_id: str,
     try_cnt: int,
-    msg_list:List[Dict],
-    mode:str=None,
-    feedback_msg:Optional[str]=None
+    msg_list: List[Dict],
+    mode: str=None,
+    feedback_msg: Optional[str]=None,
 ) -> Tuple[bool, List[Tuple[Path, str]]]:
-    validator_gen_try_cnt_dir = validator_gen_dir / f"try_{try_cnt}"
+    validator_gen_try_cnt_dir = validator_gen_mode_dir / f"try_{try_cnt}"
     validator_gen_try_cnt_dir.mkdir(parents=True, exist_ok=True)
     ori_msg_list = msg_list[:]
     try:
@@ -266,7 +266,7 @@ def prompt_and_dump_results(
 
         shape_of_input, constraints = extract_shape_of_input_and_constraints(gpt_response)
     except Exception as e:
-        print(f"Failed to generate validator for problem {problem_id}: {e}")
+        print(f"Failed to generate validator for problem {problem_id} in try {try_cnt}: {e}")
         return False, []
     
     msg_list.append({"role": "assistant", "content": gpt_response})
@@ -307,7 +307,7 @@ def generate_validator(problem_root_dir: Path, problem: Dict, mode: str, max_try
     if mode == "direct":
         success, _ = prompt_and_dump_results(initial_prompt, validator_gen_mode_dir, alphacode_input_dir, problem_id, 0, conversation, mode)
         if not success:
-            print(f"[Warning] [{mode}] Failed to generate validator for problem {problem_id}")
+            print(f"[Warning] [{mode}] failed to generate validator for problem {problem_id}")
             # we might want to delete the directory
             return False
     elif mode in ["resample", "self_reflect"]:
@@ -317,7 +317,7 @@ def generate_validator(problem_root_dir: Path, problem: Dict, mode: str, max_try
                 break
             else:
                 if i == max_try - 1:
-                    print(f"[Warning] [{mode}] Failed to generate validator for problem {problem_id} after {max_try} tries")
+                    print(f"[Warning] [{mode}] failed to generate validator for problem {problem_id} after {max_try} tries")
                     return False
     elif mode == "self_reflect_feedback":
         feedback_msg = None
@@ -330,7 +330,7 @@ def generate_validator(problem_root_dir: Path, problem: Dict, mode: str, max_try
                 break
             else:
                 if i == max_try - 1:
-                    print(f"[Warning] [{mode}] Failed to generate validator for problem {problem_id} after {max_try} tries")
+                    print(f"[Warning] [{mode}] failed to generate validator for problem {problem_id} after {max_try} tries")
                     return False
 
     return True
@@ -345,10 +345,11 @@ def main(
     )
     
     for problem in tqdm(filtered_problems):
+        problem_id = problem["name"].split(".")[0]
         if not generate_validator(problem_root_dir, problem, validator_mode):
-            print(f"Failed to generate validator for problem {problem['name'].split('.')[0]}")
+            print(f"Failed to generate validator for problem {problem_id}")
         else:
-            status_file = problem_root_dir / problem["name"].split(".")[0] / config["validator_dir_name"] / validator_mode / "VAL_GT_INPUT_PASS"
+            status_file = problem_root_dir / problem_id / config["validator_dir_name"] / validator_mode / "VAL_GT_INPUT_PASS"
             status_file.touch()
 
 if __name__ == "__main__":
