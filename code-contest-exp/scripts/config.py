@@ -24,6 +24,12 @@ config = {
     "gen_tests_failing_problem_record": "./results/gen_tests_failing_problems.json",
     "validator_dir_name": "validator_gen",
     "cov_data_dir": "./results_cov_data",
+    "product_cov_data_dir": "./constraint_guided_input_gen/product_cov",
+    "input_pairs_dir": "./constraint_guided_input_gen/input_pairs",
+    "cgig_prompt_template_dir": "./constraint_guided_input_gen/prompt_templates",
+    "constraints_dir": "./constraint_guided_input_gen/extracted_constraints",
+    "custom_mutators_dir": "./constraint_guided_input_gen/custom_mutators",
+    "corpus_gen_dir": "./constraint_guided_input_gen/corpus_gen",
 }
 
 # Manual Test

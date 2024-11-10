@@ -5,6 +5,8 @@ trash/
 code-contest-exp/problems*/
 code-contest-exp/results*/
 code-contest-exp/cov_hit_count/
+code-contest-exp/results_cov_data/
+code-contest-exp/constraint_guided_input_gen/
 code-contest-exp/log
 code-contest-analysis/
 archive/

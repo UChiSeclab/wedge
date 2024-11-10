@@ -1,11 +1,12 @@
 torch==2.2.0
-transformers==4.38.0
+transformers==4.43.0
 fire==0.6.0
-datasets==2.20.0
+datasets==2.21.0
 scikit-learn==1.5.1
 tiktoken==0.7.0
 numpy==1.26.0
 plotly==5.23.0
 matplotlib==3.9.2
 pygount==1.8.0
-evalplus==0.3.0.dev54
+evalplus==0.3.1
+gcovr==8.2
