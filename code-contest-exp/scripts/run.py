@@ -153,6 +153,7 @@ def run_solution(
                 continue
             input_path = input_dir / input_test
             output_path = output_dir / f"{input_test[:-3]}.out"
+            output_path.parent.mkdir(exist_ok=True, parents=True)
             if not input_path.is_file():
                 print(f"[WARNING] {input_path} has been deleted by other processes.")
                 continue
@@ -160,6 +161,14 @@ def run_solution(
                 with open(input_path, "r", encoding="utf-8") as input_file:
                     try:
                         command = []
+                        assert os.environ["CONDA_PREFIX"] is not None, "CONDA_PREFIX not found"
+                        conda_prefix_dir = Path(os.environ["CONDA_PREFIX"])
+                        assert conda_prefix_dir.exists(), "CONDA_PREFIX not found"
+                        if conda_prefix_dir.parent.name == "envs":
+                            conda_prefix_dir = conda_prefix_dir.parent.parent.absolute()
+                        # check environment of py27 and py38
+                        assert (conda_prefix_dir / "envs" / "py27").exists(), "py27 not found"
+                        assert (conda_prefix_dir / "envs" / "py38").exists(), "py38 not found"
                         if language == Language.JAVA:
                             command = [
                                 "java",
@@ -178,13 +187,13 @@ def run_solution(
                             command = [tmp_dir / "solution"]
                         elif language == Language.PYTHON:
                             command = [
-                                f"/home/{os.environ.get('USER')}/miniconda3/envs/py27/bin/python",
+                                f"{conda_prefix_dir.absolute().as_posix()}/envs/py27/bin/python",
                                 tmp_dir / "solution.py",
                             ]
                             # should change based on the path of python2.7
                         elif language == Language.PYTHON3:
                             command = [
-                                f"/home/{os.environ.get('USER')}/miniconda3/envs/py38/bin/python",
+                                f"{conda_prefix_dir.absolute().as_posix()}/envs/py38/bin/python",
                                 tmp_dir / "solution.py",
                             ]
                             # should change based on the path of python3.8
@@ -232,8 +241,8 @@ def run_solution(
                                     file.write("")
                     except subprocess.TimeoutExpired:
                         runtime = config["max_time_limit"]
-            except FileNotFoundError:
-                print(f"[WARNING] {input_path} has been deleted by other processes.")
+            except FileNotFoundError as e:
+                print(f"[WARNING] {input_path} has been deleted by other processes, error: {e}")
                 continue
             max_runtime = max(max_runtime, runtime)
             total_runtime += runtime
@@ -267,6 +276,8 @@ def run_solution_wrapper(args):
 
 
 def input_sanitization(input_dir: Path, output_dir: Path):
+    """Remove invalid input files that do not have corresponding output files."""
+    """This function looks redundant since we had same operation in gen_tests.py"""
     invalid_input_files = []
     for input_test in os.listdir(input_dir):
         output_path = output_dir / f"{input_test[:-3]}.out"
@@ -294,6 +305,11 @@ def main(
         get_cf_problems(use_specified_problem=config["use_specified_problem"]),
         filter_with_inconsistency_threshold=experiment_name != "alphacode",
     )
+    write_output = False
+    if experiment_name in ["corpus"]:
+        # we didn't run gen_tests.py for fuzzing generated inputs,
+        # so we need to write the output for the first run
+        write_output = True
 
     for problem in tqdm(filtered_problems):
         problem_id = problem["name"].split(".")[0]
@@ -314,6 +330,10 @@ def main(
             continue
         solution_dir = problem_dir / "solutions"
         input_dir = experiment_dir / "input"
+
+        if not input_dir.exists() or len(os.listdir(input_dir)) == 0:
+            raise FileNotFoundError(f"[ERROR]input_dir: {input_dir} does not exist or is empty.")
+
         output_dir = experiment_dir / "output"
         time_limit = (
             problem["time_limit"]["seconds"] + problem["time_limit"]["nanos"] / 10**9
@@ -323,7 +343,7 @@ def main(
 
         print(problem["name"])
         print(f"# of tests: {len(os.listdir(input_dir))}")
-        input_sanitization(input_dir, output_dir)
+        # input_sanitization(input_dir, output_dir) # note: was not enabled when running corpus
         test_args = []
         sol_type = "solutions"
         for solution_idx, _ in enumerate(problem[sol_type]["solution"]):
@@ -341,7 +361,7 @@ def main(
                         input_dir,
                         output_dir,
                         time_limit,
-                        False,
+                        write_output,
                         include_public_private_tests_only,
                     )
                 )
