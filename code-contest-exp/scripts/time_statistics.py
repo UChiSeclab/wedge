@@ -10,6 +10,7 @@ from utils import mean
 from config import config
 from utils import filter_problems, get_cf_problems
 from utils import squeeze_time_dict
+from utils import problem_has_failed_test_gen
 
 def get_time_values(problem_statistics: Dict, strategies: List[str]):
     problems = list(problem_statistics.keys())
@@ -205,6 +206,77 @@ def plot_problem_statistics(
     plt.tight_layout()
     plt.savefig("./results/problem_statistics.png")
 
+def pinpoint_best_strategy(experiment_statistics: Dict, strategies: List[str]):
+    # for each problem, which strategy has longest max/avg time
+    # problem_id -> language -> (longest avg_time stragety, longest max_time strategy)
+    pp = pprint.PrettyPrinter(depth=4, width=90)
+    problem_longest_strategies = {}
+    for strategy in strategies:
+        for problem_id, mean_solutions_data in experiment_statistics[strategy].items():
+            for language, times in mean_solutions_data.items():
+                avg_time, max_time, cv_time = times
+                if problem_id not in problem_longest_strategies:
+                    problem_longest_strategies[problem_id] = {}
+                if language not in problem_longest_strategies[problem_id]:
+                    problem_longest_strategies[problem_id][language] = (
+                        strategy,
+                        strategy,
+                        strategy,
+                    )
+                else:
+                    (
+                        longest_avg_time_strategy,
+                        longest_max_time_strategy,
+                        largest_cv_time_strategy,
+                    ) = problem_longest_strategies[problem_id][language]
+
+                    if (
+                        avg_time
+                        > experiment_statistics[longest_avg_time_strategy][problem_id][
+                            language
+                        ][0]
+                    ):
+                        longest_avg_time_strategy = strategy
+                    if (
+                        max_time
+                        > experiment_statistics[longest_max_time_strategy][problem_id][
+                            language
+                        ][1]
+                    ):
+                        longest_max_time_strategy = strategy
+                    if (
+                        cv_time
+                        > experiment_statistics[largest_cv_time_strategy][problem_id][
+                            language
+                        ][2]
+                    ):
+                        largest_cv_time_strategy = strategy
+
+                    problem_longest_strategies[problem_id][language] = (
+                        longest_avg_time_strategy,
+                        longest_max_time_strategy,
+                        largest_cv_time_strategy,
+                    )
+
+    print(
+        "Longest strategy for each problem: problem_id -> language -> (longest avg_time strategy, longest max_time strategy, largest cv_time strategy)"
+    )
+    pp.pprint(problem_longest_strategies)
+
+    # count how many times each strategy is the best (for avg_time max_time and cv_time)
+    best_strategy_count = {"avg_time": {}, "max_time": {}, "cv_time": {}}
+
+    for problem_id, lang_strategies in problem_longest_strategies.items():
+        for language, strategies in lang_strategies.items():
+            for i, strategy in enumerate(strategies):
+                best_strategy_count[list(best_strategy_count.keys())[i]][strategy] = best_strategy_count[list(best_strategy_count.keys())[i]].get(strategy, 0) + 1
+
+    # rank the count
+    for key in best_strategy_count.keys():
+        best_strategy_count[key] = {k: v for k, v in sorted(best_strategy_count[key].items(), key=lambda item: item[1], reverse=True)}
+
+    print("Best strategy count:")
+    pp.pprint(best_strategy_count)
 
 def get_top_k_slow_inputs_time_over_one_solution(time_dict:Dict[str, List[float]], top_k=5, use_max_or_avg: Literal["max", "avg"] = "avg") -> Dict[str, float]:
     """get top k slowest inputs time"""
@@ -290,12 +362,21 @@ def main(
         {}
     )  # strategy -> problem_id -> language -> (avg_time, max_time, cv_time)
 
-    strategies = ["alphacode", "feedback_diff_solution", "feedback_diff_input", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "time_contrast", "plain_problem", "slow_solution", "diff_solution_one_input", "random_solution", "evalperf_slow_solution", "evalperf_random_solution", "plain_problem_contract", "evalperf_slow_solution_contract", "evalperf_random_solution_contract", "feedback_diff_input_contract"]
+    evaluated_problems = set()
+
+    strategies = ["alphacode_sanitized", "plain_problem", "slow_solution", "diff_solution_one_input", "random_solution", "evalperf_slow_solution", "evalperf_random_solution", "corpus"]
     for strategy in strategies:  # experiment_name
         experiment_dir = Path(config["result_root_dir"]) / strategy
         experiment_statistics[strategy] = {}
         for problem in filtered_problems:
             problem_id = problem["name"].split(".")[0]
+
+            if problem_has_failed_test_gen(problem_id):
+                print(f"[Warning] Skip {problem_id} due to failed test gen on some strategies")
+                continue
+
+            evaluated_problems.add(problem_id)
+
             problem_result_file = experiment_dir / (problem_id + ".json")
             if not problem_result_file.exists():
                 print(f"[Warning] {problem_id} with {strategy} not exists")
@@ -349,61 +430,8 @@ def main(
 
             experiment_statistics[strategy][problem_id] = mean_solutions_data
 
-    # for each problem, which strategy has longest max/avg time
-    # problem_id -> language -> (longest avg_time stragety, longest max_time strategy)
-    problem_longest_strategies = {}
-    for strategy in strategies:
-        for problem_id, mean_solutions_data in experiment_statistics[strategy].items():
-            for language, times in mean_solutions_data.items():
-                avg_time, max_time, cv_time = times
-                if problem_id not in problem_longest_strategies:
-                    problem_longest_strategies[problem_id] = {}
-                if language not in problem_longest_strategies[problem_id]:
-                    problem_longest_strategies[problem_id][language] = (
-                        strategy,
-                        strategy,
-                        strategy,
-                    )
-                else:
-                    (
-                        longest_avg_time_strategy,
-                        longest_max_time_strategy,
-                        largest_cv_time_strategy,
-                    ) = problem_longest_strategies[problem_id][language]
-
-                    if (
-                        avg_time
-                        > experiment_statistics[longest_avg_time_strategy][problem_id][
-                            language
-                        ][0]
-                    ):
-                        longest_avg_time_strategy = strategy
-                    if (
-                        max_time
-                        > experiment_statistics[longest_max_time_strategy][problem_id][
-                            language
-                        ][1]
-                    ):
-                        longest_max_time_strategy = strategy
-                    if (
-                        cv_time
-                        > experiment_statistics[largest_cv_time_strategy][problem_id][
-                            language
-                        ][2]
-                    ):
-                        largest_cv_time_strategy = strategy
-
-                    problem_longest_strategies[problem_id][language] = (
-                        longest_avg_time_strategy,
-                        longest_max_time_strategy,
-                        largest_cv_time_strategy,
-                    )
-
     pp = pprint.PrettyPrinter(depth=4, width=90)
-    print(
-        "Longest strategy for each problem: problem_id -> language -> (longest avg_time strategy, longest max_time strategy)"
-    )
-    pp.pprint(problem_longest_strategies)
+
     # print("Experiment statistics:")
     # pp.pprint(experiment_statistics)
     print(
@@ -416,6 +444,12 @@ def main(
     plot_avg_over_problem(problem_statistics, strategies)
 
     plot_violin_plot(problem_statistics, strategies)
+
+    pinpoint_best_strategy(experiment_statistics, strategies)
+
+    print(f"Total problems: {len(evaluated_problems)}")
+    
+    print(f"Total problem-languages: {sum(len(v) for v in problem_statistics.values())}")
 
 if __name__ == "__main__":
     Fire(main)

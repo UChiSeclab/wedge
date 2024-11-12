@@ -25,8 +25,11 @@ def squeeze_time_dict(
 
 
 def get_alphacode_result(problem_id: str) -> Dict:
-    alphacode_dir = Path("./results/alphacode")
-    with open(alphacode_dir / f"{problem_id}.json", "r", encoding="utf-8") as file:
+    return get_experiment_result(problem_id, "alphacode")
+
+def get_experiment_result(problem_id: str, experiment_name: str) -> Dict:
+    experiment_result_dir = Path(config["result_root_dir"]) / experiment_name
+    with open(experiment_result_dir / f"{problem_id}.json", "r", encoding="utf-8") as file:
         result = json.load(file)
     return result
 
