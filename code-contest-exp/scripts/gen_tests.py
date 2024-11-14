@@ -16,7 +16,7 @@ from utils import get_cf_problems, filter_problems, get_alphacode_result, \
     record_failing_problem
 from gpt_caller import write_test_generator
 from run import run_solution
-from select.select_solution import select_solutions
+from selector.select_solution import select_solutions
 from prompt import PromptTemplate
 from evalperf_driver import sample_inputs
 from input_validator_run import run_validator

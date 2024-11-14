@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from config import config
 from common import Language
-from select.select_solution import select_solutions
+from selector.select_solution import select_solutions
 from utils import get_alphacode_result, filter_problems, get_cf_problems, get_experiment_result
 from cpp.coverage.scripts.cov_xml_parser import parse_cobertura_coverage_report as parse_cpp_cobertura_coverage_report
 

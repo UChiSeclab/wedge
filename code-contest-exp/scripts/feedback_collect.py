@@ -9,9 +9,9 @@ from fire import Fire
 from tqdm import tqdm
 
 from config import config
-from select.select_solution import select_solutions
+from selector.select_solution import select_solutions
 from utils import get_cf_problems, filter_problems
-from select.select_input import (
+from selector.select_input import (
     select_slow_fast_input,
     select_slow_fast_input_for_multi_solution,
     select_most_differentiating_input,

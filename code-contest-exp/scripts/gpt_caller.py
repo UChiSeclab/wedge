@@ -9,8 +9,8 @@ import traceback
 from utils import num_tokens_from_string
 from config import config
 from prompt import fill_multi_slow_solutions, fill_multi_slow_solutions_feedback, PromptTemplate
-from select.select_solution import find_slow_fast_solution_cov_file
-from select.select_input import (
+from selector.select_solution import find_slow_fast_solution_cov_file
+from selector.select_input import (
     find_slow_fast_input_cov_file,
     find_slow_fast_input_cov_files_for_multi_solution,
     select_most_differentiating_input,
