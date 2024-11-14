@@ -10,7 +10,7 @@ import subprocess
 from config import config
 from gpt_caller import request_conversation, cut_string
 from cgig.fuzz import fuzz_one
-from select_solution import select_solutions
+from select.select_solution import select_solutions
 from utils import filter_problems, get_cf_problems
 from common import Language
 
