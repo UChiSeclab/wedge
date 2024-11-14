@@ -4,6 +4,7 @@ trash/
 *.pkl
 *.log
 *.png
+*.bak
 code-contest-exp/problems*/
 code-contest-exp/results*/
 code-contest-exp/cov_hit_count/
