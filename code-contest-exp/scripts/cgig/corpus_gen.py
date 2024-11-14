@@ -1,0 +1,91 @@
+from pathlib import Path
+import os
+import sys
+import subprocess
+from typing import List, Tuple, Dict
+import json
+from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import random
+from fire import Fire
+
+from config import config
+from common import Language
+from cgig.fuzz import fuzz_one
+from utils import filter_problems, get_cf_problems
+
+random.seed(0)
+
+def find_mutator_file(mutator_dir: Path) -> Path:
+    mutator_try_dirs = list(mutator_dir.glob("try_*"))
+    assert len(mutator_try_dirs) > 0, f"No try dirs found in {mutator_dir}"
+    mutator_last_try = sorted(
+        mutator_try_dirs, key=lambda x: int(x.name.split("_")[-1])
+    )[-1]
+
+    return mutator_last_try / "mutator.py"
+
+def get_random_fuzz_driver_files(problem_id: str, driver_num: int) -> List[Path]:
+    problem_dir = Path(config["problem_root_dir"]) / problem_id
+    cpp_solution_dir = problem_dir / "solutions" / "cpp"
+    solution_files = sorted(list(cpp_solution_dir.glob("solutions_*.cpp")))
+    # TODO: filter out the solutions that are not AC or TLE
+    if len(solution_files) < driver_num:
+        print(f"[Warning] {problem_id} has less than {driver_num} cpp solutions")
+        return solution_files
+    random.seed(0)
+
+    return random.sample(solution_files, driver_num)
+
+def main(
+    mutator_mode: str = "self_reflect_feedback"
+):
+    problem_root_dir = Path(config["problem_root_dir"])
+    filtered_problems = filter_problems(
+        get_cf_problems(use_specified_problem=config["use_specified_problem"])
+    )
+    corpus_gen_dir = Path(config["corpus_gen_dir"])
+    custom_mutators_root_dir = Path(config["custom_mutators_dir"])
+    num_fuzz_drivers = 10
+
+    tasks = []
+    with ProcessPoolExecutor(max_workers=75) as executor:
+        for problem in tqdm(filtered_problems):
+            problem_id = problem["name"].split(".")[0]
+            ori_input_dir = problem_root_dir / problem_id / "input"
+            corpus_dir = corpus_gen_dir / problem_id
+
+            # Use the seed inputs from the ones in the custom mutator directory
+            seed_input_dir = custom_mutators_root_dir / problem_id / "seed_inputs"
+
+            mutator_gen_mode_dir = custom_mutators_root_dir / problem_id / mutator_mode
+            if not (mutator_gen_mode_dir / "MUTATOR_CHECK_PASS").exists():
+                print(f"[Warning] {mutator_gen_mode_dir} does not have a good mutator. Skipping...")
+                continue
+            custom_mutator_dir = (find_mutator_file(mutator_gen_mode_dir)).parent.absolute()
+            fuzz_driver_files = get_random_fuzz_driver_files(problem_id, num_fuzz_drivers)
+
+            for fuzz_driver_file in fuzz_driver_files:
+                task = executor.submit(
+                    fuzz_one,
+                    corpus_dir,
+                    fuzz_driver_file,
+                    seed_input_dir,
+                    3600,  # timeout=3600
+                    True, # use_custom_mutator=True
+                    custom_mutator_dir
+                )
+                tasks.append((problem_id, fuzz_driver_file, task))
+
+        for future in as_completed([task[2] for task in tasks]):
+            problem_id, fuzz_driver_file, result = next((pid, fdf, fut) for pid, fdf, fut in tasks if fut == future)
+            try:
+                err = future.result().stderr.decode()
+                if err:
+                    print("===Error===")
+                    print(err)
+            except Exception as e:
+                print(f"[Exception] An unexpected error occurred for {problem_id} - {fuzz_driver_file}: {e}")
+
+if __name__ == "__main__":
+    Fire(main)
