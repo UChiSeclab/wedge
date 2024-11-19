@@ -1,11 +1,31 @@
 from pathlib import Path
 import json
+from typing import Dict, List, Tuple
 
 from cgig.mine_input_pairs import mine_relational_input_pairs
 from cpp.coverage.scripts.cov_product_gen import main as dump_product_cov
 from config import config
 from common import Language
 from gpt_caller import request
+
+def select_a_solution(solution_ids: List[str]) -> str:
+    # ensure deterministic selection
+    solution_ids = sorted(solution_ids)
+    return solution_ids[0]
+
+def get_best_input_pair(solution_input_pairs: Dict[str, Tuple[str, str]]) -> Tuple[Tuple[str, str], List[str]]:
+    # rank the input pairs by the frequency in the solution_input_pairs
+    if len(solution_input_pairs) == 0:
+        return None, []
+
+    input_pair_freq = {}
+    for solution_id in solution_input_pairs:
+        for slow_input_id, fast_input_id in solution_input_pairs[solution_id]:
+            input_pair_freq[(slow_input_id, fast_input_id)] = input_pair_freq.get((slow_input_id, fast_input_id), []) + [solution_id]
+
+    best_input_pair = max(input_pair_freq, key=lambda x: len(input_pair_freq[x]))
+
+    return best_input_pair, input_pair_freq[best_input_pair]
 
 def get_product_cov(
     problem_id: str,
@@ -69,33 +89,39 @@ if __name__ == '__main__':
     problem_solution_input_pairs = json.loads(input_pairs_file.read_text())
 
     for problem_id in problem_solution_input_pairs:
-        for solution_id in problem_solution_input_pairs[problem_id]:
-            for slow_input_id, fast_input_id in problem_solution_input_pairs[problem_id][solution_id]:
-                slow_input_file = problem_root_dir / problem_id / "input" / slow_input_id
-                fast_input_file = problem_root_dir / problem_id / "input" / fast_input_id
-                product_cov_file = get_product_cov(
-                    problem_id,
-                    solution_id,
-                    slow_input_id,
-                    fast_input_id,
-                    language=Language.CPP,
-                    info_line_end=True
-                )
+        best_input_pair, solution_ids = get_best_input_pair(problem_solution_input_pairs[problem_id])
+        print("Best input pair:", best_input_pair, "Solution IDs:", len(solution_ids))
+        if not best_input_pair:
+            print(f"[Warning] No input pair found for {problem_id}")
+            continue
+        slow_input_id, fast_input_id = best_input_pair
+        solution_id = select_a_solution(solution_ids)
+        # TODO: instead of giving one product execution, we can provide multiple ones
+        slow_input_file = problem_root_dir / problem_id / "input" / slow_input_id
+        fast_input_file = problem_root_dir / problem_id / "input" / fast_input_id
+        product_cov_file = get_product_cov(
+            problem_id,
+            solution_id,
+            slow_input_id,
+            fast_input_id,
+            language=Language.CPP,
+            info_line_end=True
+        )
 
-                prompt = compile_constraint_gen_prompt(
-                    prompt_template_file,
-                    problem_root_dir / problem_id / "problem_statement.txt",
-                    problem_root_dir / problem_id / "solutions" / "cpp" / f"{solution_id}.cpp",
-                    slow_input_file,
-                    fast_input_file,
-                    product_cov_file
-                )
-                result_dir = extracted_constraints_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}"
-                result_dir.mkdir(parents=True, exist_ok=True)
-                instrumented_program_file = result_dir / "transformed_program.cpp"
-                if not instrumented_program_file.exists():
-                    (result_dir / "prompt.txt").write_text(prompt)
-                    response = request(prompt)
-                    transformed_program = response.split('```cpp')[1].split('```')[0].strip()
-                    instrumented_program_file.write_text(transformed_program)
-                    (result_dir / "gpt_response.txt").write_text(response)
+        prompt = compile_constraint_gen_prompt(
+            prompt_template_file,
+            problem_root_dir / problem_id / "problem_statement.txt",
+            problem_root_dir / problem_id / "solutions" / "cpp" / f"{solution_id}.cpp",
+            slow_input_file,
+            fast_input_file,
+            product_cov_file
+        )
+        result_dir = extracted_constraints_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}"
+        result_dir.mkdir(parents=True, exist_ok=True)
+        instrumented_program_file = result_dir / "transformed_program.cpp"
+        if not instrumented_program_file.exists():
+            (result_dir / "prompt.txt").write_text(prompt)
+            response = request(prompt)
+            transformed_program = response.split('```cpp')[1].split('```')[0].strip()
+            instrumented_program_file.write_text(transformed_program)
+            (result_dir / "gpt_response.txt").write_text(response)
