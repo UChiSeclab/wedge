@@ -375,9 +375,9 @@ def get_input_time_cv(inputs_lang_stat: Dict[str, Dict[str, float]]) -> Dict[str
     return inputs_lang_time_cv
 
 
-def get_avg_cv_time_of_top_k_slow_inputs(inputs_lang_time_cv: Dict[str, Dict[str, float]], top_k_slowest_inputs: List[str]) -> Dict[str, float]:
+def get_avg_cv_time_of_top_k_high_cv_inputs(inputs_lang_time_cv: Dict[str, Dict[str, float]], top_k_high_cv_inputs: List[str]) -> Dict[str, float]:
     avg_cv_time = {} # language -> avg_cv_time
-    for input_name in top_k_slowest_inputs:
+    for input_name in top_k_high_cv_inputs:
         for lang, cv in inputs_lang_time_cv[input_name].items():
             avg_cv_time[lang] = avg_cv_time.get(lang, [])
             avg_cv_time[lang].append(cv)
@@ -458,7 +458,7 @@ def main(
 
             inputs_lang_cv = get_inputs_lang_cv(experiment_data)
             top_k_high_cv_inputs = get_top_k_high_cv_inputs(inputs_lang_cv, top_k=top_k_slow_inputs)
-            lang_avg_cv_time = get_avg_cv_time_of_top_k_slow_inputs(inputs_lang_cv, top_k_high_cv_inputs)
+            lang_avg_cv_time = get_avg_cv_time_of_top_k_high_cv_inputs(inputs_lang_cv, top_k_high_cv_inputs)
 
             mean_solutions_data = {}  # language -> (avg_time, max_time)
             for language, times in solutions_data.items():
