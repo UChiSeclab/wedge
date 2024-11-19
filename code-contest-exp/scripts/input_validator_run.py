@@ -10,6 +10,7 @@ from utils import filter_problems, get_cf_problems
 
 def find_validator_files(validator_dir: Path) -> Tuple[Path, Path]:
     validator_try_dirs = list(validator_dir.glob("try_*"))
+    assert (validator_dir / "VAL_GT_INPUT_PASS").exists(), f"No good validator found in {validator}"
     assert len(validator_try_dirs) > 0, f"No try dirs found in {validator_dir}"
     validator_last_try = sorted(
         validator_try_dirs, key=lambda x: int(x.name.split("_")[-1])

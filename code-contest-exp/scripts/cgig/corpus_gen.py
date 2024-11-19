@@ -49,7 +49,7 @@ def main(
     num_fuzz_drivers = 10
 
     tasks = []
-    with ProcessPoolExecutor(max_workers=75) as executor:
+    with ProcessPoolExecutor(max_workers = int(0.25 * os.cpu_count())) as executor:
         for problem in tqdm(filtered_problems):
             problem_id = problem["name"].split(".")[0]
             ori_input_dir = problem_root_dir / problem_id / "input"
@@ -71,7 +71,7 @@ def main(
                     corpus_dir,
                     fuzz_driver_file,
                     seed_input_dir,
-                    3600,  # timeout=3600
+                    360,  # timeout=360s
                     True, # use_custom_mutator=True
                     custom_mutator_dir
                 )
