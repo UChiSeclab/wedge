@@ -30,6 +30,7 @@ config = {
     "constraints_dir": "./constraint_guided_input_gen/extracted_constraints",
     "custom_mutators_dir": "./constraint_guided_input_gen/custom_mutators",
     "corpus_gen_dir": "./constraint_guided_input_gen/corpus_gen",
+    "input_classify_dir": "./constraint_guided_input_gen/input_classify",
 }
 
 # Manual Test
