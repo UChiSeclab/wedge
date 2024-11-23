@@ -3,29 +3,11 @@ import json
 from typing import Dict, List, Tuple
 
 from cgig.mine_input_pairs import mine_relational_input_pairs
+from cgig.cgig_utils import select_a_solution, get_best_input_pair
 from cpp.coverage.scripts.cov_product_gen import main as dump_product_cov
 from config import config
 from common import Language
 from gpt_caller import request
-
-def select_a_solution(solution_ids: List[str]) -> str:
-    # ensure deterministic selection
-    solution_ids = sorted(solution_ids)
-    return solution_ids[0]
-
-def get_best_input_pair(solution_input_pairs: Dict[str, Tuple[str, str]]) -> Tuple[Tuple[str, str], List[str]]:
-    # rank the input pairs by the frequency in the solution_input_pairs
-    if len(solution_input_pairs) == 0:
-        return None, []
-
-    input_pair_freq = {}
-    for solution_id in solution_input_pairs:
-        for slow_input_id, fast_input_id in solution_input_pairs[solution_id]:
-            input_pair_freq[(slow_input_id, fast_input_id)] = input_pair_freq.get((slow_input_id, fast_input_id), []) + [solution_id]
-
-    best_input_pair = max(input_pair_freq, key=lambda x: len(input_pair_freq[x]))
-
-    return best_input_pair, input_pair_freq[best_input_pair]
 
 def get_product_cov(
     problem_id: str,
@@ -123,5 +105,9 @@ if __name__ == '__main__':
             (result_dir / "prompt.txt").write_text(prompt)
             response = request(prompt)
             transformed_program = response.split('```cpp')[1].split('```')[0].strip()
+            if "<transformed_program_start>" in transformed_program:
+                transformed_program = transformed_program.split("<transformed_program_start>")[1]
+            if "<transformed_program_end>" in transformed_program:
+                transformed_program = transformed_program.split("<transformed_program_end>")[0]
             instrumented_program_file.write_text(transformed_program)
             (result_dir / "gpt_response.txt").write_text(response)
