@@ -10,10 +10,9 @@ from input_validator_run import find_validator_files
 from cgig.corpus_gen import get_random_fuzz_driver_files
 
 
-def process_problem(problem, strategy, problem_root_dir, corpus_gen_dir, custom_mutators_root_dir, num_fuzz_drivers, results):
-    problem_id = problem["name"].split(".")[0]
-    problem_dir = problem_root_dir / problem_id
-    corpus_dir = corpus_gen_dir / problem_id
+def process_problem(problem_id: str, strategy: str, num_fuzz_drivers: int, results: Dict[str, int]):
+    problem_dir = Path(config["problem_root_dir"]) / problem_id
+    corpus_dir = Path(config["corpus_gen_dir"]) / problem_id
     if not corpus_dir.exists():
         print(f"Skipping {problem_id} as corpus directory does not exist")
         return
@@ -21,7 +20,7 @@ def process_problem(problem, strategy, problem_root_dir, corpus_gen_dir, custom_
     validator_dir = problem_dir / "validator_gen" / "self_reflect_feedback"
     if not (validator_dir / "VAL_GT_INPUT_PASS").exists():
         print(f"[Warning] {validator_dir} does not have a good validator. Skipping...")
-        record_failing_problem(problem_id, "corpus", "No available validator")
+        record_failing_problem(problem_id, strategy, "No available validator")
         return
     validator_file, _ = find_validator_files(validator_dir)
 
@@ -58,23 +57,19 @@ def process_problem(problem, strategy, problem_root_dir, corpus_gen_dir, custom_
 
 def main():
     strategy = "corpus"
-    problem_root_dir = Path(config["problem_root_dir"])
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
-    corpus_gen_dir = Path(config["corpus_gen_dir"])
-    custom_mutators_root_dir = Path(config["custom_mutators_dir"])
+    filtered_problem_ids = [problem["name"].split(".")[0] for problem in filtered_problems]
     num_fuzz_drivers = 10
 
     with Manager() as manager:
-        results = manager.dict()
-        results["valid"] = 0
-        results["invalid"] = 0
+        results = manager.dict(valid=0, invalid=0)
 
-        with Pool(processes = int(0.5 * os.cpu_count())) as pool:  # Adjust the number of processes based on your system
+        with Pool(processes = int(0.5 * os.cpu_count())) as pool:
             tasks = [
-                (problem, strategy, problem_root_dir, corpus_gen_dir, custom_mutators_root_dir, num_fuzz_drivers, results)
-                for problem in filtered_problems
+                (problem_id, strategy, num_fuzz_drivers, results)
+                for problem_id in filtered_problem_ids
             ]
             pool.starmap(process_problem, tasks)
 
