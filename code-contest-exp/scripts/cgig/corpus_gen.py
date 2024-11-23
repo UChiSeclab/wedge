@@ -12,18 +12,10 @@ from fire import Fire
 from config import config
 from common import Language
 from cgig.fuzz import fuzz_one
+from cgig.cgig_utils import find_mutator_file
 from utils import filter_problems, get_cf_problems
 
 random.seed(0)
-
-def find_mutator_file(mutator_dir: Path) -> Path:
-    mutator_try_dirs = list(mutator_dir.glob("try_*"))
-    assert len(mutator_try_dirs) > 0, f"No try dirs found in {mutator_dir}"
-    mutator_last_try = sorted(
-        mutator_try_dirs, key=lambda x: int(x.name.split("_")[-1])
-    )[-1]
-
-    return mutator_last_try / "mutator.py"
 
 def get_random_fuzz_driver_files(problem_id: str, driver_num: int) -> List[Path]:
     problem_dir = Path(config["problem_root_dir"]) / problem_id
