@@ -16,6 +16,7 @@ import sys
 from common import Language
 from config import config
 from utils import get_cf_problems, filter_problems, problem_test_gen_failed
+from cgig.cgig_utils import problem_has_extracted_constraint
 
 
 def compile_solution(tmp_dir: Path, solution_code: str, language: Language):
@@ -297,6 +298,7 @@ def main(
     problem_root_dir: str = config["problem_root_dir"],
     result_root_dir: str = config["result_root_dir"],
     include_public_private_tests_only: bool = False,
+    problem_with_extracted_constraint_only: bool = False,
 ):
     """Runs all solutions in the folder."""
     problem_root_dir = Path(problem_root_dir)
@@ -306,13 +308,17 @@ def main(
         filter_with_inconsistency_threshold=experiment_name != "alphacode",
     )
     write_output = False
-    if experiment_name in ["corpus"]:
+    if experiment_name in ["corpus", "instrument_fuzz", "raw_fuzz"]:
         # we didn't run gen_tests.py for fuzzing generated inputs,
         # so we need to write the output for the first run
         write_output = True
+    if experiment_name in ["constraint_guided_one"]:
+        problem_with_extracted_constraint_only = True
 
     for problem in tqdm(filtered_problems):
         problem_id = problem["name"].split(".")[0]
+        if problem_with_extracted_constraint_only and not problem_has_extracted_constraint(problem_id):
+            continue
 
         problem_dir = Path(problem_root_dir) / str(problem_id)
         if experiment_name == "alphacode":
@@ -323,6 +329,14 @@ def main(
                 continue
             experiment_dir = problem_dir / experiment_name
             Path(result_root_dir / experiment_name).mkdir(exist_ok=True, parents=True)
+
+        if experiment_name in ["instrument_fuzz", "raw_fuzz"] and \
+            (not (experiment_dir / "input").exists() or
+                not len(os.listdir(experiment_dir / "input")) > 0):
+            # TODO: to be fixed
+            print(f"[INFO] No input files found for {experiment_name} of {problem_id}, skipping.")
+            continue
+
         result_path = Path(result_root_dir / experiment_name / f"{problem_id}.json")
         result_path.parent.mkdir(exist_ok=True, parents=True)
         if result_path.exists():

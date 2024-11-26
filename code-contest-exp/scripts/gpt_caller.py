@@ -106,7 +106,7 @@ def write_test_generator(
     elif fill_solution_type == "slow_fast_solution":
         prompt = prompt.replace("<fast_solution>", selected_solution_codes[0])
         prompt = prompt.replace("<slow_solution>", selected_solution_codes[1])
-    elif fill_solution_type == "one_solution":
+    elif fill_solution_type == "one_solution" or fill_solution_type == "instrumented_first_solution":
         prompt = prompt.replace("<one_solution>", selected_solution_codes[0])
 
 

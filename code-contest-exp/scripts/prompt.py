@@ -19,6 +19,7 @@ class PromptTemplate:
             "random_solution",
             "evalperf_slow_solution",
             "evalperf_random_solution",
+            "constraint_guided_one",
             "plain_problem_contract",
             "evalperf_slow_solution_contract",
             "evalperf_random_solution_contract",
@@ -28,7 +29,7 @@ class PromptTemplate:
         self.fill_input_type = self.get_fill_input_type()
         self.fill_solution_type = self.get_fill_solution_type()
         self.fill_feedback_type = self.get_fill_feedback_type()
-        
+
     def get_prompt_template_text(self) -> str:
         return self.prompt_template_text
 
@@ -60,6 +61,10 @@ class PromptTemplate:
             "evalperf_random_solution_contract",
         ]:
             return "random"
+        elif experiment_name in [
+            "constraint_guided_one",
+        ]:
+            return "instrumented_first_solution"
         elif experiment_name in [
             "plain_problem", # no input, no solution
             "plain_problem_contract",
@@ -93,6 +98,10 @@ class PromptTemplate:
         ]:
             return "one_solution"
         elif self.experiment_name in [
+            "constraint_guided_one",
+        ]:
+            return "instrumented_first_solution"
+        elif self.experiment_name in [
             "plain_problem",
             "plain_problem_contract",
         ]:
@@ -124,6 +133,7 @@ class PromptTemplate:
             "random_solution",
             "evalperf_slow_solution",
             "evalperf_random_solution",
+            "constraint_guided_one",
             "plain_problem_contract",
             "evalperf_slow_solution_contract",
             "evalperf_random_solution_contract",
@@ -143,6 +153,7 @@ class PromptTemplate:
             "diff_solution_one_input",
             "evalperf_slow_solution",
             "evalperf_random_solution",
+            "constraint_guided_one",
             "plain_problem_contract",
             "evalperf_slow_solution_contract",
             "evalperf_random_solution_contract",

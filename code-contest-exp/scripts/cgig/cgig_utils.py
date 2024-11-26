@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import List, Tuple, Dict
 
+from config import config
+
 def find_mutator_file(mutator_dir: Path) -> Path:
     mutator_try_dirs = list(mutator_dir.glob("try_*"))
     assert len(mutator_try_dirs) > 0, f"No try dirs found in {mutator_dir}"
@@ -28,3 +30,7 @@ def get_best_input_pair(solution_input_pairs: Dict[str, Tuple[str, str]]) -> Tup
     best_input_pair = max(input_pair_freq, key=lambda x: len(input_pair_freq[x]))
 
     return best_input_pair, input_pair_freq[best_input_pair]
+
+def problem_has_extracted_constraint(problem_id: str) -> bool:
+    # check if the problem has extracted constraints. this function is adhoc
+    return (Path(config["constraints_dir"]) / problem_id).exists()

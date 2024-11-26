@@ -14,6 +14,7 @@ from common import Language
 from config import config
 from utils import get_cf_problems, filter_problems, get_alphacode_result, \
     record_failing_problem
+from cgig.cgig_utils import problem_has_extracted_constraint
 from gpt_caller import write_test_generator
 from run import run_solution
 from selector.select_solution import select_solutions
@@ -430,6 +431,7 @@ def main(
     check_input_validity: bool = True,
     validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "self_reflect_feedback",
     check_consistency: bool = False,
+    problem_with_extracted_constraint_only: bool = False,
 ):
     """Generates tests by test generator created by LLM.
 
@@ -441,11 +443,15 @@ def main(
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
+    if experiment_name in ["constraint_guided_one"]:
+        problem_with_extracted_constraint_only = True
     prompt_template = PromptTemplate(Path(prompt_template), experiment_name)
     solution_selection_type = PromptTemplate.get_select_solution_type(experiment_name)
 
     for problem in tqdm(filtered_problems):
         problem_id = problem["name"].split(".")[0]
+        if problem_with_extracted_constraint_only and not problem_has_extracted_constraint(problem_id):
+            continue
         print("problem_id:", problem_id)
         problem_dir = problem_root_dir / problem_id
         experiment_dir = problem_dir / experiment_name

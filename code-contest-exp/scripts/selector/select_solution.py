@@ -1,10 +1,11 @@
 from typing import List, Dict, Tuple
 from pathlib import Path
+import json
 
 from utils import get_alphacode_result, mean
 from common import Language
 from config import config
-
+from cgig.cgig_utils import select_a_solution, get_best_input_pair
 
 def get_solutions_in_language(
     problem: Dict, sol_language: Language
@@ -110,7 +111,7 @@ def select_solutions(
         slow_solution_idx = filtered_solution_idxs[-1]
         selected_solutions = [problem["solutions"]["solution"][slow_solution_idx]]
         selected_solution_idxs = [slow_solution_idx]
-    
+
     elif solution_selection_type == "multi_fast":
         # select top k fast solutions
         assert top_k is not None and top_k > 1, f"top_k: {top_k}"
@@ -142,7 +143,24 @@ def select_solutions(
         selected_solution_idx = random.choice(filtered_solution_idxs)
         selected_solutions = [problem["solutions"]["solution"][selected_solution_idx]]
         selected_solution_idxs = [selected_solution_idx]
-    
+
+    elif solution_selection_type == "instrumented_first_solution":
+        if len(filtered_solution_idxs) < 1:
+            return None, None
+        input_pairs_dir = Path(config["input_pairs_dir"])
+        input_pairs_file = input_pairs_dir / "content_similar_problem_solution_input_pairs.json"
+        problem_solution_input_pairs = json.loads(input_pairs_file.read_text())
+        best_input_pair, solution_ids = get_best_input_pair(problem_solution_input_pairs[problem_id])
+        if not best_input_pair:
+            raise ValueError(f"No input pair found for {problem_id}")
+        slow_input_id, fast_input_id = best_input_pair
+        solution_id = select_a_solution(solution_ids)
+        instrumented_solution_file = Path(config["constraints_dir"]) / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "transformed_program.cpp"
+        if not instrumented_solution_file.exists():
+            raise ValueError(f"File {instrumented_solution_file} does not exist")
+        selected_solutions = [instrumented_solution_file.read_text()]
+        selected_solution_idxs = [int(solution_id.split("_")[1])]
+
     elif solution_selection_type == "no_solution":
         return [], []
 

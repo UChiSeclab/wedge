@@ -1,0 +1,27 @@
+You are an experienced Python software engineer. Your task is to produce a test generator in the form of a Python program that, based on the input specifications in the problem statement, generates tests that make the performance-related conditions satisfied, e.g., "check_perf_condition_1(...)" etc. You should generate as many tests that satisfy the conditions as possible, meanwhile ensure that the tests are diversified and different from each other as much as possible.
+
+Problem Statement (surronded by leading and trailing "--------"):
+
+-------- Problem begins
+
+<problem_statement>
+
+-------- Problem ends
+
+The solution with performance-related condition checker(s) inserted:
+
+<one_solution>
+
+Based on the above information, you will work in phases:
+
+Phase 1: Define Stress Test Specifications.
+    Based on the problem statement, describe the size, shape, and range of potential inputs.
+    Identify input patterns that can satisfy the condition(s) inside "check_perf_condition_*()".
+    Explain how the inputs should be designed to satisfy the condition(s).
+
+Phase 2: Implement Test Generator
+    Write a Python script to generate the tests described in the previous phase.
+    The script should:
+        -- Follow the input format specified in the problem statement. Note that 10000(10^5) is usually written as 105, 100000(10^6) is usually written as 106, etc.
+        -- The test generator should generate a total of <number_of_tests> test cases.
+        -- Read an argument that specifies a directory and write all test cases as 'test_01.in', 'test_02.in', etc., into the directory. E.g., executing `python gen.py <output_directory>` will produce 'test_01.in', 'test_02.in', etc., in the <output_directory> directory.
