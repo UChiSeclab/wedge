@@ -1,4 +1,4 @@
-You are an experienced Python software engineer. Your task is to produce a test generator in the form of a Python program that, based on the input specifications in the problem statement, generates tests that make the performance-related conditions satisfied, e.g., "check_perf_condition_1(...)" etc. You should generate as many tests that satisfy the conditions as possible, meanwhile ensure that the tests are diversified and different from each other as much as possible.
+You are an experienced Python software engineer. Your task is to produce a test generator in the form of a Python program that, based on the input specifications in the problem statement, generates tests that make the performance-related conditions satisfied, e.g., "check_perf_condition_1(...)" etc. These conditions are considred highly relevant to the performance of the solutions, i.e., when the conditions are satisfied, the program will run significantly slower than when the conditions are not satisfied. You should generate as many tests that satisfy the conditions as possible so that the solutions will run slow, meanwhile ensure that the tests are diversified and different from each other as much as possible, to exhaust the solutions of the problem more.
 
 Problem Statement (surronded by leading and trailing "--------"):
 
@@ -23,5 +23,6 @@ Phase 2: Implement Test Generator
     Write a Python script to generate the tests described in the previous phase.
     The script should:
         -- Follow the input format specified in the problem statement. Note that 10000(10^5) is usually written as 105, 100000(10^6) is usually written as 106, etc.
+        -- Avoid using random generator with a large range of values when generating the size input (e.g., length of array, etc.), e.g., random.randint(1, 10000) (say 10000 is the upper bound), as it may not stress the program enough. Instead, use values that are more likely to cause inefficiencies, for example, values closer to the upper bound, like 10000, 9999, 9990 or random.randint(9900, 10000), etc. But for numbers that are not the size of the input, you may want to generate random values to improve the input diversity and cover different patterns.
         -- The test generator should generate a total of <number_of_tests> test cases.
         -- Read an argument that specifies a directory and write all test cases as 'test_01.in', 'test_02.in', etc., into the directory. E.g., executing `python gen.py <output_directory>` will produce 'test_01.in', 'test_02.in', etc., in the <output_directory> directory.
