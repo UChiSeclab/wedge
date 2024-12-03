@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List, Tuple, Dict
 
 from config import config
+from utils import get_run_time
 
 def find_mutator_file(mutator_dir: Path) -> Path:
     mutator_try_dirs = list(mutator_dir.glob("try_*"))
@@ -12,12 +13,17 @@ def find_mutator_file(mutator_dir: Path) -> Path:
 
     return mutator_last_try / "mutator.py"
 
-def select_a_solution(solution_ids: List[str]) -> str:
+def select_first_solution(solution_ids: List[str]) -> str:
     # ensure deterministic selection
     solution_ids = sorted(solution_ids)
     return solution_ids[0]
 
-def get_best_input_pair(solution_input_pairs: Dict[str, Tuple[str, str]]) -> Tuple[Tuple[str, str], List[str]]:
+def select_high_ratio_solution(input_pair:Tuple[str, str], solution_ids: List[str], solution_input_pairs: Dict) -> str:
+    # sort the solutions by the run time ratio
+    # TODO: not needed for now
+    pass
+
+def get_best_input_pair_by_freq(solution_input_pairs: Dict[str, List[Tuple[str, str]]]) -> Tuple[Tuple[str, str], List[str]]:
     # rank the input pairs by the frequency in the solution_input_pairs
     if len(solution_input_pairs) == 0:
         return None, []
@@ -29,7 +35,34 @@ def get_best_input_pair(solution_input_pairs: Dict[str, Tuple[str, str]]) -> Tup
 
     best_input_pair = max(input_pair_freq, key=lambda x: len(input_pair_freq[x]))
 
-    return best_input_pair, input_pair_freq[best_input_pair]
+    return best_input_pair, input_pair_freq[best_input_pair] # not sorted
+
+def get_best_input_pair(solution_input_pairs: Dict[str, List[Tuple[str, str]]]) -> Tuple[Tuple[str, str], List[str]]:
+    # get the input pair with the highest similarity and get the solution where the input pair is used and the run time ratio is the highest
+    # assume the list of input pairs has been sorted by similarity
+    if len(solution_input_pairs) == 0:
+        return None, []
+
+    highest_similarity = 0
+    highest_similarity_input_pair = None
+    best_solution_ids = []
+    best_perf_ratio = 0
+
+    input_pair_solution_map = {}
+    for solution_id in solution_input_pairs:
+        for input_pair_id in solution_input_pairs[solution_id].keys():
+            slow_input_id, fast_input_id = input_pair_id.split("@")
+            input_pair_solution_map[(slow_input_id, fast_input_id)] = input_pair_solution_map.get((slow_input_id, fast_input_id), []) + [solution_id]
+            similarity, perf_ratio = solution_input_pairs[solution_id][input_pair_id]
+            if similarity > highest_similarity:
+                highest_similarity = similarity
+                highest_similarity_input_pair = (slow_input_id, fast_input_id)
+
+    assert highest_similarity_input_pair is not None, "No input pair found"
+
+    best_solution_ids = sorted(input_pair_solution_map[highest_similarity_input_pair], key=lambda x: solution_input_pairs[x][f"{highest_similarity_input_pair[0]}@{highest_similarity_input_pair[1]}"][1], reverse=True)
+
+    return highest_similarity_input_pair, best_solution_ids
 
 def problem_has_extracted_constraint(problem_id: str) -> bool:
     # check if the problem has extracted constraints. this function is adhoc

@@ -5,7 +5,7 @@ import json
 from utils import get_alphacode_result, mean
 from common import Language
 from config import config
-from cgig.cgig_utils import select_a_solution, get_best_input_pair
+from cgig.cgig_utils import select_first_solution, get_best_input_pair
 
 def get_solutions_in_language(
     problem: Dict, sol_language: Language
@@ -154,7 +154,8 @@ def select_solutions(
         if not best_input_pair:
             raise ValueError(f"No input pair found for {problem_id}")
         slow_input_id, fast_input_id = best_input_pair
-        solution_id = select_a_solution(solution_ids)
+        # solution_id = select_first_solution(solution_ids)
+        solution_id = solution_ids[0]
         instrumented_solution_file = Path(config["constraints_dir"]) / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "transformed_program.cpp"
         if not instrumented_solution_file.exists():
             raise ValueError(f"File {instrumented_solution_file} does not exist")

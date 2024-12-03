@@ -175,3 +175,10 @@ def filter_problems(problems, filter_with_inconsistency_threshold=True):
         return filtered_problems_with_inconsistency
     else:
         return filtered_problems
+
+def get_run_time(experiment_result: Dict, solution_id: str, input_id: str) -> float:
+    """Get the run time of the solution on the input."""
+    time_dict = experiment_result[solution_id]["time_dict"]
+    run_time_list = time_dict[input_id]
+
+    return mean(run_time_list)

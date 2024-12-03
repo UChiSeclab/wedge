@@ -3,7 +3,7 @@ import json
 from typing import Dict, List, Tuple
 
 from cgig.mine_input_pairs import mine_relational_input_pairs
-from cgig.cgig_utils import select_a_solution, get_best_input_pair
+from cgig.cgig_utils import select_first_solution, get_best_input_pair
 from cpp.coverage.scripts.cov_product_gen import main as dump_product_cov
 from config import config
 from common import Language
@@ -67,17 +67,18 @@ if __name__ == '__main__':
     input_pairs_dir = Path(config["input_pairs_dir"])
     extracted_constraints_dir = Path(config["constraints_dir"])
     prompt_template_file = Path(config["cgig_prompt_template_dir"]) / "constraint_gen_few_shots.txt"
-    input_pairs_file = input_pairs_dir / "content_similar_problem_solution_input_pairs.json"
+    input_pairs_file = input_pairs_dir / "content_similar_problem_solution_input_pairs_sorted.json"
     problem_solution_input_pairs = json.loads(input_pairs_file.read_text())
 
     for problem_id in problem_solution_input_pairs:
+        print(f"Processing {problem_id}")
         best_input_pair, solution_ids = get_best_input_pair(problem_solution_input_pairs[problem_id])
-        print("Best input pair:", best_input_pair, "Solution IDs:", len(solution_ids))
         if not best_input_pair:
             print(f"[Warning] No input pair found for {problem_id}")
             continue
         slow_input_id, fast_input_id = best_input_pair
-        solution_id = select_a_solution(solution_ids)
+        # solution_id = select_first_solution(solution_ids)
+        solution_id = solution_ids[0]
         # TODO: instead of giving one product execution, we can provide multiple ones
         slow_input_file = problem_root_dir / problem_id / "input" / slow_input_id
         fast_input_file = problem_root_dir / problem_id / "input" / fast_input_id
