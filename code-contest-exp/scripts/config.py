@@ -29,6 +29,7 @@ config = {
     "cgig_prompt_template_dir": "./constraint_guided_input_gen/prompt_templates",
     "constraints_dir": "./constraint_guided_input_gen/extracted_constraints",
     "custom_mutators_dir": "./constraint_guided_input_gen/custom_mutators",
+    "mutator_with_generator_dir": "./constraint_guided_input_gen/mutator_with_generator",
     "corpus_gen_dir": "./constraint_guided_input_gen/corpus_gen",
     "input_classify_dir": "./constraint_guided_input_gen/input_classify",
     "instrument_fuzz_dir": "./constraint_guided_input_gen/instrument_fuzz",

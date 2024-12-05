@@ -8,7 +8,7 @@ import json
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from config import config
-from cgig.cgig_utils import find_mutator_file, select_a_solution, get_best_input_pair
+from cgig.cgig_utils import find_mutator_file, select_first_solution, get_best_input_pair
 from fire import Fire
 
 def eprint(*args, **kwargs):
@@ -42,9 +42,10 @@ def aflpp_compile(program_file: Path, work_dir: Path) -> subprocess.CompletedPro
 
     return result
 
-def run_aflpp(work_dir: Path, binary_file: Path, seed_input_dir: Path, timeout: int = 60, use_custom_mutator: bool = False, custom_mutator_dir: Path = None) -> subprocess.CompletedProcess:
+def run_aflpp(work_dir: Path, binary_file: Path, seed_input_dir: Path, timeout: int = 60, use_custom_mutator: bool = False, generator_inside_mutator: bool = False, custom_mutator_dir: Path = None) -> subprocess.CompletedProcess:
     aflpp_dir = os.environ.get("AFLPP_DIR")
     assert binary_file.exists(), "Executable does not exist"
+    print(f"Fuzzing in {work_dir}")
     if not aflpp_dir or not Path(aflpp_dir).exists():
         raise ValueError("AFLPP_DIR environment variable is not set")
     env = os.environ.copy()
@@ -62,7 +63,10 @@ def run_aflpp(work_dir: Path, binary_file: Path, seed_input_dir: Path, timeout: 
         env["PYTHONPATH"] = custom_mutator_dir.absolute().as_posix()
 
     # clear output directory
-    output_dir = work_dir / f"{binary_file.stem}_output"
+    if generator_inside_mutator:
+        output_dir = work_dir / f"{binary_file.stem}_generator_inside_mutator_output"
+    else:
+        output_dir = work_dir / f"{binary_file.stem}_output"
     shutil.rmtree(output_dir, ignore_errors=True)
 
     aflpp_fuzz_cmd = [
@@ -79,7 +83,7 @@ def run_aflpp(work_dir: Path, binary_file: Path, seed_input_dir: Path, timeout: 
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=(timeout + 30))
 
 def fuzz_one(program_dir: Path, program_file: Path, seed_input_dir: Path, timeout: int = 60, \
-    use_custom_mutator: bool = False, custom_mutator_dir: Path = None) -> subprocess.CompletedProcess:
+    use_custom_mutator: bool = False, generator_inside_mutator: bool = False, custom_mutator_dir: Path = None) -> subprocess.CompletedProcess:
     program_dir.mkdir(parents=True, exist_ok=True)
     program_file = program_file.absolute()
 
@@ -90,8 +94,9 @@ def fuzz_one(program_dir: Path, program_file: Path, seed_input_dir: Path, timeou
 
     fuzz_result = run_aflpp(program_dir, bin_file, seed_input_dir, \
         timeout=timeout, use_custom_mutator=use_custom_mutator, \
-            custom_mutator_dir=custom_mutator_dir)
-    eprint("debug stderr:")
+            generator_inside_mutator=generator_inside_mutator, \
+                custom_mutator_dir=custom_mutator_dir)
+    eprint("debug stderr of program_dir", program_dir)
     eprint(fuzz_result.stderr.decode())
     if fuzz_result.returncode != 0:
         eprint(f"AFL++ failed for {program_dir}")
@@ -101,16 +106,26 @@ def fuzz_one(program_dir: Path, program_file: Path, seed_input_dir: Path, timeou
 
 def main(
     mutator_mode: str = "self_reflect_feedback",
-    strategy: str = "instrument_fuzz"
+    strategy: str = "instrument_fuzz",
+    generator_inside_mutator: bool = False,
 ):
     problem_root_dir = Path(config["problem_root_dir"])
     input_pairs_dir = Path(config["input_pairs_dir"])
     extracted_constraints_dir = Path(config["constraints_dir"])
-    input_pairs_file = input_pairs_dir / "content_similar_problem_solution_input_pairs.json"
+    input_pairs_file = input_pairs_dir / "content_similar_problem_solution_input_pairs_sorted.json"
     problem_solution_input_pairs = json.loads(input_pairs_file.read_text())
-    custom_mutators_root_dir = Path(config["custom_mutators_dir"])
-    instrument_fuzz_dir = Path(config["instrument_fuzz_dir"])
-    raw_fuzz_dir = Path(config["raw_fuzz_dir"])
+    if generator_inside_mutator:
+        custom_mutators_root_dir = Path(config["mutator_with_generator_dir"])
+    else:
+        custom_mutators_root_dir = Path(config["custom_mutators_dir"])
+    if strategy == "instrument_fuzz":
+        fuzz_dir = Path(config["instrument_fuzz_dir"])
+    elif strategy == "raw_fuzz":
+        fuzz_dir = Path(config["raw_fuzz_dir"])
+    elif strategy == "constraint_guided_one_fuzz":
+        fuzz_dir = Path(config["constraint_guided_one_fuzz_dir"])
+    else:
+        raise ValueError(f"Invalid strategy: {strategy}")
 
     # fuzz on instrumented programs
     tasks = []
@@ -121,12 +136,15 @@ def main(
                 print(f"[Warning] No input pair found for {problem_id}")
                 continue
             slow_input_id, fast_input_id = best_input_pair
-            solution_id = select_a_solution(solution_ids)
+            # solution_id = select_first_solution(solution_ids)
+            solution_id = solution_ids[0]
+            program_dir = fuzz_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}"
             if strategy == "instrument_fuzz":
-                program_dir = instrument_fuzz_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}"
                 program_file = extracted_constraints_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "transformed_program.cpp"
             elif strategy == "raw_fuzz":
-                program_dir = raw_fuzz_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}"
+                program_file = problem_root_dir / problem_id / "solutions" / "cpp" / f"{solution_id}.cpp"
+            elif strategy == "constraint_guided_one_fuzz":
+                # use the original solution file for fuzzing
                 program_file = problem_root_dir / problem_id / "solutions" / "cpp" / f"{solution_id}.cpp"
             else:
                 raise ValueError(f"Invalid strategy: {strategy}")
@@ -134,19 +152,29 @@ def main(
             if not program_file.exists():
                 print(f"{program_file} does not exist. This is not the best input pair for the problem. Skipping...")
                 continue
-            seed_input_dir = custom_mutators_root_dir / problem_id / "seed_inputs"
+
+            if strategy == "constraint_guided_one_fuzz":
+                seed_input_dir = problem_root_dir / problem_id / "constraint_guided_one" / "input"
+            else:
+                seed_input_dir = custom_mutators_root_dir / problem_id / "seed_inputs"
+
+            if not seed_input_dir.exists():
+                print(f"[Warning] {seed_input_dir} does not exist. Skipping...")
+                continue
+
             mutator_gen_mode_dir = custom_mutators_root_dir / problem_id / mutator_mode
             if not (mutator_gen_mode_dir / "MUTATOR_CHECK_PASS").exists():
                 print(f"[Warning] {mutator_gen_mode_dir} does not have a good mutator. Skipping...")
                 continue
             custom_mutator_dir = find_mutator_file(mutator_gen_mode_dir).parent.absolute()
             task = executor.submit(
-                fuzz_one, 
+                fuzz_one,
                 program_dir,
                 program_file,
                 seed_input_dir,
-                360, # timeout=360s
+                600, # timeout=600s
                 True, # use_custom_mutator=True
+                generator_inside_mutator,
                 custom_mutator_dir, # custom_mutator_dir=custom_mutator_dir
             )
             tasks.append(task)

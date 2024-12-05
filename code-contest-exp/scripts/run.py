@@ -308,7 +308,8 @@ def main(
         filter_with_inconsistency_threshold=experiment_name != "alphacode",
     )
     write_output = False
-    if experiment_name in ["corpus", "instrument_fuzz", "raw_fuzz"]:
+    if experiment_name in ["corpus", "instrument_fuzz", "raw_fuzz", \
+        "instrument_fuzz_generator_inside_mutator", "raw_fuzz_generator_inside_mutator"]:
         # we didn't run gen_tests.py for fuzzing generated inputs,
         # so we need to write the output for the first run
         write_output = True
@@ -330,7 +331,8 @@ def main(
             experiment_dir = problem_dir / experiment_name
             Path(result_root_dir / experiment_name).mkdir(exist_ok=True, parents=True)
 
-        if experiment_name in ["instrument_fuzz", "raw_fuzz"] and \
+        if experiment_name in ["instrument_fuzz", "raw_fuzz", \
+            "instrument_fuzz_generator_inside_mutator", "raw_fuzz_generator_inside_mutator"] and \
             (not (experiment_dir / "input").exists() or
                 not len(os.listdir(experiment_dir / "input")) > 0):
             # TODO: to be fixed
