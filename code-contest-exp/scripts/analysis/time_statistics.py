@@ -11,6 +11,7 @@ from config import config
 from utils import filter_problems, get_cf_problems
 from utils import squeeze_time_dict
 from utils import problem_has_failed_test_gen
+from cgig.cgig_utils import problem_has_extracted_constraint
 
 def get_time_values(problem_statistics: Dict, strategies: List[str]):
     problems = list(problem_statistics.keys())
@@ -124,7 +125,7 @@ def plot_avg_over_problem(problem_statistics: Dict, strategies: List[str]):
 def plot_problem_statistics(
     problem_statistics: Dict,
     strategies: List[str],
-    colors:List[str] = ['purple', 'green', 'red', 'yellow', 'orange', 'blue', 'cyan', 'magenta', 'pink', 'brown', 'gray', 'olive', 'lime', 'teal', 'navy', 'maroon']
+    colors:List[str] = ['purple', 'green', 'red', 'yellow', 'orange', 'blue', 'cyan', 'magenta', 'pink', 'brown', 'gray', 'olive', 'lime', 'teal', 'navy', 'maroon', 'aqua']
 ):
     # Prepare data for plotting
     problems = list(problem_statistics.keys())
@@ -171,7 +172,11 @@ def plot_problem_statistics(
     fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, ncols=1, figsize=(25, 15))
 
     for i in range(len(strategies)):
-        ax1.bar(index + i * bar_width, avg_time_values[:, i], bar_width, label=strategies[i], color=colors[i])
+        try:
+            ax1.bar(index + i * bar_width, avg_time_values[:, i], bar_width, label=strategies[i], color=colors[i])
+        except IndexError:
+            print(f"[Warning] Processing error for strategy {strategies[i]}")
+            raise Exception
 
     ax1.set_xlabel('Problem-Language')
     ax1.set_ylabel('Average Time')
@@ -389,6 +394,7 @@ def get_avg_cv_time_of_top_k_high_cv_inputs(inputs_lang_time_cv: Dict[str, Dict[
 def main(
     problem_root_dir: str = config["problem_root_dir"],
     top_k_slow_inputs: int = 5,
+    problem_with_extracted_constraint_only: bool = True,
 ):
     problem_root_dir = Path(problem_root_dir)
     filtered_problems = filter_problems(
@@ -404,13 +410,15 @@ def main(
 
     evaluated_problems = set()
 
-    strategies = ["alphacode_sanitized", "plain_problem", "slow_solution", "diff_solution_one_input", "random_solution", "evalperf_slow_solution", "evalperf_random_solution", "corpus"]
+    strategies = ["alphacode_sanitized", "constraint_guided_one", "plain_problem", "slow_solution", "random_solution", "diff_solution_one_input", "feedback_diff_input", "feedback_diff_solution", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "time_contrast", "corpus"]
     for strategy in strategies:  # experiment_name
         experiment_dir = Path(config["result_root_dir"]) / strategy
         experiment_statistics[strategy] = {}
         for problem in filtered_problems:
             problem_id = problem["name"].split(".")[0]
 
+            if problem_with_extracted_constraint_only and not problem_has_extracted_constraint(problem_id):
+                continue
             if problem_has_failed_test_gen(problem_id):
                 print(f"[Warning] Skip {problem_id} due to failed test gen on some strategies")
                 continue
