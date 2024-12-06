@@ -172,7 +172,7 @@ def main(
                 program_dir,
                 program_file,
                 seed_input_dir,
-                600, # timeout=600s
+                3600, # timeout=3600s
                 True, # use_custom_mutator=True
                 generator_inside_mutator,
                 custom_mutator_dir, # custom_mutator_dir=custom_mutator_dir

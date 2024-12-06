@@ -30,18 +30,22 @@ def get_random_fuzz_driver_files(problem_id: str, driver_num: int) -> List[Path]
     return random.sample(solution_files, driver_num)
 
 def main(
-    mutator_mode: str = "self_reflect_feedback"
+    mutator_mode: str = "self_reflect_feedback",
+    generator_inside_mutator: bool = False,
 ):
     problem_root_dir = Path(config["problem_root_dir"])
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
     corpus_gen_dir = Path(config["corpus_gen_dir"])
-    custom_mutators_root_dir = Path(config["custom_mutators_dir"])
+    if generator_inside_mutator:
+        custom_mutators_root_dir = Path(config["mutator_with_generator_dir"])
+    else:
+        custom_mutators_root_dir = Path(config["custom_mutators_dir"])
     num_fuzz_drivers = 10
 
     tasks = []
-    with ProcessPoolExecutor(max_workers = int(0.25 * os.cpu_count())) as executor:
+    with ProcessPoolExecutor(max_workers = int(0.5 * os.cpu_count())) as executor:
         for problem in tqdm(filtered_problems):
             problem_id = problem["name"].split(".")[0]
             ori_input_dir = problem_root_dir / problem_id / "input"
@@ -63,8 +67,9 @@ def main(
                     corpus_dir,
                     fuzz_driver_file,
                     seed_input_dir,
-                    360,  # timeout=360s
-                    True, # use_custom_mutator=True
+                    3600,  # timeout=3600s
+                    True, # use_custom_mutator=True,
+                    generator_inside_mutator,
                     custom_mutator_dir
                 )
                 tasks.append((problem_id, fuzz_driver_file, task))
