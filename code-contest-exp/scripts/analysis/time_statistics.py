@@ -5,6 +5,7 @@ from typing import Dict, List, Literal, Tuple
 import pprint
 from matplotlib import pyplot as plt
 import numpy as np
+import sys
 
 from utils import mean
 from config import config
@@ -327,7 +328,7 @@ def get_top_k_slow_inputs_over_all_solutions(experiment_data: Dict[str, Dict], t
 
     return inputs_lang_stat, top_k_slowest_inputs
 
-def get_inputs_lang_cv(experiment_data: Dict[str, Dict], top_k=5) -> Dict[str, Dict[str, float]]:
+def get_inputs_lang_cv(experiment_data: Dict[str, Dict], top_k=5, remove_redundant_inputs=True) -> Dict[str, Dict[str, float]]:
     inputs_lang_stat = {} # input_name -> lang -> solution_name -> time
     inputs_lang_cv = {} # input_name -> lang -> cv
     for solution, data in experiment_data.items():
@@ -339,6 +340,8 @@ def get_inputs_lang_cv(experiment_data: Dict[str, Dict], top_k=5) -> Dict[str, D
             continue
 
         time_dict = data["time_dict"]
+        if remove_redundant_inputs:
+            time_dict = remove_redundant_input_data(time_dict)
         time_stat = squeeze_time_dict(time_dict, use_max_or_avg="avg")
         language = data["language"].lower()
         if language == "python3":
@@ -390,11 +393,29 @@ def get_avg_cv_time_of_top_k_high_cv_inputs(inputs_lang_time_cv: Dict[str, Dict[
     avg_cv_time = {lang: mean(cvs) for lang, cvs in avg_cv_time.items()}
     return avg_cv_time
 
+def remove_redundant_input_data(time_dict: Dict[str, List[float]]) -> Dict[str, List[float]]:
+    # only keep test_01.in, test_02.in, ..., test_num_tests.in
+    # this filter only works for prompting strategies
+    result_time_dict = {}
+    for input_name, time_list in time_dict.items():
+        if input_name.startswith("test_"):
+            if not input_name.endswith(".in"):
+                continue
+            if not (input_name.split("_")[1].split(".")[0]).isdigit():
+                continue
+            id = int(input_name.split("_")[1].split(".")[0])
+            if id > config["num_tests"] or id < 1:
+                continue
+
+        result_time_dict[input_name] = time_list
+
+    return result_time_dict
 
 def main(
     problem_root_dir: str = config["problem_root_dir"],
     top_k_slow_inputs: int = 5,
-    problem_with_extracted_constraint_only: bool = True,
+    problem_with_extracted_constraint_only: bool = False,
+    remove_redundant_inputs: bool = True
 ):
     problem_root_dir = Path(problem_root_dir)
     filtered_problems = filter_problems(
@@ -410,7 +431,8 @@ def main(
 
     evaluated_problems = set()
 
-    strategies = ["alphacode_sanitized", "constraint_guided_one", "plain_problem", "slow_solution", "random_solution", "diff_solution_one_input", "feedback_diff_input", "feedback_diff_solution", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "time_contrast", "corpus"]
+    # TODO: regenerate and rerun around 30 problems on slow_solution. removed it for now
+    strategies = ["alphacode_sanitized", "plain_problem", "random_solution", "diff_solution_one_input", "feedback_diff_input", "feedback_diff_solution", "feedback_multi_solution_diff_input", "multi_solution_diff_input", "time_contrast", "evalperf_slow_solution", "evalperf_random_solution"]
     for strategy in strategies:  # experiment_name
         experiment_dir = Path(config["result_root_dir"]) / strategy
         experiment_statistics[strategy] = {}
@@ -449,12 +471,16 @@ def main(
                     problem_id
                 ].get(language, {})
 
+                time_dict = data["time_dict"]
+                if remove_redundant_inputs:
+                    time_dict = remove_redundant_input_data(time_dict)
+
                 try:
-                    top_k_input_stat = get_top_k_slow_inputs_time_over_one_solution(data["time_dict"], top_k=top_k_slow_inputs)
+                    top_k_input_stat = get_top_k_slow_inputs_time_over_one_solution(time_dict, top_k=top_k_slow_inputs)
                     avg_time = mean(top_k_input_stat.values())
                     max_time = max(top_k_input_stat.values())
                 except ValueError as e:
-                    print(f"[Warning] Error processing {problem_id} with {strategy}: {e}")
+                    print(f"[Warning] Error processing {problem_id} with {strategy} of language {language}: {e}")
                     input_not_enough_flag = True
                     break
 

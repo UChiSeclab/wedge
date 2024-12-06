@@ -276,6 +276,7 @@ def create_test_generator_with_retry(
     run_tests: bool = True,
     run_tests_language: Literal["python", "cpp", "python3", "java"] = "java",
     check_input_validity: bool = True,
+    remove_redundant_inputs: bool = True,
     validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "self_reflect_feedback",
     insert_validator_contract: bool = False,
     check_consistency: bool = True, # this flag is useful only when run_tests is True
@@ -330,6 +331,18 @@ def create_test_generator_with_retry(
             for input_file_name in validation_result:
                 if validation_result[input_file_name] != "PASS":
                     if (experiment_input_dir / input_file_name).exists():
+                        (experiment_input_dir / input_file_name).unlink()
+
+        if remove_redundant_inputs:
+            # only keep test_01.in, test_02.in, ..., test_num_tests.in
+            for input_file_name in os.listdir(experiment_input_dir):
+                if input_file_name.startswith("test_"):
+                    if not input_name.endswith(".in"):
+                        continue
+                    if not (input_name.split("_")[1].split(".")[0]).isdigit():
+                        continue
+                    id = int(input_file_name.split("_")[1].split(".")[0])
+                    if id > config["num_tests"] or id < 1:
                         (experiment_input_dir / input_file_name).unlink()
 
         if len(os.listdir(experiment_input_dir)) < config["num_tests"] / 2:
