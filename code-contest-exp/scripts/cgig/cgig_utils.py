@@ -67,3 +67,19 @@ def get_best_input_pair(solution_input_pairs: Dict[str, List[Tuple[str, str]]]) 
 def problem_has_extracted_constraint(problem_id: str) -> bool:
     # check if the problem has extracted constraints. this function is adhoc
     return (Path(config["constraints_dir"]) / problem_id).exists()
+
+def parse_constraints_content_from_response(gpt_response_file: Path, include_code: bool = True) -> str:
+    # parse the constraints content from the GPT response
+    response = gpt_response_file.read_text()
+    if include_code:
+        return response
+    lines = response.split("\n")
+    for i in range(len(lines)):
+        line = lines[i].strip().lower()
+        if "insert" in line and "condition" in line \
+            and ("phase 3:" in line or line.startswith("3.")):
+                break
+
+    assert i < len(lines) - 1, "No constraints found"
+
+    return "\n".join(lines[:i])
