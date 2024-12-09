@@ -8,6 +8,7 @@ from fire import Fire
 import subprocess
 
 from config import config
+from cgig.cgig_utils import problem_has_extracted_constraint, parse_constraints_content_from_response
 from gpt_caller import request_conversation, cut_string
 from cgig.fuzz import fuzz_one
 from selector.select_solution import select_solutions
@@ -65,11 +66,12 @@ def compile_mutator_gen_prompt(
     mutator_example_file: Path,
     reference_input_file_list: List[Path], # currently we use the selected seed inputs
     generator_file: Optional[Path] = None,
+    constraints_content: Optional[str] = None,
 ):
     prompt_template = prompt_template_file.read_text()
     problem_statement = problem_statement_file.read_text()
     mutator_example = mutator_example_file.read_text()
-    input_generator_code = generator_file.read_text()
+    input_generator_code = generator_file.read_text() if generator_file else ""
     reference_input_list = [input_file.read_text() for input_file in reference_input_file_list]
     reference_input_list_str = ""
     for i in range(len(reference_input_list)):
@@ -80,6 +82,7 @@ def compile_mutator_gen_prompt(
         mutator_example=mutator_example,
         reference_inputs=reference_input_list_str,
         input_generator_code=input_generator_code,
+        constraints_content=constraints_content,
     )
 
     return prompt
@@ -93,6 +96,7 @@ def prompt_and_dump_results(
     try_cnt: int,
     msg_list: List[Dict],
     mode: str = None,
+    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "custom_mutator"] = "custom_mutator",
     feedback_msg: Optional[str] = None,
 ) -> subprocess.CompletedProcess:
     mutator_gen_try_cnt_dir = mutator_gen_mode_dir / f"try_{try_cnt}"
@@ -149,12 +153,13 @@ def prompt_and_dump_results(
         fuzz_driver_dir,
         fuzz_driver_file,
         seed_input_dir,
-        180,
-        True,
-        mutator_gen_try_cnt_dir,
+        timeout=180,
+        use_custom_mutator=True,
+        mutator_type=mutator_type,
+        custom_mutator_dir=mutator_gen_try_cnt_dir,
     )
 
-def generate_mutator(mutator_gen_root_dir: Path, problem_id: str, initial_prompt: str, mode: str, fuzz_driver_file: Path, max_try: int = 5) -> subprocess.CompletedProcess:
+def generate_mutator(mutator_gen_root_dir: Path, problem_id: str, initial_prompt: str, mode: str, mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "custom_mutator"], fuzz_driver_file: Path, max_try: int = 5) -> subprocess.CompletedProcess:
     mutator_gen_mode_dir = mutator_gen_root_dir / problem_id / mode
     mutator_gen_mode_dir.mkdir(parents=True, exist_ok=True)
 
@@ -168,8 +173,9 @@ def generate_mutator(mutator_gen_root_dir: Path, problem_id: str, initial_prompt
             fuzz_driver_file,
             problem_id,
             0,
-            conversation,
-            mode,
+            msg_list=conversation,
+            mode=mode,
+            mutator_type=mutator_type,
         )
         if result.returncode != 0:
             print(f"[Warning] [{mode}] failed to generate mutator script for {problem_id} in try 0")
@@ -183,8 +189,9 @@ def generate_mutator(mutator_gen_root_dir: Path, problem_id: str, initial_prompt
                 fuzz_driver_file,
                 problem_id,
                 i,
-                conversation,
-                mode,
+                msg_list=conversation,
+                mode=mode,
+                mutator_type=mutator_type,
             )
             if result.returncode == 0:
                 break
@@ -205,9 +212,10 @@ def generate_mutator(mutator_gen_root_dir: Path, problem_id: str, initial_prompt
                 fuzz_driver_file,
                 problem_id,
                 i,
-                conversation,
-                mode,
-                feedback_msg,
+                msg_list=conversation,
+                mode=mode,
+                mutator_type=mutator_type,
+                feedback_msg=feedback_msg,
             )
             if result.returncode == 0:
                 break
@@ -222,7 +230,8 @@ def generate_mutator(mutator_gen_root_dir: Path, problem_id: str, initial_prompt
 
 def main(
     problem_root_dir: str = config["problem_root_dir"],
-    generator_inside_mutator: bool = False,
+    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "custom_mutator"] = "custom_mutator",
+    problem_with_extracted_constraint_only: bool = False,
     mutator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "direct"
 ):
     problem_root_dir = Path(problem_root_dir)
@@ -230,9 +239,13 @@ def main(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
 
-    if generator_inside_mutator:
-        prompt_template_file = Path(config["cgig_prompt_template_dir"]) / "generator_inside_mutator_gen_plain.txt"
+    if mutator_type == "mutator_with_generator":
+        prompt_template_file = Path(config["cgig_prompt_template_dir"]) / "mutator_with_generator_gen_plain.txt"
         mutator_gen_root_dir = Path(config["mutator_with_generator_dir"])
+    elif mutator_type == "mutator_with_constraint":
+        prompt_template_file = Path(config["cgig_prompt_template_dir"]) / "mutator_with_constraint_gen_plain.txt"
+        mutator_gen_root_dir = Path(config["mutator_with_constraint_dir"])
+        assert problem_with_extracted_constraint_only, "mutator_with_constraint requires problem_with_extracted_constraint_only"
     else:
         prompt_template_file = Path(config["cgig_prompt_template_dir"]) / "mutator_gen_plain.txt"
         mutator_gen_root_dir = Path(config["custom_mutators_dir"])
@@ -241,20 +254,26 @@ def main(
 
     for problem in filtered_problems:
         problem_id = problem["name"].split(".")[0]
+        constraints_content = None
+        if problem_with_extracted_constraint_only:
+            if not problem_has_extracted_constraint(problem_id):
+                continue
+            constraint_file = list((Path(config["constraints_dir"]) / problem_id).glob("**/gpt_response.txt"))[0]
+            constraints_content = parse_constraints_content_from_response(constraint_file, include_code=True)
         problem_statement_file = problem_root_dir / problem_id / "problem_statement.txt"
         ori_input_dir = problem_root_dir / problem_id / "input"
         seed_input_dir = mutator_gen_root_dir / problem_id / "seed_inputs"
         seed_input_files = select_seed_inputs(ori_input_dir, seed_input_dir)
         generator_file = problem_root_dir / problem_id / "plain_problem" / "gen.py"
         if not generator_file.exists():
-            print(f"[Warning] {generator_file} does not exist. Skipping...")
-            continue
+            generator_file = None
         initial_prompt = compile_mutator_gen_prompt(
             prompt_template_file,
             problem_statement_file,
             mutator_example_file,
             seed_input_files,
-            generator_file,
+            generator_file = generator_file,
+            constraints_content = constraints_content,
         )
 
         fuzz_driver_file_list = write_fuzz_dirvers(mutator_gen_root_dir, problem_id, problem, num_drivers=5) # 5 drivers for retrying
@@ -265,7 +284,7 @@ def main(
 
         for fuzz_driver_file in fuzz_driver_file_list:
             try:
-                result = generate_mutator(mutator_gen_root_dir, problem_id, initial_prompt, mutator_mode, fuzz_driver_file)
+                result = generate_mutator(mutator_gen_root_dir, problem_id, initial_prompt, mutator_mode, mutator_type, fuzz_driver_file)
             except subprocess.TimeoutExpired:
                 print(f"Timeout for {problem_id} with {fuzz_driver_file}")
                 shutil.rmtree(mutator_gen_mode_dir, ignore_errors=True)

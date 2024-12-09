@@ -4,7 +4,7 @@ import shutil
 import subprocess
 from multiprocessing import Pool, Manager
 import json
-from typing import Dict
+from typing import Dict, Literal
 from fire import Fire
 
 from config import config
@@ -14,7 +14,7 @@ from utils import record_failing_problem
 from cgig.cgig_utils import find_mutator_file, select_first_solution, get_best_input_pair
 
 
-def process_queue(problem_id: str, strategy: str, queue_dir: Path, results: Dict[str, int], generator_inside_mutator: bool = False):
+def process_queue(problem_id: str, strategy: str, queue_dir: Path, results: Dict[str, int], mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "custom_mutator"] = "custom_mutator"):
     problem_dir = Path(config["problem_root_dir"]) / problem_id
     input_pair_id = queue_dir.absolute().as_posix().split("/")[-4]
     solution_id = queue_dir.absolute().as_posix().split("/")[-5]
@@ -28,10 +28,10 @@ def process_queue(problem_id: str, strategy: str, queue_dir: Path, results: Dict
 
     valid_inputs = 0
     invalid_inputs = 0
-    if generator_inside_mutator:
-        strategy_input_dir = problem_dir / f"{strategy}_generator_inside_mutator" / "input"
-    else:
+    if mutator_type == "custom_mutator":
         strategy_input_dir = problem_dir / strategy / "input"
+    else:
+        strategy_input_dir = problem_dir / f"{strategy}_{mutator_type}" / "input"
     strategy_input_dir.mkdir(parents=True, exist_ok=True)
     assert validator_file.exists(), f"Validator file {validator_file} does not exist"
 
@@ -55,7 +55,7 @@ def process_queue(problem_id: str, strategy: str, queue_dir: Path, results: Dict
 
 def main(
     strategy = "instrument_fuzz",
-    generator_inside_mutator: bool = False,
+    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "custom_mutator"] = "custom_mutator",
 ):
     input_pairs_dir = Path(config["input_pairs_dir"])
     extracted_constraints_dir = Path(config["constraints_dir"])
@@ -80,14 +80,13 @@ def main(
                 solution_id = solution_ids[0]
                 if strategy == "instrument_fuzz":
                     queue_dir = instrument_fuzz_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "transformed_program_output" / "default" / "queue"
-                    if generator_inside_mutator:
-                        queue_dir = instrument_fuzz_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "transformed_program_generator_inside_mutator_output" / "default" / "queue"
                 elif strategy == "raw_fuzz":
                     queue_dir = raw_fuzz_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / f"{solution_id}_output" / "default" / "queue"
-                    if generator_inside_mutator:
-                        queue_dir = raw_fuzz_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / f"{solution_id}_generator_inside_mutator_output" / "default" / "queue"
                 else:
                     raise ValueError(f"Invalid strategy: {strategy}")
+
+                if mutator_type != "custom_mutator":
+                    queue_dir = Path(queue_dir.absolute().as_posix().replace("_output", f"_{mutator_type}_output"))
 
                 # check queue directory
                 if not queue_dir.exists():
@@ -96,7 +95,7 @@ def main(
                     print(f"[Warning] Not enough inputs in the queue directory {queue_dir}")
                     continue
 
-                tasks.append((problem_id, strategy, queue_dir, results, generator_inside_mutator))
+                tasks.append((problem_id, strategy, queue_dir, results, mutator_type))
 
             pool.starmap(process_queue, tasks)
 

@@ -2,7 +2,7 @@ from pathlib import Path
 import os
 import sys
 import subprocess
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Literal
 import json
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -12,7 +12,7 @@ from fire import Fire
 from config import config
 from common import Language
 from cgig.fuzz import fuzz_one
-from cgig.cgig_utils import find_mutator_file
+from cgig.cgig_utils import find_mutator_file, problem_has_extracted_constraint
 from utils import filter_problems, get_cf_problems
 
 random.seed(0)
@@ -31,30 +31,36 @@ def get_random_fuzz_driver_files(problem_id: str, driver_num: int) -> List[Path]
 
 def main(
     mutator_mode: str = "self_reflect_feedback",
-    generator_inside_mutator: bool = False,
+    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "custom_mutator"] = "custom_mutator",
+    problem_with_extracted_constraint_only: bool = False,
 ):
     problem_root_dir = Path(config["problem_root_dir"])
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
     corpus_gen_dir = Path(config["corpus_gen_dir"])
-    if generator_inside_mutator:
-        custom_mutators_root_dir = Path(config["mutator_with_generator_dir"])
+    if mutator_type == "mutator_with_generator":
+        mutator_gen_root_dir = Path(config["mutator_with_generator_dir"])
+    elif mutator_type == "mutator_with_constraint":
+        mutator_gen_root_dir = Path(config["mutator_with_constraint_dir"])
+        assert problem_with_extracted_constraint_only, "Problem with extracted constraint only should be True for mutator_with_constraint"
     else:
-        custom_mutators_root_dir = Path(config["custom_mutators_dir"])
+        mutator_gen_root_dir = Path(config["custom_mutators_dir"])
     num_fuzz_drivers = 10
 
     tasks = []
     with ProcessPoolExecutor(max_workers = int(0.5 * os.cpu_count())) as executor:
         for problem in tqdm(filtered_problems):
             problem_id = problem["name"].split(".")[0]
+            if problem_with_extracted_constraint_only and not problem_has_extracted_constraint(problem_id):
+                continue
             ori_input_dir = problem_root_dir / problem_id / "input"
             corpus_dir = corpus_gen_dir / problem_id
 
             # Use the seed inputs from the ones in the custom mutator directory
-            seed_input_dir = custom_mutators_root_dir / problem_id / "seed_inputs"
+            seed_input_dir = mutator_gen_root_dir / problem_id / "seed_inputs"
 
-            mutator_gen_mode_dir = custom_mutators_root_dir / problem_id / mutator_mode
+            mutator_gen_mode_dir = mutator_gen_root_dir / problem_id / mutator_mode
             if not (mutator_gen_mode_dir / "MUTATOR_CHECK_PASS").exists():
                 print(f"[Warning] {mutator_gen_mode_dir} does not have a good mutator. Skipping...")
                 continue
@@ -69,8 +75,8 @@ def main(
                     seed_input_dir,
                     3600,  # timeout=3600s
                     True, # use_custom_mutator=True,
-                    generator_inside_mutator,
-                    custom_mutator_dir
+                    mutator_type, # mutator_type=mutator_type,
+                    custom_mutator_dir, # custom_mutator_dir=custom_mutator_dir
                 )
                 tasks.append((problem_id, fuzz_driver_file, task))
 

@@ -308,12 +308,24 @@ def main(
         filter_with_inconsistency_threshold=experiment_name != "alphacode",
     )
     write_output = False
-    if experiment_name in ["corpus", "instrument_fuzz", "raw_fuzz", \
-        "instrument_fuzz_generator_inside_mutator", "raw_fuzz_generator_inside_mutator"]:
+    relax_flag = False
+    if experiment_name in [
+        "corpus",
+        "instrument_fuzz",
+        "raw_fuzz",
+        "corpus_mutator_with_generator",
+        "instrument_fuzz_mutator_with_generator",
+        "raw_fuzz_mutator_with_generator",
+        "corpus_mutator_with_constraint",
+    ]:
         # we didn't run gen_tests.py for fuzzing generated inputs,
         # so we need to write the output for the first run
         write_output = True
-    if experiment_name in ["constraint_guided_one"]:
+        relax_flag = True
+    if experiment_name in [
+        "constraint_guided_one",
+        "corpus_mutator_with_constraint",
+    ]:
         problem_with_extracted_constraint_only = True
 
     for problem in tqdm(filtered_problems):
@@ -331,13 +343,11 @@ def main(
             experiment_dir = problem_dir / experiment_name
             Path(result_root_dir / experiment_name).mkdir(exist_ok=True, parents=True)
 
-        if experiment_name in ["instrument_fuzz", "raw_fuzz", \
-            "instrument_fuzz_generator_inside_mutator", "raw_fuzz_generator_inside_mutator"] and \
-            (not (experiment_dir / "input").exists() or
-                not len(os.listdir(experiment_dir / "input")) > 0):
-            # TODO: to be fixed
-            print(f"[INFO] No input files found for {experiment_name} of {problem_id}, skipping.")
-            continue
+        if relax_flag and (not (experiment_dir / "input").exists() or \
+            not len(os.listdir(experiment_dir / "input")) > 0):
+                # TODO: to be fixed
+                print(f"[INFO] No input files found for {experiment_name} of {problem_id}, skipping.")
+                continue
 
         result_path = Path(result_root_dir / experiment_name / f"{problem_id}.json")
         result_path.parent.mkdir(exist_ok=True, parents=True)

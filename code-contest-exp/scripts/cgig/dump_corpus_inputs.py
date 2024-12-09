@@ -3,14 +3,18 @@ import os, sys
 import shutil
 import subprocess
 from multiprocessing import Pool, Manager
+from typing import Dict, Literal
+from fire import Fire
 
 from config import config
 from utils import filter_problems, get_cf_problems, record_failing_problem
 from input_validator_run import find_validator_files
 from cgig.corpus_gen import get_random_fuzz_driver_files
+from cgig.cgig_utils import problem_has_extracted_constraint
 
 
-def process_problem(problem_id: str, strategy: str, num_fuzz_drivers: int, results: Dict[str, int]):
+def process_problem(problem_id: str, strategy: str, num_fuzz_drivers: int, results: Dict[str, int], mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "custom_mutator"] = "custom_mutator"):
+    print(f"Processing problem: {problem_id}")
     problem_dir = Path(config["problem_root_dir"]) / problem_id
     corpus_dir = Path(config["corpus_gen_dir"]) / problem_id
     if not corpus_dir.exists():
@@ -26,15 +30,22 @@ def process_problem(problem_id: str, strategy: str, num_fuzz_drivers: int, resul
 
     valid_inputs = 0
     invalid_inputs = 0
-    strategy_input_dir = problem_dir / strategy / "input"
+    if mutator_type == "custom_mutator":
+        strategy_input_dir = problem_dir / strategy / "input"
+    else:
+        strategy_input_dir = problem_dir / f"{strategy}_{mutator_type}" / "input"
+    print(f"strategy input directory: {strategy_input_dir}")
     strategy_input_dir.mkdir(parents=True, exist_ok=True)
     assert validator_file.exists(), f"Validator file {validator_file} does not exist"
-    fuzz_work_dir = corpus_dir / "fuzz"
     fuzz_driver_files = get_random_fuzz_driver_files(problem_id, num_fuzz_drivers)
 
     for fuzz_driver_file in fuzz_driver_files:
-        queue_dir = fuzz_work_dir / f"{fuzz_driver_file.stem}_output" / "default" / "queue"
+        if mutator_type != "custom_mutator":
+            queue_dir = corpus_dir / f"{fuzz_driver_file.stem}_{mutator_type}_output" / "default" / "queue"
+        else:
+            queue_dir = corpus_dir / f"{fuzz_driver_file.stem}_output" / "default" / "queue"
         if not queue_dir.exists():
+            print(f"[Warning] queue directory of {fuzz_driver_file} does not exist. Skipping...")
             continue
 
         for input_file in queue_dir.glob("id:*"):
@@ -55,12 +66,22 @@ def process_problem(problem_id: str, strategy: str, num_fuzz_drivers: int, resul
     results["invalid"] += invalid_inputs
 
 
-def main():
+def main(
+    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "custom_mutator"] = "custom_mutator",
+    problem_with_extracted_constraint_only: bool = False,
+):
     strategy = "corpus"
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
     filtered_problem_ids = [problem["name"].split(".")[0] for problem in filtered_problems]
+    if mutator_type == "mutator_with_constraint":
+        assert problem_with_extracted_constraint_only, "Problem with extracted constraint only should be True for mutator_with_constraint"
+    if problem_with_extracted_constraint_only:
+        filtered_problem_ids = [
+            problem_id for problem_id in filtered_problem_ids
+                if problem_has_extracted_constraint(problem_id)
+        ]
     num_fuzz_drivers = 10
 
     with Manager() as manager:
@@ -68,7 +89,7 @@ def main():
 
         with Pool(processes = int(0.5 * os.cpu_count())) as pool:
             tasks = [
-                (problem_id, strategy, num_fuzz_drivers, results)
+                (problem_id, strategy, num_fuzz_drivers, results, mutator_type)
                 for problem_id in filtered_problem_ids
             ]
             pool.starmap(process_problem, tasks)
@@ -77,4 +98,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    Fire(main)
