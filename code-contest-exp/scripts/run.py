@@ -19,6 +19,20 @@ from utils import get_cf_problems, filter_problems, problem_test_gen_failed
 from cgig.cgig_utils import problem_has_extracted_constraint
 
 
+def parse_instruction_count(perf_stat_file: Path) -> int:
+    if not (perf_stat_file.is_file() \
+        and perf_stat_file.stat().st_size > 0):
+        raise FileNotFoundError(f"perf_stat_file: {perf_stat_file} does not exist or is empty.")
+    lines = perf_stat_file.read_text().split("\n")
+    instruction_cnt = 0
+    for line in lines[::-1]:
+        if "instructions:u" in line:
+            # print("debug:", line)
+            instruction_cnt = int(line.split("<PERF_SEP>")[0].strip())
+            break
+
+    return instruction_cnt
+
 def compile_solution(tmp_dir: Path, solution_code: str, language: Language):
     """Compiles solution based on language."""
     if language == Language.JAVA:
@@ -96,7 +110,7 @@ def check_same_output(output_A: List[str], output_B: List[str]):
             pass
 
         try:
-            if int(Ai) < sys.float_info.max and int(Bi) < sys.float_info.max:
+            if float(Ai) < sys.float_info.max and float(Bi) < sys.float_info.max:
                 Ai = float(Ai)
                 Bi = float(Bi)
                 if abs(Ai - Bi) > 1e-5:
@@ -143,11 +157,16 @@ def run_solution(
         if executable_name == "Judge Error":
             return {"verdict": "JE"}
 
-        max_runtime = 0
         test_cnt = 0
+        max_runtime = 0
+        max_instruction_cnt = 0
         total_runtime = 0
+        total_instruction_cnt = 0
         runtime_dict = {}
+        instruction_cnt_dict = {}
         wrong_answer_flag = False
+        perf_stat_dir = (input_dir / ".." / "perf_stat").absolute().resolve()
+        perf_stat_dir.mkdir(exist_ok=True, parents=True)
         for input_test in os.listdir(input_dir):
             if include_public_private_tests_only and not \
                 (input_test.startswith("public") or input_test.startswith("private")):
@@ -155,13 +174,14 @@ def run_solution(
             input_path = input_dir / input_test
             output_path = output_dir / f"{input_test[:-3]}.out"
             output_path.parent.mkdir(exist_ok=True, parents=True)
+            perf_stat_output_path = perf_stat_dir / f"{solution_path.stem}_{language.name}_{input_test[:-3]}.perf_stat"
             if not input_path.is_file():
                 print(f"[WARNING] {input_path} has been deleted by other processes.")
                 continue
             try: 
                 with open(input_path, "r", encoding="utf-8") as input_file:
                     try:
-                        command = []
+                        command = ["perf", "stat", "-e", "instructions:u", "-x", "<PERF_SEP>", "-o", perf_stat_output_path]
                         assert os.environ["CONDA_PREFIX"] is not None, "CONDA_PREFIX not found"
                         conda_prefix_dir = Path(os.environ["CONDA_PREFIX"])
                         assert conda_prefix_dir.exists(), "CONDA_PREFIX not found"
@@ -171,7 +191,7 @@ def run_solution(
                         assert (conda_prefix_dir / "envs" / "py27").exists(), "py27 not found"
                         assert (conda_prefix_dir / "envs" / "py38").exists(), "py38 not found"
                         if language == Language.JAVA:
-                            command = [
+                            command += [
                                 "java",
                                 "-XX:+UseSerialGC",
                                 "-XX:TieredStopAtLevel=1",
@@ -185,21 +205,21 @@ def run_solution(
                                 executable_name,
                             ]
                         elif language == Language.CPP:
-                            command = [tmp_dir / "solution"]
+                            command += [tmp_dir / "solution"]
                         elif language == Language.PYTHON:
-                            command = [
+                            command += [
                                 f"{conda_prefix_dir.absolute().as_posix()}/envs/py27/bin/python",
                                 tmp_dir / "solution.py",
                             ]
                             # should change based on the path of python2.7
                         elif language == Language.PYTHON3:
-                            command = [
+                            command += [
                                 f"{conda_prefix_dir.absolute().as_posix()}/envs/py38/bin/python",
                                 tmp_dir / "solution.py",
                             ]
                             # should change based on the path of python3.8
 
-                        start_time = time.time()
+                        start_time = time.perf_counter()
                         run_process = subprocess.run(
                             command,
                             stdin=input_file,
@@ -208,7 +228,12 @@ def run_solution(
                             timeout=config["max_time_limit"],
                             check=False,
                         )
-                        runtime = time.time() - start_time
+                        runtime = time.perf_counter() - start_time
+                        try:
+                            instruction_cnt = parse_instruction_count(perf_stat_output_path)
+                        except FileNotFoundError as e:
+                            print(f"debug 235: {solution_path} {input_test} {perf_stat_output_path} {e}")
+                            raise e
                         if run_process.stdout:
                             try:
                                 program_output = run_process.stdout.decode("utf-8")
@@ -242,13 +267,21 @@ def run_solution(
                                     file.write("")
                     except subprocess.TimeoutExpired:
                         runtime = config["max_time_limit"]
+                        try:
+                            instruction_cnt = parse_instruction_count(perf_stat_output_path)
+                        except FileNotFoundError as e:
+                            print(f"debug 273: {solution_path} {input_test} {perf_stat_output_path} {e}")
+                            raise e
             except FileNotFoundError as e:
                 print(f"[WARNING] {input_path} has been deleted by other processes, error: {e}")
                 continue
             max_runtime = max(max_runtime, runtime)
+            max_instruction_cnt = max(max_instruction_cnt, instruction_cnt)
             total_runtime += runtime
+            total_instruction_cnt += instruction_cnt
             test_cnt += 1
             runtime_dict[input_test] = runtime
+            instruction_cnt_dict[input_test] = instruction_cnt
             if experiment_name == "alphacode" and \
                 (wrong_answer_flag or runtime >= config["max_time_limit"]):
                 # we only do early exit for alphacode
@@ -261,6 +294,9 @@ def run_solution(
         "average_time": total_runtime / test_cnt,
         "max_time": max_runtime,
         "time_dict": runtime_dict,
+        "average_instruction_cnt": total_instruction_cnt / test_cnt,
+        "max_instruction_cnt": max_instruction_cnt,
+        "instruction_cnt_dict": instruction_cnt_dict,
     }
     if wrong_answer_flag:
         test_result["verdict"] = "WA"
@@ -415,6 +451,7 @@ def main(
                     "average_time": [],
                     "max_time": [],
                     "time_dict": {},
+                    "instruction_cnt_dict": {},
                 }
             solution_res = problem_res[solution_id]
             solution_res["verdict"].append(res[idx]["verdict"])
@@ -427,6 +464,12 @@ def main(
                     solution_res["time_dict"][test_name] = []
                 solution_res["time_dict"][test_name].append(
                     res[idx]["time_dict"][test_name]
+                )
+            for test_name in res[idx]["instruction_cnt_dict"].keys():
+                if test_name not in solution_res["instruction_cnt_dict"]:
+                    solution_res["instruction_cnt_dict"][test_name] = []
+                solution_res["instruction_cnt_dict"][test_name].append(
+                    res[idx]["instruction_cnt_dict"][test_name]
                 )
         with open(result_path, "w", encoding="utf-8") as file:
             file.write(json.dumps(problem_res, indent=4))
