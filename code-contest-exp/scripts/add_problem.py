@@ -30,7 +30,9 @@ def main(problem_root_dir: str = config["problem_root_dir"]):
         output_dir = problem_dir / "output"
         output_dir.mkdir(exist_ok=True, parents=True)
         for test_type in ["public_tests", "private_tests", "generated_tests"]:
-            for test_idx, test_input in enumerate(problem[test_type]["input"], start=1):
+            for test_idx, test_input in enumerate(
+                problem[test_type]["input"], start=1
+            ):
                 file_path = input_dir / f"{test_type}_{test_idx:03}.in"
                 with open(file_path, "w", encoding="utf-8") as file:
                     file.write(test_input)
