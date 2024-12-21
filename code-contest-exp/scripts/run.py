@@ -273,7 +273,7 @@ def run_solution(
                             print(f"debug 273: {solution_path} {input_test} {perf_stat_output_path} {e}")
                             raise e
             except FileNotFoundError as e:
-                print(f"[WARNING] {input_path} has been deleted by other processes, error: {e}")
+                print(f"[WARNING] {perf_stat_output_path} does not exist or is empty.")
                 continue
             max_runtime = max(max_runtime, runtime)
             max_instruction_cnt = max(max_instruction_cnt, instruction_cnt)
