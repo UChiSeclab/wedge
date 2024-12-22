@@ -192,7 +192,7 @@ def run_solution(
                         assert (conda_prefix_dir / "envs" / "py38").exists(), "py38 not found"
 
                         # add timeout
-                        command += ["timeout", str(time_limit)]
+                        command += ["timeout", str(config["max_time_limit"])]
 
                         if language == Language.JAVA:
                             command += [
@@ -239,7 +239,7 @@ def run_solution(
                             print(f"debug 235: {solution_path} {input_test} {perf_stat_output_path} {e}")
                             raise e
                         if run_process.returncode == 124:
-                            raise subprocess.TimeoutExpired(" ".join(command), config["max_time_limit"], output="internal timeout")
+                            raise subprocess.TimeoutExpired(str(command), config["max_time_limit"], output="internal timeout")
                         if run_process.stdout:
                             try:
                                 program_output = run_process.stdout.decode("utf-8")
@@ -273,7 +273,7 @@ def run_solution(
                                     file.write("")
                     except subprocess.TimeoutExpired as e:
                         if e.output != "internal timeout":
-                            print("[ERROR] internal timeout not working")
+                            print(f"[ERROR] internal timeout not working for {solution_path} with {input_file}")
                         runtime = config["max_time_limit"]
                         try:
                             instruction_cnt = parse_instruction_count(perf_stat_output_path)
@@ -459,6 +459,8 @@ def main(
                     "average_time": [],
                     "max_time": [],
                     "time_dict": {},
+                    "average_instruction_cnt": [],
+                    "max_instruction_cnt": [],
                     "instruction_cnt_dict": {},
                 }
             solution_res = problem_res[solution_id]
@@ -467,6 +469,8 @@ def main(
                 continue
             solution_res["average_time"].append(res[idx]["average_time"])
             solution_res["max_time"].append(res[idx]["max_time"])
+            solution_res["average_instruction_cnt"].append(res[idx]["average_instruction_cnt"])
+            solution_res["max_instruction_cnt"].append(res[idx]["max_instruction_cnt"])
             for test_name in res[idx]["time_dict"].keys():
                 if test_name not in solution_res["time_dict"]:
                     solution_res["time_dict"][test_name] = []
