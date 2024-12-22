@@ -1,4 +1,4 @@
-torch==2.2.0
+# torch==2.2.0
 transformers==4.43.0
 fire==0.6.0
 datasets==2.21.0
