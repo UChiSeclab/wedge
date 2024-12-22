@@ -190,6 +190,10 @@ def run_solution(
                         # check environment of py27 and py38
                         assert (conda_prefix_dir / "envs" / "py27").exists(), "py27 not found"
                         assert (conda_prefix_dir / "envs" / "py38").exists(), "py38 not found"
+
+                        # add timeout
+                        command += ["timeout", str(time_limit)]
+
                         if language == Language.JAVA:
                             command += [
                                 "java",
@@ -225,7 +229,7 @@ def run_solution(
                             stdin=input_file,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
-                            timeout=config["max_time_limit"],
+                            timeout=config["max_time_limit"] + 10,
                             check=False,
                         )
                         runtime = time.perf_counter() - start_time
@@ -234,6 +238,8 @@ def run_solution(
                         except FileNotFoundError as e:
                             print(f"debug 235: {solution_path} {input_test} {perf_stat_output_path} {e}")
                             raise e
+                        if run_process.returncode == 124:
+                            raise subprocess.TimeoutExpired(" ".join(command), config["max_time_limit"], output="internal timeout")
                         if run_process.stdout:
                             try:
                                 program_output = run_process.stdout.decode("utf-8")
@@ -265,7 +271,9 @@ def run_solution(
                             if write_output:
                                 with open(output_path, "w", encoding="utf-8") as file:
                                     file.write("")
-                    except subprocess.TimeoutExpired:
+                    except subprocess.TimeoutExpired as e:
+                        if e.output != "internal timeout":
+                            print("[ERROR] internal timeout not working")
                         runtime = config["max_time_limit"]
                         try:
                             instruction_cnt = parse_instruction_count(perf_stat_output_path)
