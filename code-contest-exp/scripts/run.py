@@ -91,7 +91,7 @@ def compile_solution(tmp_dir: Path, solution_code: str, language: Language):
     return "Judge Error"
 
 
-def check_same_output(output_A: List[str], output_B: List[str]):
+def check_same_output(output_A: List[str], output_B: List[str]) -> bool:
     if len(output_A) != len(output_B):
         return False
     for idx, Ai in enumerate(output_A):
@@ -102,19 +102,18 @@ def check_same_output(output_A: List[str], output_B: List[str]):
             or (Ai.lower() == "no" and Bi.lower() == "no"):
             continue
         try:
-            Ai = int(Ai)
-            Bi = int(Bi)
-            if Ai == Bi or abs(Ai - Bi) == pow(2, 32):
+            Ai_int = int(Ai)
+            Bi_int = int(Bi)
+            if Ai_int == Bi_int or abs(Ai_int - Bi_int) == pow(2, 32):
                 continue
         except ValueError:
             pass
 
         try:
-            if float(Ai) < sys.float_info.max and float(Bi) < sys.float_info.max:
-                Ai = float(Ai)
-                Bi = float(Bi)
-                if abs(Ai - Bi) > 1e-5:
-                    return False
+            Ai_float = float(Ai)
+            Bi_float = float(Bi)
+            if abs(Ai_float - Bi_float) > 1e-5:
+                return False
         except ValueError:
             if Ai != Bi:
                 return False
