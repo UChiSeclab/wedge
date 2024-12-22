@@ -157,6 +157,10 @@ def filter_problems(problems, filter_with_inconsistency_threshold=True):
         filtered_problems_with_inconsistency = []
         for problem in filtered_problems:
             problem_name = problem["name"].split(".")[0]
+            # hack, to be removed
+            if problem_name in ["1105_E"]:
+                print(f"hack: filtered on vegeta {problem_name}")
+                continue
             result_path = alphacode_dir / f"{problem_name}.json"
             labeled_correct = 0
             actual_correct = 0
