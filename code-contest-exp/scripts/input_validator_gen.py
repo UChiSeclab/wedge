@@ -341,11 +341,16 @@ def main(
 ):
     problem_root_dir = Path(problem_root_dir)
     filtered_problems = filter_problems(
-        get_cf_problems(use_specified_problem=config["use_specified_problem"])
+        get_cf_problems(use_specified_problem=config["use_specified_problem"]),
+        filter_with_num_solutions=False,
     )
     
     for problem in tqdm(filtered_problems):
         problem_id = problem["name"].split(".")[0]
+        validator_gen_mode_dir = problem_root_dir / problem_id / config["validator_dir_name"] / validator_mode
+        if validator_gen_mode_dir.exists():
+            print(f"Validator for problem {problem_id} already exists in mode {validator_mode}")
+            continue
         if not generate_validator(problem_root_dir, problem, validator_mode):
             print(f"Failed to generate validator for problem {problem_id}")
         else:
