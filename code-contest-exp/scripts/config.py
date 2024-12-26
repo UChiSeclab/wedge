@@ -26,7 +26,7 @@ config = {
     "cov_data_dir": "./results_cov_data",
     "product_cov_data_dir": "./constraint_guided_input_gen/product_cov",
     "input_pairs_dir": "./constraint_guided_input_gen/input_pairs",
-    "cgig_prompt_template_dir": "./constraint_guided_input_gen/prompt_templates",
+    "cgig_prompt_template_dir": "./prompt_templates/cgig",
     "constraints_dir": "./constraint_guided_input_gen/extracted_constraints",
     "custom_mutators_dir": "./constraint_guided_input_gen/custom_mutators",
     "mutator_with_generator_dir": "./constraint_guided_input_gen/mutator_with_generator",

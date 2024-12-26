@@ -1,0 +1,27 @@
+Here is an example custom mutator provided in AFL++ repo:
+
+{mutator_example}
+
+Could you learn from it and generate a new one?
+
+The constraints of input are described here:
+
+-------- Problem begins
+
+{problem_statement}
+
+-------- Problem ends
+
+Here are some example inputs that you can use as a reference:
+
+{reference_inputs}
+
+Here is an input generator that aims to generate different patterns of inputs that could possibly make the solutions run slow:
+
+{input_generator_code}
+
+Please note that:
+1. You should ensure the mutated inputs follow the input constraints as much as possible. Note that 10000(10^5) is usually written as 105, 100000(10^6) is usually written as 106, etc.
+2. You should learn from the given input generator and incorporate it in the mutator, so that each iteration it can randomly choose to mutate the last input or use the generator to generate inputs from scratch.
+3. You should try to implement multiple mutation operations that can be randomly selected. You can implement mutation operations that could potentially explore corner cases of the program (e.g., upper/lower bound).
+4. You can add a try catch block to the mutation module so that if the mutation failed you can fall back to the generator since the generator is believed to be more robust.

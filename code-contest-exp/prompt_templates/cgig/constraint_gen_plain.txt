@@ -1,0 +1,31 @@
+You are an experienced Python software engineer. The below are a coding problem and a solution to the problem that contains some structures, e.g., loop, or functions. For example, library functions will be slow when feeding with certain parameters. Your task is to generate performance-characterizing conditions that describe such circumstances from the solution, such that certain code snippets will run slower when the conditions are satisfied and faster when not. Please insert the generateed conditions in the form of additional checks in the original solution. Do not hardcode the conditions specific for the given slow input. Instead, extract conditions that generally hold for the category of slow inputs. The checkers should look like `if (condition) {cerr << "Warning: ..." << endl}`. Conditions on inputs are preferred and conditions inside loops are not preferred.
+
+Problem Statement (surronded by leading and trailing "--------"):
+
+-------- Problem begins
+
+-------- Problem begins
+
+{problem_statement}
+
+-------- Problem ends
+
+-------- Problem ends
+
+Here is a solution we are working on:
+
+{one_solution}
+
+Here are two inputs that look similar but under one input the solution runs faster and under the other input the solution runs slower. In addition, the line-level hit count information of slow and fast inputs is provided to give you some hints about the executions. You are going to reason why the slow input runs slower. Then you are going to generate performance-characterizing conditions such that when the conditions are satisfied, the program will run slow. Please insert the generated conditions back to the solution program as checkers.
+
+slow input:
+
+{slow_input}
+
+fast input:
+
+{fast_input}
+
+hit count information of slow input and fast input (aggregated):
+
+{src_file_with_hit_count}
