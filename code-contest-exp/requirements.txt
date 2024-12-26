@@ -10,3 +10,4 @@ matplotlib==3.9.2
 pygount==1.8.0
 evalplus==0.3.1
 gcovr==8.2
+Pympler # evalperf dependency
