@@ -293,7 +293,7 @@ def get_top_k_slow_inputs_time_over_one_solution(time_dict:Dict[str, List[float]
 
     return top_k_stat
 
-def get_top_k_slow_inputs_over_all_solutions(experiment_data: Dict[str, Dict], top_k=5, use_max_or_avg: Literal["max", "avg"] = "avg") -> Tuple[Dict[str, Dict[str, float]], List[str]]:
+def get_top_k_slow_inputs_over_all_solutions(experiment_data: Dict[str, Dict], top_k=5, use_max_or_avg: Literal["max", "avg"] = "avg", mode: Literal["run_time", "instruction_cnt"] = "instruction_cnt") -> Tuple[Dict[str, Dict[str, float]], List[str]]:
     # only focus on correct solutions
     inputs_lang_stat = {} # input_name -> lang -> solution_name -> time
     inputs_cpp_stat = {} # input_name -> solution_name -> time
@@ -305,7 +305,10 @@ def get_top_k_slow_inputs_over_all_solutions(experiment_data: Dict[str, Dict], t
         if not all(verdict in ["AC", "TLE"] for verdict in data["verdict"]):
             continue
 
-        time_dict = data["time_dict"]
+        if mode == "run_time":
+            time_dict = data["time_dict"]
+        elif mode == "instruction_cnt":
+            time_dict = data["instruction_cnt_dict"]
         time_stat = squeeze_time_dict(time_dict, use_max_or_avg=use_max_or_avg)
         language = data["language"].lower()
         if language == "python3":
@@ -328,7 +331,7 @@ def get_top_k_slow_inputs_over_all_solutions(experiment_data: Dict[str, Dict], t
 
     return inputs_lang_stat, top_k_slowest_inputs
 
-def get_inputs_lang_cv(experiment_data: Dict[str, Dict], top_k=5, remove_redundant_inputs=True) -> Dict[str, Dict[str, float]]:
+def get_inputs_lang_cv(experiment_data: Dict[str, Dict], top_k=5, remove_redundant_inputs=True, mode: Literal["run_time", "instruction_cnt"] = "instruction_cnt") -> Dict[str, Dict[str, float]]:
     inputs_lang_stat = {} # input_name -> lang -> solution_name -> time
     inputs_lang_cv = {} # input_name -> lang -> cv
     for solution, data in experiment_data.items():
@@ -339,7 +342,10 @@ def get_inputs_lang_cv(experiment_data: Dict[str, Dict], top_k=5, remove_redunda
         if not all(verdict in ["AC", "TLE"] for verdict in data["verdict"]):
             continue
 
-        time_dict = data["time_dict"]
+        if mode == "run_time":
+            time_dict = data["time_dict"]
+        elif mode == "instruction_cnt":
+            time_dict = data["instruction_cnt_dict"]
         if remove_redundant_inputs:
             time_dict = remove_redundant_input_data(time_dict)
         time_stat = squeeze_time_dict(time_dict, use_max_or_avg="avg")
@@ -415,12 +421,16 @@ def main(
     problem_root_dir: str = config["problem_root_dir"],
     top_k_slow_inputs: int = 5,
     problem_with_extracted_constraint_only: bool = False,
-    remove_redundant_inputs: bool = True
+    remove_redundant_inputs: bool = True,
+    mode: Literal["run_time", "instruction_cnt"] = "instruction_cnt"
 ):
     problem_root_dir = Path(problem_root_dir)
     filtered_problems = filter_problems(
-        get_cf_problems(use_specified_problem=config["use_specified_problem"])
+        get_cf_problems(use_specified_problem=config["use_specified_problem"]),
+        filter_with_num_solutions=True,
     )
+
+    print("lengeth of filtered_problems: ", len(filtered_problems))
 
     problem_statistics = (
         {}
@@ -471,7 +481,10 @@ def main(
                     problem_id
                 ].get(language, {})
 
-                time_dict = data["time_dict"]
+                if mode == "run_time":
+                    time_dict = data["time_dict"]
+                elif mode == "instruction_cnt":
+                    time_dict = data["instruction_cnt_dict"]
                 if remove_redundant_inputs:
                     time_dict = remove_redundant_input_data(time_dict)
 
@@ -490,7 +503,7 @@ def main(
                 solutions_data[language] = solutions_data.get(language, [])
                 solutions_data[language].append((avg_time, max_time))
 
-            inputs_lang_cv = get_inputs_lang_cv(experiment_data)
+            inputs_lang_cv = get_inputs_lang_cv(experiment_data, mode=mode)
             top_k_high_cv_inputs = get_top_k_high_cv_inputs(inputs_lang_cv, top_k=top_k_slow_inputs)
             lang_avg_cv_time = get_avg_cv_time_of_top_k_high_cv_inputs(inputs_lang_cv, top_k_high_cv_inputs)
 

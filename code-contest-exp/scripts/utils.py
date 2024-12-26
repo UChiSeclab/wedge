@@ -9,6 +9,7 @@ import json
 import datetime
 
 from config import abandoned_list, config
+from common import Language
 
 
 def squeeze_time_dict(
@@ -134,7 +135,23 @@ def get_cf_problems(use_specified_problem: bool = False):
     return cf_problems
 
 
-def filter_problems(problems, filter_with_inconsistency_threshold=True):
+def have_multiple_correct_solutions(problem: Dict, solution_num: int = 10) -> bool:
+    solution_cnt = len(problem["solutions"]["solution"])
+    py_cnt, cpp_cnt, java_cnt = 0, 0, 0
+    for solution_idx in range(solution_cnt):
+        language_idx = problem["solutions"]["language"][solution_idx]
+        if Language.idx_to_lang(language_idx) in ["python", "python3"]:
+            py_cnt += 1
+        elif Language.idx_to_lang(language_idx) == "cpp":
+            cpp_cnt += 1
+        elif Language.idx_to_lang(language_idx) == "java":
+            java_cnt += 1
+
+    return (cpp_cnt >= solution_num) \
+        and (py_cnt >= solution_num) \
+            and (java_cnt >= solution_num)
+
+def filter_problems(problems, filter_with_inconsistency_threshold: bool = True, filter_with_num_solutions: bool = True):
     """Filter problems.
 
     Skip if the problem accept multiple answers or the problem is not on the list.
@@ -151,7 +168,14 @@ def filter_problems(problems, filter_with_inconsistency_threshold=True):
         for problem in problems
         if not any(abandoned in problem["description"] for abandoned in abandoned_list)
     ]
-    
+
+    if filter_with_num_solutions:
+        filtered_problems = [
+            problem
+            for problem in filtered_problems
+            if have_multiple_correct_solutions(problem)
+        ]
+
     if filter_with_inconsistency_threshold:
         alphacode_dir = Path(config["result_root_dir"]) / "alphacode"
         filtered_problems_with_inconsistency = []
