@@ -443,7 +443,7 @@ def main(
     top_k: int = None,
     check_input_validity: bool = True,
     validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "self_reflect_feedback",
-    check_consistency: bool = False,
+    check_consistency: bool = True,
     problem_with_extracted_constraint_only: bool = False,
 ):
     """Generates tests by test generator created by LLM.
