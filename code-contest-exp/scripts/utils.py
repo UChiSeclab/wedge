@@ -186,3 +186,10 @@ def get_run_time(experiment_result: Dict, solution_id: str, input_id: str) -> fl
     run_time_list = time_dict[input_id]
 
     return mean(run_time_list)
+
+def get_instruction_cnt(experiment_result: Dict, solution_id: str, input_id: str) -> float:
+    """Get the instruction count of the solution on the input"""
+    instruction_cnt_dict = experiment_result[solution_id]["instruction_cnt_dict"]
+    instruction_cnt_list = instruction_cnt_dict[input_id]
+
+    return mean(instruction_cnt_list)

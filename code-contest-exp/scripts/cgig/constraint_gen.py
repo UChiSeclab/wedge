@@ -78,18 +78,29 @@ if __name__ == '__main__':
             continue
         slow_input_id, fast_input_id = best_input_pair
         # solution_id = select_first_solution(solution_ids)
-        solution_id = solution_ids[0]
+        # solution_id = solution_ids[0]
         # TODO: instead of giving one product execution, we can provide multiple ones
-        slow_input_file = problem_root_dir / problem_id / "input" / slow_input_id
-        fast_input_file = problem_root_dir / problem_id / "input" / fast_input_id
-        product_cov_file = get_product_cov(
-            problem_id,
-            solution_id,
-            slow_input_id,
-            fast_input_id,
-            language=Language.CPP,
-            info_line_end=True
-        )
+        
+        for solution_id in solution_ids: # sorted
+            slow_input_file = problem_root_dir / problem_id / "input" / slow_input_id
+            fast_input_file = problem_root_dir / problem_id / "input" / fast_input_id
+            try:
+                product_cov_file = get_product_cov(
+                    problem_id,
+                    solution_id,
+                    slow_input_id,
+                    fast_input_id,
+                    language=Language.CPP,
+                    info_line_end=True
+                )
+                break
+            except FileNotFoundError:
+                print(f"[WARNING] {problem_id} {solution_id} failed to get \
+                    product cov due to coverage file(s) missing")
+                product_cov_file = None
+                continue
+        
+        assert product_cov_file, f"product cov file not found for {problem_id}'s solutions"
 
         prompt = compile_constraint_gen_prompt(
             prompt_template_file,

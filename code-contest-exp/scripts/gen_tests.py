@@ -337,9 +337,9 @@ def create_test_generator_with_retry(
             # only keep test_01.in, test_02.in, ..., test_num_tests.in
             for input_file_name in os.listdir(experiment_input_dir):
                 if input_file_name.startswith("test_"):
-                    if not input_name.endswith(".in"):
+                    if not input_file_name.endswith(".in"):
                         continue
-                    if not (input_name.split("_")[1].split(".")[0]).isdigit():
+                    if not (input_file_name.split("_")[1].split(".")[0]).isdigit():
                         continue
                     id = int(input_file_name.split("_")[1].split(".")[0])
                     if id > config["num_tests"] or id < 1:

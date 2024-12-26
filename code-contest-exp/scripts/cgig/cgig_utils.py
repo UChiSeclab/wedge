@@ -58,9 +58,11 @@ def get_best_input_pair(solution_input_pairs: Dict[str, List[Tuple[str, str]]]) 
                 highest_similarity = similarity
                 highest_similarity_input_pair = (slow_input_id, fast_input_id)
 
-    assert highest_similarity_input_pair is not None, "No input pair found"
+    if highest_similarity_input_pair is None: # all similarities are 0
+        solution_id = select_first_solution(list(solution_input_pairs.keys()))
+        highest_similarity_input_pair = tuple(list(solution_input_pairs[solution_id].keys())[0].split("@"))
 
-    best_solution_ids = sorted(input_pair_solution_map[highest_similarity_input_pair], key=lambda x: solution_input_pairs[x][f"{highest_similarity_input_pair[0]}@{highest_similarity_input_pair[1]}"][1], reverse=True)
+    best_solution_ids = sorted(input_pair_solution_map[highest_similarity_input_pair], key=lambda x: solution_input_pairs[x][f"{highest_similarity_input_pair[0]}@{highest_similarity_input_pair[1]}"][1], reverse=True) # sort by run time ratio
 
     return highest_similarity_input_pair, best_solution_ids
 

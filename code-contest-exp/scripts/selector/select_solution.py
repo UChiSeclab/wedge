@@ -148,14 +148,19 @@ def select_solutions(
         if len(filtered_solution_idxs) < 1:
             return None, None
         input_pairs_dir = Path(config["input_pairs_dir"])
-        input_pairs_file = input_pairs_dir / "content_similar_problem_solution_input_pairs.json"
+        input_pairs_file = input_pairs_dir / "content_similar_problem_solution_input_pairs_sorted.json"
         problem_solution_input_pairs = json.loads(input_pairs_file.read_text())
         best_input_pair, solution_ids = get_best_input_pair(problem_solution_input_pairs[problem_id])
         if not best_input_pair:
             raise ValueError(f"No input pair found for {problem_id}")
         slow_input_id, fast_input_id = best_input_pair
         # solution_id = select_first_solution(solution_ids)
-        solution_id = solution_ids[0]
+        solution_id = solution_ids[0] # sorted
+
+        ### adhoc hack ###
+        if problem_id == "1523_F":
+            solution_id = solution_ids[1]
+
         instrumented_solution_file = Path(config["constraints_dir"]) / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "transformed_program.cpp"
         if not instrumented_solution_file.exists():
             raise ValueError(f"File {instrumented_solution_file} does not exist")
