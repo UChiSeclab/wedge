@@ -129,6 +129,7 @@ def run_solution(
     time_limit: float = 1,
     write_output: bool = False,
     include_public_private_tests_only: bool = False,
+    record_perf: bool = False,
 ) -> Dict:
     """Runs solution on tests.
 
@@ -181,6 +182,8 @@ def run_solution(
                 with open(input_path, "r", encoding="utf-8") as input_file:
                     try:
                         command = ["perf", "stat", "-e", "instructions:u", "-x", "<PERF_SEP>", "-o", perf_stat_output_path]
+                        if not record_perf:
+                            command = []
                         assert os.environ["CONDA_PREFIX"] is not None, "CONDA_PREFIX not found"
                         conda_prefix_dir = Path(os.environ["CONDA_PREFIX"])
                         assert conda_prefix_dir.exists(), "CONDA_PREFIX not found"
@@ -233,7 +236,10 @@ def run_solution(
                         )
                         runtime = time.perf_counter() - start_time
                         try:
-                            instruction_cnt = parse_instruction_count(perf_stat_output_path)
+                            if record_perf:
+                                instruction_cnt = parse_instruction_count(perf_stat_output_path)
+                            else:
+                                instruction_cnt = 0
                         except FileNotFoundError as e:
                             print(f"debug 235: {solution_path} {input_test} {perf_stat_output_path} {e}")
                             raise e
@@ -275,7 +281,10 @@ def run_solution(
                             print(f"[ERROR] internal timeout not working for {solution_path} with {input_file}")
                         runtime = config["max_time_limit"]
                         try:
-                            instruction_cnt = parse_instruction_count(perf_stat_output_path)
+                            if record_perf:
+                                instruction_cnt = parse_instruction_count(perf_stat_output_path)
+                            else:
+                                instruction_cnt = 0
                         except FileNotFoundError as e:
                             print(f"debug 273: {solution_path} {input_test} {perf_stat_output_path} {e}")
                             raise e
@@ -341,6 +350,7 @@ def main(
     problem_root_dir: str = config["problem_root_dir"],
     result_root_dir: str = config["result_root_dir"],
     include_public_private_tests_only: bool = False,
+    record_perf: bool = True, # record the perf in "run" but not for "gen"
     problem_with_extracted_constraint_only: bool = False,
 ):
     """Runs all solutions in the folder."""
@@ -432,6 +442,7 @@ def main(
                         time_limit,
                         write_output,
                         include_public_private_tests_only,
+                        record_perf,
                     )
                 )
         random.shuffle(test_args)
