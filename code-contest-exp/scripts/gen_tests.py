@@ -42,9 +42,9 @@ def early_stop_for_input_consistency(
 
     for input_file_name in os.listdir(input_dir):
         outputs = [solution_result[correct_solution_file_name][input_file_name] for correct_solution_file_name in correct_solution_file_names]
-        num_empty_output = outputs.count("EMPTY_OUTPUT") # EMPTY_OUTPUT indicates the solution ran into an error
-        if num_empty_output > 0.05 * len(correct_solution_file_names):
-            print(f"input_file_name: {input_file_name}, num_empty_output: {num_empty_output}")
+        empty_output_count = outputs.count("EMPTY_OUTPUT") # EMPTY_OUTPUT indicates the solution ran into an error
+        if empty_output_count > 0.05 * len(correct_solution_file_names):
+            print(f"input_file_name: {input_file_name}, empty_output_count: {empty_output_count}")
             invalid_input_file_names.append(input_file_name)
         else:
             outputs = [output.strip() for output in outputs if output != "NO_OUTPUT" and output != "EMPTY_OUTPUT"]
@@ -53,8 +53,11 @@ def early_stop_for_input_consistency(
             output_counter = collections.Counter(outputs)
             majority_output_count = output_counter.most_common(1)[0][1]
             non_majority_output_count = len(outputs) - majority_output_count
-            if non_majority_output_count + num_empty_output > 0.05 * len(correct_solution_file_names):
-                print(f"input_file_name: {input_file_name}, non_majority_output_count: {non_majority_output_count}, num_empty_output: {num_empty_output}")
+            if non_majority_output_count + empty_output_count > 0.05 * len(correct_solution_file_names):
+                print(f"input_file_name: {input_file_name}, non_majority_output_count:\
+                    {non_majority_output_count}, majority_output_count: {majority_output_count}, \
+                    empty_output_count: {empty_output_count}, total: {len(outputs)},\
+                        non_majority ratio: {non_majority_output_count / len(outputs)}")
                 invalid_input_file_names.append(input_file_name)
 
     while len(invalid_input_file_names) > 0 and any((input_dir / invalid_input_file_name).exists() for invalid_input_file_name in invalid_input_file_names):
