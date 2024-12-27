@@ -157,10 +157,6 @@ def select_solutions(
         # solution_id = select_first_solution(solution_ids)
         solution_id = solution_ids[0] # sorted
 
-        ### adhoc hack ###
-        if problem_id == "1523_F":
-            solution_id = solution_ids[1]
-
         instrumented_solution_file = Path(config["constraints_dir"]) / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "transformed_program.cpp"
         if not instrumented_solution_file.exists():
             raise ValueError(f"File {instrumented_solution_file} does not exist")

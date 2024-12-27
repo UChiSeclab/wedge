@@ -8,7 +8,7 @@ from fire import Fire
 import subprocess
 
 from config import config
-from cgig.cgig_utils import problem_has_extracted_constraint, parse_constraints_content_from_response
+from cgig.cgig_utils import problem_has_extracted_constraint, parse_constraints_content
 from gpt_caller import request_conversation, cut_string
 from cgig.fuzz import fuzz_one
 from selector.select_solution import select_solutions
@@ -96,7 +96,7 @@ def prompt_and_dump_results(
     try_cnt: int,
     msg_list: List[Dict],
     mode: str = None,
-    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "custom_mutator"] = "custom_mutator",
+    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "custom_mutator"] = "custom_mutator",
     feedback_msg: Optional[str] = None,
 ) -> subprocess.CompletedProcess:
     mutator_gen_try_cnt_dir = mutator_gen_mode_dir / f"try_{try_cnt}"
@@ -159,7 +159,7 @@ def prompt_and_dump_results(
         custom_mutator_dir=mutator_gen_try_cnt_dir,
     )
 
-def generate_mutator(mutator_gen_root_dir: Path, problem_id: str, initial_prompt: str, mode: str, mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "custom_mutator"], fuzz_driver_file: Path, max_try: int = 5) -> subprocess.CompletedProcess:
+def generate_mutator(mutator_gen_root_dir: Path, problem_id: str, initial_prompt: str, mode: str, mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "custom_mutator"], fuzz_driver_file: Path, max_try: int = 5) -> subprocess.CompletedProcess:
     mutator_gen_mode_dir = mutator_gen_root_dir / problem_id / mode
     mutator_gen_mode_dir.mkdir(parents=True, exist_ok=True)
 
@@ -230,7 +230,7 @@ def generate_mutator(mutator_gen_root_dir: Path, problem_id: str, initial_prompt
 
 def main(
     problem_root_dir: str = config["problem_root_dir"],
-    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "custom_mutator"] = "custom_mutator",
+    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "custom_mutator"] = "custom_mutator",
     problem_with_extracted_constraint_only: bool = False,
     mutator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "direct"
 ):
@@ -246,9 +246,15 @@ def main(
         prompt_template_file = Path(config["cgig_prompt_template_dir"]) / "mutator_with_constraint_gen_plain.txt"
         mutator_gen_root_dir = Path(config["mutator_with_constraint_dir"])
         assert problem_with_extracted_constraint_only, "mutator_with_constraint requires problem_with_extracted_constraint_only"
-    else:
+    elif mutator_type == "mutator_with_constraint_multi":
+        prompt_template_file = Path(config["cgig_prompt_template_dir"]) / "mutator_with_constraint_multi_gen_plain.txt"
+        mutator_gen_root_dir = Path(config["mutator_with_constraint_multi_dir"])
+        assert problem_with_extracted_constraint_only, "mutator_with_constraint_multi requires problem_with_extracted_constraint_only"
+    elif mutator_type == "custom_mutator":
         prompt_template_file = Path(config["cgig_prompt_template_dir"]) / "mutator_gen_plain.txt"
         mutator_gen_root_dir = Path(config["custom_mutators_dir"])
+    else:
+        raise ValueError(f"Invalid mutator_type: {mutator_type}")
 
     mutator_example_file = Path(config["cgig_prompt_template_dir"]) / "example_mutator.py"
 
@@ -258,8 +264,7 @@ def main(
         if problem_with_extracted_constraint_only:
             if not problem_has_extracted_constraint(problem_id):
                 continue
-            constraint_file = list((Path(config["constraints_dir"]) / problem_id).glob("**/gpt_response.txt"))[0]
-            constraints_content = parse_constraints_content_from_response(constraint_file, include_code=True)
+            constraints_content = parse_constraints_content(problem_id, mutator_type)
         problem_statement_file = problem_root_dir / problem_id / "problem_statement.txt"
         ori_input_dir = problem_root_dir / problem_id / "input"
         seed_input_dir = mutator_gen_root_dir / problem_id / "seed_inputs"
