@@ -31,7 +31,7 @@ def get_random_fuzz_driver_files(problem_id: str, driver_num: int) -> List[Path]
 
 def main(
     mutator_mode: str = "self_reflect_feedback",
-    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "custom_mutator"] = "custom_mutator",
+    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi" "custom_mutator"] = "custom_mutator",
     problem_with_extracted_constraint_only: bool = False,
 ):
     problem_root_dir = Path(config["problem_root_dir"])
@@ -44,8 +44,14 @@ def main(
     elif mutator_type == "mutator_with_constraint":
         mutator_gen_root_dir = Path(config["mutator_with_constraint_dir"])
         assert problem_with_extracted_constraint_only, "Problem with extracted constraint only should be True for mutator_with_constraint"
+    elif mutator_type == "mutator_with_constraint_multi":
+        mutator_gen_root_dir = Path(config["mutator_with_constraint_multi_dir"])
+        assert problem_with_extracted_constraint_only, "Problem with extracted constraint only should be True for mutator_with_constraint_multi"
+    elif mutator_type == "custom_mutator":
+        mutator_gen_root_dir = Path(config["custom_mutator_dir"])
     else:
-        mutator_gen_root_dir = Path(config["custom_mutators_dir"])
+        raise ValueError(f"Invalid mutator type: {mutator_type}")
+
     num_fuzz_drivers = 10
 
     tasks = []

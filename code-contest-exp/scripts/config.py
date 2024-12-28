@@ -37,6 +37,7 @@ config = {
     "instrument_fuzz_dir": "./constraint_guided_input_gen/instrument_fuzz",
     "raw_fuzz_dir": "./constraint_guided_input_gen/raw_fuzz",
     "constraint_guided_one_fuzz_dir": "./constraint_guided_input_gen/constraint_guided_one_fuzz",
+    "constraint_guided_multi_fuzz_dir": "./constraint_guided_input_gen/constraint_guided_multi_fuzz",
 }
 
 # Manual Test

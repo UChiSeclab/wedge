@@ -28,10 +28,7 @@ def process_queue(problem_id: str, strategy: str, queue_dir: Path, results: Dict
 
     valid_inputs = 0
     invalid_inputs = 0
-    if mutator_type == "custom_mutator":
-        strategy_input_dir = problem_dir / strategy / "input"
-    else:
-        strategy_input_dir = problem_dir / f"{strategy}_{mutator_type}" / "input"
+    strategy_input_dir = problem_dir / f"{strategy}_{mutator_type}" / "input"
     strategy_input_dir.mkdir(parents=True, exist_ok=True)
     assert validator_file.exists(), f"Validator file {validator_file} does not exist"
 

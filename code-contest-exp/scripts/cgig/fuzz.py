@@ -63,10 +63,7 @@ def run_aflpp(work_dir: Path, binary_file: Path, seed_input_dir: Path, timeout: 
         env["PYTHONPATH"] = custom_mutator_dir.absolute().as_posix()
 
     # clear output directory
-    if mutator_type == "custom_mutator":
-        output_dir = work_dir / f"{binary_file.stem}_output"
-    else:
-        output_dir = work_dir / f"{binary_file.stem}_{mutator_type}_output"
+    output_dir = work_dir / f"{binary_file.stem}_{mutator_type}_output"
     shutil.rmtree(output_dir, ignore_errors=True)
 
     aflpp_fuzz_cmd = [
@@ -107,7 +104,7 @@ def fuzz_one(program_dir: Path, program_file: Path, seed_input_dir: Path, timeou
 def main(
     mutator_mode: str = "self_reflect_feedback",
     strategy: str = "instrument_fuzz",
-    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "custom_mutator"] = "custom_mutator",
+    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "custom_mutator"] = "custom_mutator",
 ):
     problem_root_dir = Path(config["problem_root_dir"])
     input_pairs_dir = Path(config["input_pairs_dir"])
@@ -119,6 +116,8 @@ def main(
         mutator_gen_root_dir = Path(config["mutator_with_generator_dir"])
     elif mutator_type == "mutator_with_constraint":
         mutator_gen_root_dir = Path(config["mutator_with_constraint_dir"])
+    elif mutator_type == "mutator_with_constraint_multi":
+        mutator_gen_root_dir = Path(config["mutator_with_constraint_multi_dir"])
     else:
         mutator_gen_root_dir = Path(config["custom_mutators_dir"])
 
@@ -128,6 +127,8 @@ def main(
         fuzz_dir = Path(config["raw_fuzz_dir"])
     elif strategy == "constraint_guided_one_fuzz":
         fuzz_dir = Path(config["constraint_guided_one_fuzz_dir"])
+    elif strategy == "constraint_guided_multi_fuzz":
+        fuzz_dir = Path(config["constraint_guided_multi_fuzz_dir"])
     else:
         raise ValueError(f"Invalid strategy: {strategy}")
 
