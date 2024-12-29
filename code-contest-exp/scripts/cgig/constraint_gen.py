@@ -105,7 +105,7 @@ if __name__ == '__main__':
             if not instrumented_program_file.exists():
                 (result_dir / "prompt.txt").write_text(prompt)
                 response = request(prompt)
-                transformed_program = response.split('```cpp')[1].split('```')[0].strip()
+                transformed_program = response.split('```cpp')[-1].split('```')[0].strip()
                 if "<transformed_program_start>" in transformed_program:
                     transformed_program = transformed_program.split("<transformed_program_start>")[1]
                 if "<transformed_program_end>" in transformed_program:
