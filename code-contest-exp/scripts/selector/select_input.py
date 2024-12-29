@@ -68,7 +68,7 @@ def select_slow_fast_input(
     use_max_or_avg: Literal["max", "avg"] = "avg",
 ) -> Tuple[str, str]:
     alphacode_result = get_alphacode_result(problem_id)
-    time_stat = squeeze_time_dict(alphacode_result[solution_id]["time_dict"], use_max_or_avg)
+    time_stat = squeeze_time_dict(alphacode_result[solution_id]["instruction_cnt_dict"], use_max_or_avg)
     slow_input = max(time_stat, key=lambda x: time_stat[x])
     fast_input = min(time_stat, key=lambda x: time_stat[x])
 
@@ -85,7 +85,7 @@ def select_slow_fast_input_for_multi_solution(
     input_solution_stat = {} # input -> {solution_id -> time}
     input_times = {} # input -> [time]
     for solution_id in solution_ids:
-        time_stat = squeeze_time_dict(alphacode_result[solution_id]["time_dict"], use_max_or_avg)
+        time_stat = squeeze_time_dict(alphacode_result[solution_id]["instruction_cnt_dict"], use_max_or_avg)
         for input_name, time in time_stat.items():
             if input_name not in input_solution_stat:
                 input_solution_stat[input_name] = {}
@@ -108,8 +108,8 @@ def select_most_differentiating_input(
     # To discuss with Casper: we may need to focus on the existing inputs (not generated ones)
     alphacode_result = get_alphacode_result(problem_id)
     slow_time_stat, fast_time_stat = (
-        alphacode_result[slow_solution_id]["time_dict"],
-        alphacode_result[fast_solution_id]["time_dict"],
+        alphacode_result[slow_solution_id]["instruction_cnt_dict"],
+        alphacode_result[fast_solution_id]["instruction_cnt_dict"],
     )
     slow_time_stat = squeeze_time_dict(slow_time_stat, use_max_or_avg)
     fast_time_stat = squeeze_time_dict(fast_time_stat, use_max_or_avg)

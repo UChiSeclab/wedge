@@ -50,6 +50,9 @@ def __filter_solution_idx(
         if __solution_too_long(problem, solution_idx):
             print(f"solutions_{solution_idx:04} is too long")
             continue
+        if result[f"solutions_{solution_idx:04}"]["time_dict"] == {}:
+            print(f"[WARNING] problem {problem_id} solutions_{solution_idx:04} has empty time_dict")
+            continue
         if f"solutions_{solution_idx:04}" in result:
             if all(
                 v in ["AC", "TLE"] for v in result[f"solutions_{solution_idx:04}"]["verdict"]
@@ -80,7 +83,7 @@ def select_solutions(
         if len(filtered_solution_idxs) < 2:
             return None, None
         filtered_solution_idxs.sort(
-            key=lambda idx: mean(alphacode_result[f"solutions_{idx:04}"]["average_time"])
+            key=lambda idx: mean(alphacode_result[f"solutions_{idx:04}"]["average_instruction_cnt"])
         )
         fast_solution_idx = filtered_solution_idxs[0]
         slow_solution_idx = filtered_solution_idxs[-1]
@@ -95,7 +98,7 @@ def select_solutions(
         assert top_k is not None and top_k > 1, f"top_k: {top_k}"
         # assert len(filtered_solution_idxs) >= top_k, f"len(filtered_solution_idxs): {len(filtered_solution_idxs)}"
         filtered_solution_idxs.sort(
-            key=lambda idx: mean(alphacode_result[f"solutions_{idx:04}"]["average_time"]), reverse=True
+            key=lambda idx: mean(alphacode_result[f"solutions_{idx:04}"]["average_instruction_cnt"]), reverse=True
         )
         selected_solution_idxs = filtered_solution_idxs[:top_k]
         selected_solutions = [
@@ -106,7 +109,7 @@ def select_solutions(
         if len(filtered_solution_idxs) < 1:
             return None, None
         filtered_solution_idxs.sort(
-            key=lambda idx: mean(alphacode_result[f"solutions_{idx:04}"]["average_time"])
+            key=lambda idx: mean(alphacode_result[f"solutions_{idx:04}"]["average_instruction_cnt"])
         )
         slow_solution_idx = filtered_solution_idxs[-1]
         selected_solutions = [problem["solutions"]["solution"][slow_solution_idx]]
@@ -117,7 +120,7 @@ def select_solutions(
         assert top_k is not None and top_k > 1, f"top_k: {top_k}"
         # assert len(filtered_solution_idxs) >= top_k, f"len(filtered_solution_idxs): {len(filtered_solution_idxs)}"
         filtered_solution_idxs.sort(
-            key=lambda idx: mean(alphacode_result[f"solutions_{idx:04}"]["average_time"])
+            key=lambda idx: mean(alphacode_result[f"solutions_{idx:04}"]["average_instruction_cnt"])
         )
         selected_solution_idxs = filtered_solution_idxs[:top_k]
         selected_solutions = [
@@ -128,7 +131,7 @@ def select_solutions(
         if len(filtered_solution_idxs) < 1:
             return None, None
         filtered_solution_idxs.sort(
-            key=lambda idx: mean(alphacode_result[f"solutions_{idx:04}"]["average_time"])
+            key=lambda idx: mean(alphacode_result[f"solutions_{idx:04}"]["average_instruction_cnt"])
         )
         fast_solution_idx = filtered_solution_idxs[0]
         selected_solutions = [problem["solutions"]["solution"][fast_solution_idx]]
