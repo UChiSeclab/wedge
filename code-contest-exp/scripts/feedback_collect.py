@@ -1,4 +1,4 @@
-"""For a given solution and an input, collect the coverage and hit count."""
+import multiprocessing
 from pathlib import Path
 from common import Language
 from tempdir import TempDir
@@ -46,13 +46,11 @@ def get_feedback_type(experiment_name: str):
     else:
         raise ValueError(f"Unknown experiment name: {experiment_name}")
 
-def collect_coverage_hit_count(
-    solution_file: Path, input_file: Path, Language: Language, output_file: Path, output_report_file: Path = None
-):
-    print("solution_file:", solution_file)
+def collect_coverage_hit_count(task):
+    solution_file, input_file, language, output_file = task
     feedback_script_file = (
         FEEDBACK_COLLECTION_SCRIPT_DIR
-        / str(Language)
+        / str(language)
         / "coverage"
         / "scripts"
         / "coverage_with_hit_count.sh"
@@ -65,26 +63,105 @@ def collect_coverage_hit_count(
         command = f"{feedback_script_file} {solution_file} {input_file} {work_dir} {output_dir}"
         try:
             subprocess.run(command, shell=True, check=True, timeout=90)
-        except subprocess.TimeoutExpired as e:
+        except subprocess.TimeoutExpired:
             print(f"Timeout in {command}")
-            print(e)
             return
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             print(f"Error in {command}")
-            print(e)
             return
         src_with_cov_file = list(output_dir.glob("*.cov"))[0]
         shutil.move(src_with_cov_file, output_file)
 
-        if output_report_file:
-            src_report_file = Path(work_dir) / "cobertura.xml"
-            # only support cpp now
-            assert Language == Language.CPP
-            # cpp: cobertura.xml
-            # java: coverage.xml, xml_report.xml
-            # python: coverage.xml
-            shutil.move(src_report_file, output_report_file)
+def process_problem(problem, experiment_name, problem_root_dir, solution_language, top_k):
+    problem_id = problem["name"].split(".")[0]
+    problem_dir = problem_root_dir / problem_id
+    experiment_dir = problem_dir / experiment_name
+    experiment_dir.mkdir(exist_ok=True, parents=True)
 
+    solution_selection_type = PromptTemplate.get_select_solution_type(experiment_name)
+    feedback_prompt_type = get_feedback_type(experiment_name)
+    selected_solution_ids, _ = select_solutions(
+        problem_id, problem, solution_selection_type, Language.str_to_lang(solution_language), top_k
+    )
+
+    if not selected_solution_ids:
+        print(f"Not enough solutions for {problem_id}")
+        return []
+
+    tasks = []
+
+    if feedback_prompt_type == "diff_solution":
+        fast_solution_id, slow_solution_id = selected_solution_ids
+        input_file = select_most_differentiating_input(problem_id, fast_solution_id, slow_solution_id)
+        for solution_id in [fast_solution_id, slow_solution_id]:
+            cov_hit_count_file = (
+                COVERAGE_HIT_COUNT_OUTPUT_DIR
+                / problem_id
+                / experiment_name
+                / solution_language
+                / (input_file.split(".")[0])
+                / ("fast_solution" if solution_id == fast_solution_id else "slow_solution")
+                / f"{solution_id}.cov"
+            )
+            cov_hit_count_file.parent.mkdir(exist_ok=True, parents=True)
+            if not cov_hit_count_file.exists():
+                tasks.append((problem_dir / "solutions" / solution_language / f"{solution_id}.{Language.str_to_lang(solution_language).to_suffix()}",
+                    problem_dir / "input" / input_file, Language.str_to_lang(solution_language), cov_hit_count_file))
+
+    elif feedback_prompt_type == "diff_input":
+        fast_solution_id, slow_solution_id = selected_solution_ids
+        slow_input_file_name, fast_input_file_name = select_slow_fast_input(
+            problem_id, slow_solution_id
+        )
+        for input_file_name in [slow_input_file_name, fast_input_file_name]:
+            cov_hit_count_file = (
+                COVERAGE_HIT_COUNT_OUTPUT_DIR
+                / problem_id
+                / experiment_name
+                / solution_language
+                / (input_file_name.split(".")[0])
+                / ("fast_input" if input_file_name == fast_input_file_name else "slow_input")
+                / f"{slow_solution_id}.cov"
+            )
+            cov_hit_count_file.parent.mkdir(exist_ok=True, parents=True)
+            if not cov_hit_count_file.exists():
+                tasks.append((
+                    problem_dir / "solutions" / solution_language / f"{slow_solution_id}.{Language.str_to_lang(solution_language).to_suffix()}",
+                    problem_dir / "input" / f"{input_file_name}",
+                    Language.str_to_lang(solution_language),
+                    cov_hit_count_file,
+                ))
+
+    elif feedback_prompt_type == "multi_solution_diff_input":
+        slow_solution_ids = selected_solution_ids
+        slow_input_file_name, fast_input_file_name = select_slow_fast_input_for_multi_solution(
+            problem_id, slow_solution_ids
+        )
+        for input_file_name in [slow_input_file_name, fast_input_file_name]:
+            for slow_idx, slow_solution_id in enumerate(slow_solution_ids, start=1):
+                cov_hit_count_file = (
+                    COVERAGE_HIT_COUNT_OUTPUT_DIR
+                    / problem_id
+                    / experiment_name
+                    / solution_language
+                    / (input_file_name.split(".")[0])
+                    / ("slow_input" if input_file_name == slow_input_file_name else "fast_input")
+                    / f"slow_solution_{slow_idx}"
+                    / f"{slow_solution_id}.cov"
+                )
+                cov_hit_count_file.parent.mkdir(exist_ok=True, parents=True)
+                if not cov_hit_count_file.exists():
+                    tasks.append((
+                        problem_dir / "solutions" / solution_language / f"{slow_solution_id}.{Language.str_to_lang(solution_language).to_suffix()}",
+                        problem_dir / "input" / f"{input_file_name}",
+                        Language.str_to_lang(solution_language),
+                        cov_hit_count_file,
+                    ))
+
+    else:
+        raise ValueError("Invalid feedback_prompt_type")
+
+    return tasks
 
 def main(
     experiment_name: str = config["experiment_name"],
@@ -93,131 +170,19 @@ def main(
     top_k: int = None,
 ):
     problem_root_dir = Path(problem_root_dir)
-    solution_selection_type = PromptTemplate.get_select_solution_type(experiment_name)
-    feedback_prompt_type = get_feedback_type(experiment_name)
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
 
+    # Collect all tasks across problems
+    all_tasks = []
     for problem in tqdm(filtered_problems):
-        problem_id = problem["name"].split(".")[0]
-        print("problem_id:", problem_id)
-        problem_dir = problem_root_dir / problem_id
-        experiment_dir = problem_dir / experiment_name
-        experiment_dir.mkdir(exist_ok=True, parents=True)
-        selected_solution_ids, selected_solutions = select_solutions(
-            problem_id, problem, solution_selection_type, Language.str_to_lang(solution_language), top_k
-        )
+        tasks = process_problem(problem, experiment_name, problem_root_dir, solution_language, top_k)
+        all_tasks.extend(tasks)
 
-        if (selected_solution_ids == None) or (top_k and len(selected_solution_ids) < top_k):
-            print(f"Not enough solutions to select for {problem_id}", end=" ")
-            print("language:", solution_language)
-            continue
-
-        if feedback_prompt_type in ["diff_solution", "diff_input"]:
-            fast_solution_id, slow_solution_id = selected_solution_ids
-
-            most_differentiating_input_file_name = select_most_differentiating_input(
-                problem_id, fast_solution_id, slow_solution_id
-            )
-
-            slow_input_file_name, fast_input_file_name = select_slow_fast_input(
-                problem_id, slow_solution_id
-            )
-        elif feedback_prompt_type == "multi_solution_diff_input":
-            slow_solution_ids = selected_solution_ids
-            slow_input_file_name, fast_input_file_name = select_slow_fast_input_for_multi_solution(
-                problem_id, slow_solution_ids
-            )
-
-        # collect coverage and hit count
-        if feedback_prompt_type == "diff_solution":
-            for solution_id in [fast_solution_id, slow_solution_id]:
-                cov_hit_count_file = (
-                    COVERAGE_HIT_COUNT_OUTPUT_DIR
-                    / problem_id
-                    / experiment_name
-                    / solution_language
-                    / (most_differentiating_input_file_name.split(".")[0])
-                    / (
-                        "fast_solution"
-                        if solution_id == fast_solution_id
-                        else "slow_solution"
-                    )
-                    / f"{solution_id}.cov"
-                )
-                cov_hit_count_file.parent.mkdir(exist_ok=True, parents=True)
-                if not cov_hit_count_file.exists():
-                    collect_coverage_hit_count(
-                        problem_dir
-                        / "solutions"
-                        / solution_language
-                        / f"{solution_id}.{Language.str_to_lang(solution_language).to_suffix()}",
-                        problem_dir
-                        / "input"
-                        / f"{most_differentiating_input_file_name}",
-                        Language.str_to_lang(solution_language),
-                        cov_hit_count_file,
-                    )
-
-        elif feedback_prompt_type == "diff_input":
-            for input_file_name in [slow_input_file_name, fast_input_file_name]:
-                cov_hit_count_file = (
-                    COVERAGE_HIT_COUNT_OUTPUT_DIR
-                    / problem_id
-                    / experiment_name
-                    / solution_language
-                    / (input_file_name.split(".")[0])
-                    / (
-                        "fast_input"
-                        if input_file_name == fast_input_file_name
-                        else "slow_input"
-                    )
-                    / f"{slow_solution_id}.cov"
-                )
-                cov_hit_count_file.parent.mkdir(exist_ok=True, parents=True)
-                if not cov_hit_count_file.exists():
-                    collect_coverage_hit_count(
-                        problem_dir
-                        / "solutions"
-                        / solution_language
-                        / f"{slow_solution_id}.{Language.str_to_lang(solution_language).to_suffix()}",
-                        problem_dir / "input" / f"{input_file_name}",
-                        Language.str_to_lang(solution_language),
-                        cov_hit_count_file,
-                    )
-                    
-        elif feedback_prompt_type == "multi_solution_diff_input":
-            for input_file_name in [slow_input_file_name, fast_input_file_name]:
-                for slow_idx, slow_solution_id in enumerate(slow_solution_ids, start=1):
-                    cov_hit_count_file = (
-                        COVERAGE_HIT_COUNT_OUTPUT_DIR
-                        / problem_id
-                        / experiment_name
-                        / solution_language
-                        / (input_file_name.split(".")[0])
-                        / (
-                            "slow_input"
-                            if input_file_name == slow_input_file_name
-                            else "fast_input"
-                        )
-                        / f"slow_solution_{slow_idx}"
-                        / f"{slow_solution_id}.cov"
-                    )
-                    cov_hit_count_file.parent.mkdir(exist_ok=True, parents=True)
-                    if not cov_hit_count_file.exists():
-                        collect_coverage_hit_count(
-                            problem_dir
-                            / "solutions"
-                            / solution_language
-                            / f"{slow_solution_id}.{Language.str_to_lang(solution_language).to_suffix()}",
-                            problem_dir / "input" / f"{input_file_name}",
-                            Language.str_to_lang(solution_language),
-                            cov_hit_count_file,
-                        )
-
-        else:
-            raise ValueError("Invalid feedback_prompt_type")
+    # Process all tasks in parallel
+    with multiprocessing.Pool() as pool:
+        pool.map(collect_coverage_hit_count, all_tasks)
 
 
 if __name__ == "__main__":
