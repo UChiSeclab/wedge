@@ -241,7 +241,7 @@ def run_solution(
                             else:
                                 instruction_cnt = 0
                         except FileNotFoundError as e:
-                            print(f"debug 235: {solution_path} {input_test} {perf_stat_output_path} {e}")
+                            print(f"debug 235: fail to parse instruction count result {solution_path} {input_test} {perf_stat_output_path} {e}")
                             raise e
                         if run_process.returncode == 124:
                             raise subprocess.TimeoutExpired(str(command), config["max_time_limit"], output="internal timeout")
@@ -286,10 +286,11 @@ def run_solution(
                             else:
                                 instruction_cnt = 0
                         except FileNotFoundError as e:
-                            print(f"debug 273: {solution_path} {input_test} {perf_stat_output_path} {e}")
+                            print(f"debug 273: fail to parse instruction count result {solution_path} {input_test} {perf_stat_output_path} {e}")
                             raise e
             except FileNotFoundError as e:
-                print(f"[WARNING] {perf_stat_output_path} does not exist or is empty.")
+                print(e)
+                # print(f"[WARNING] {perf_stat_output_path} does not exist or is empty.")
                 continue
             max_runtime = max(max_runtime, runtime)
             max_instruction_cnt = max(max_instruction_cnt, instruction_cnt)

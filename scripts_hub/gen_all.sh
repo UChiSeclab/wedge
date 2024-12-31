@@ -22,11 +22,18 @@ python scripts/gen_tests.py --experiment_name multi_solution_diff_input --prompt
 echo "Running strategy: diff_solution_one_input"
 python scripts/gen_tests.py --experiment_name diff_solution_one_input --prompt_template prompt_template_diff_solution_one_input.txt --prompt_language cpp --run_tests True >> log/gen/diff_solution_one_input.log
 
+# echo "Running strategy: evalperf_slow_solution"
+# python scripts/gen_tests.py --experiment_name evalperf_slow_solution --prompt_template prompt_template_evalperf.txt --prompt_language cpp --run_tests False >> log/gen/evalperf_slow_solution.log
+
+# echo "Running strategy: evalperf_random_solution"
+# python scripts/gen_tests.py --experiment_name evalperf_random_solution --prompt_template prompt_template_evalperf.txt --prompt_language cpp --run_tests False >> log/gen/evalperf_random_solution.log
+
+# I don't understand why I previously set run_tests to False......
 echo "Running strategy: evalperf_slow_solution"
-python scripts/gen_tests.py --experiment_name evalperf_slow_solution --prompt_template prompt_template_evalperf.txt --prompt_language cpp --run_tests False >> log/gen/evalperf_slow_solution.log
+python scripts/gen_tests.py --experiment_name evalperf_slow_solution --prompt_template prompt_template_evalperf.txt --prompt_language cpp --run_tests True > log/gen/evalperf_slow_solution.log
 
 echo "Running strategy: evalperf_random_solution"
-python scripts/gen_tests.py --experiment_name evalperf_random_solution --prompt_template prompt_template_evalperf.txt --prompt_language cpp --run_tests False >> log/gen/evalperf_random_solution.log
+python scripts/gen_tests.py --experiment_name evalperf_random_solution --prompt_template prompt_template_evalperf.txt --prompt_language cpp --run_tests True > log/gen/evalperf_random_solution.log
 
 echo "Running strategy: feedback_diff_solution"
 python scripts/gen_tests.py --experiment_name feedback_diff_solution --prompt_template prompt_template_with_feedback_diff_solution.txt --prompt_language cpp --run_tests True >> log/gen/feedback_diff_solution.log
