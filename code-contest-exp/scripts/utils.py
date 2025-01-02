@@ -156,6 +156,7 @@ def filter_problems(problems, filter_with_inconsistency_threshold: bool = True, 
 
     Skip if the problem accept multiple answers or the problem is not on the list.
     Skip if the problem has >5% "correct" solutions that do not pass the test cases.
+    Skip if the problem has too few correct solutions
 
     Args:
     - A list of problems
