@@ -22,7 +22,7 @@ FEEDBACK_COLLECTION_SCRIPT_DIR = (
     Path(__file__).parent / ".." / ".." / "feedback_collection"
 ).absolute()
 COVERAGE_HIT_COUNT_OUTPUT_DIR = (
-    Path(__file__).parent / ".." / "cov_hit_count"
+    Path(__file__).parent / ".." / config["coverage_hit_count_output_dir"]
 ).absolute()
 debug = False
 
