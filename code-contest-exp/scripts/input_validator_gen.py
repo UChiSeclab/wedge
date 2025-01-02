@@ -337,7 +337,7 @@ def generate_validator(problem_root_dir: Path, problem: Dict, mode: str, max_try
 
 def main(
     problem_root_dir: str = config["problem_root_dir"],
-    validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "direct"
+    validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "self_reflect_feedback"
 ):
     problem_root_dir = Path(problem_root_dir)
     filtered_problems = filter_problems(
