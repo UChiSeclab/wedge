@@ -4,11 +4,7 @@ Problem Statement (surrounded by leading and trailing "--------"):
 
 -------- Problem begins
 
--------- Problem begins
-
 {problem_statement}
-
--------- Problem ends
 
 -------- Problem ends
 
