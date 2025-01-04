@@ -29,16 +29,36 @@ def get_random_fuzz_driver_files(problem_id: str, driver_num: int) -> List[Path]
 
     return random.sample(solution_files, driver_num)
 
+def get_instrumented_fuzz_driver_files(problem_id: str, driver_num: int) -> List[Path]:
+    # find the transformed_program.cpp files
+    constraint_dir = Path(config["constraints_dir"]) / problem_id
+    instrumented_program_files = list(constraint_dir.glob("*/*/transformed_program.cpp"))
+    if len(instrumented_program_files) < driver_num:
+        print(f"[Warning] {problem_id} has less than {driver_num} instrumented programs")
+
+    assert len(instrumented_program_files) > 0, f"No instrumented programs found for {problem_id}"
+
+    return instrumented_program_files
+
 def main(
     mutator_mode: str = "self_reflect_feedback",
+    fuzz_driver_mode: Literal["raw_fuzz", "instrument_fuzz"] = "raw_fuzz",
     mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi" "custom_mutator"] = "custom_mutator",
     problem_with_extracted_constraint_only: bool = False,
+    num_fuzz_drivers: int = 10,
 ):
     problem_root_dir = Path(config["problem_root_dir"])
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
-    corpus_gen_dir = Path(config["corpus_gen_dir"])
+
+    if fuzz_driver_mode == "instrument_fuzz":
+        corpus_gen_dir = Path(config["corpus_instrument_gen_dir"])
+    elif fuzz_driver_mode == "raw_fuzz":
+        corpus_gen_dir = Path(config["corpus_raw_gen_dir"])
+    else:
+        raise ValueError(f"Invalid fuzz driver mode: {fuzz_driver_mode}")
+
     if mutator_type == "mutator_with_generator":
         mutator_gen_root_dir = Path(config["mutator_with_generator_dir"])
     elif mutator_type == "mutator_with_constraint":
@@ -51,8 +71,6 @@ def main(
         mutator_gen_root_dir = Path(config["custom_mutator_dir"])
     else:
         raise ValueError(f"Invalid mutator type: {mutator_type}")
-
-    num_fuzz_drivers = 10
 
     tasks = []
     with ProcessPoolExecutor(max_workers = int(0.5 * os.cpu_count())) as executor:
@@ -71,12 +89,20 @@ def main(
                 print(f"[Warning] {mutator_gen_mode_dir} does not have a good mutator. Skipping...")
                 continue
             custom_mutator_dir = (find_mutator_file(mutator_gen_mode_dir)).parent.absolute()
-            fuzz_driver_files = get_random_fuzz_driver_files(problem_id, num_fuzz_drivers)
+
+            if fuzz_driver_mode == "raw_fuzz":
+                fuzz_driver_files = get_random_fuzz_driver_files(problem_id, num_fuzz_drivers)
+            elif fuzz_driver_mode == "instrument_fuzz": # only work for problems that have extracted constraints
+                fuzz_driver_files = get_instrumented_fuzz_driver_files(problem_id, num_fuzz_drivers)
 
             for fuzz_driver_file in fuzz_driver_files:
+                if fuzz_driver_mode == "raw_fuzz":
+                    program_dir = corpus_dir
+                elif fuzz_driver_mode == "instrument_fuzz":
+                    program_dir = corpus_dir / fuzz_driver_file.parent.name
                 task = executor.submit(
                     fuzz_one,
-                    corpus_dir,
+                    program_dir,
                     fuzz_driver_file,
                     seed_input_dir,
                     3600,  # timeout=3600s
