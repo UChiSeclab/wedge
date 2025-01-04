@@ -370,8 +370,10 @@ def main(
         "corpus_mutator_with_generator",
         "instrument_fuzz_mutator_with_generator",
         "raw_fuzz_mutator_with_generator",
-        "corpus_mutator_with_constraint",
-        "corpus_mutator_with_constraint_multi",
+        "corpus_instrument_fuzz_mutator_with_constraint",
+        "corpus_instrument_fuzz_mutator_with_constraint_multi",
+        "corpus_raw_fuzz_mutator_with_constraint",
+        "corpus_raw_fuzz_mutator_with_constraint_multi",
     ]:
         # we didn't run gen_tests.py for fuzzing generated inputs,
         # so we need to write the output for the first run
