@@ -43,9 +43,10 @@ pip install -r ../feedback_collection/python/requirements.txt
 ```
 5. setup AFL++ environment
 ```bash
-mkdir path/to/aflpp
-cd path/to/aflpp
+mkdir aflpp
+cd aflpp
 git clone https://github.com/AFLplusplus/AFLplusplus.git
+cd AFLplusplus
 git checkout v4.30c
 export AFLPP_DIR=$(pwd)
 ```
