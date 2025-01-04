@@ -15,7 +15,7 @@ Based on the above information, you will work in phases:
 
 Phase 1 -- Identify Expensive or Inefficient Code Segments. In this phase you need to compare line-level hit counts for the fast and slow runs. Next, pinpoint lines or functions that appear especially expensive or frequently executed under the slow input but less so under the fast input.
 
-Phase 2 -- Derive Performance-Characterizing Invariants or Conditions. Based on these expensive or inefficient code segments, generate conditions describing when the code segment is likely to cause slow performance. Do not simply replicate the slow input’s exact values. Instead, propose general conditions (e.g., input array size exceeding a threshold, certain values in the input leading to repeated computations, etc.).
+Phase 2 -- Derive Performance-Characterizing Invariants or Conditions. Based on these expensive or inefficient code segments, generate invariants or conditions describing when the code segment is likely to cause slow performance. Do not simply replicate the slow input’s exact values. Instead, propose general conditions (e.g., input array size exceeding a threshold, certain values in the input leading to repeated computations, etc.). For each invariant or condition generated, write a small code snippet that checks if the invariant or condition holds. This code snippet will be later integrated into the original program.
 
 Phase 3 -- Insert Conditional Checks. Insert these conditions into the original C program as runtime checks, in the format described below. You should place these checks at appropriate program points, preferably near the start of the function or after reading inputs, rather than inside tight loops, so as not to add unnecessary overhead.
 ```
