@@ -15,15 +15,16 @@ Based on the above information, you will work in phases:
 
 Phase 1 -- Identify Expensive or Inefficient Code Segments. In this phase you need to compare line-level hit counts for the fast and slow runs. Next, pinpoint lines or functions that appear especially expensive or frequently executed under the slow input but less so under the fast input.
 
-Phase 2 -- Derive Performance-Characterizing Invariants or Conditions. Based on these expensive or inefficient code segments, generate invariants or conditions describing when the code segment is likely to cause slow performance. Do not simply replicate the slow input’s exact values. Instead, propose general conditions (e.g., input array size exceeding a threshold, certain values in the input leading to repeated computations, etc.). For each invariant or condition generated, write a small code snippet that checks if the invariant or condition holds. This code snippet will be later integrated into the original program.
+Phase 2 -- Derive Performance-Characterizing Invariants or Conditions. Based on the analysis of expensive or inefficient code segments and the insights from contrasting inputs, generate invariants or conditions describing when the code is likely to run slowly. Do not replicate the exact values from the slow input. Instead, propose general conditions reflecting broader triggers for slow performance. Focus on any noteworthy property or characteristic in the control flow (if/else blocks, loops, function calls) and data flow (where variables are set vs. used), such as certain relationships between input parameters, algorithmic edge cases, or structural properties of data, that may cause repeated computations or lead the code into inefficient paths. For each invariant or condition, write, in addition to describing it in natural language, a small code snippet that checks if it holds. These code snippets will be integrated into the original program, as instructed in Phase 3.
 
-Phase 3 -- Insert Conditional Checks. Insert these conditions into the original C program as runtime checks, in the format described below. You should place these checks at appropriate program points, preferably near the start of the function or after reading inputs, rather than inside tight loops, so as not to add unnecessary overhead.
+Phase 3 -- Propagate and Insert Conditional Checks. Rather than simply inserting the performance conditions from Phase 2 directly at the observed bottlenecks, you should propagate these constraints to the most effective locations within the control flow (if/else blocks, loops, function calls) and data flow (where variables are set vs. used) of the program. This means you may move or transform the conditions from deep inside loops or function calls to points where the checks can be made just once, such as shortly after reading inputs or at the beginning of a function call, thus avoiding unnecessary overhead and ensuring broader coverage. When placing these checks, follow the format below:
 ```
 if (/* condition */) {
     cerr << "Warning: Potential performance bottleneck triggered!" << endl;
     abort();
 }
 ```
+You should also ensure that if multiple constraints overlap, they are properly merged or adjusted to reflect the conditions under which the program is likely to run slowly. The final program output should include all of the newly inserted checks at the chosen points, each placed in a manner that captures the performance issue as early and efficiently as possible.
 
 C. Output Requirements
 
