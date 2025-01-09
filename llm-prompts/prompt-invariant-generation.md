@@ -121,6 +121,26 @@ void check_matrix_invariant(bool condition) {
 check_matrix_invariant(n * m > 1000000);
 ```
 
+Example invariant #5:
+
+If a program runs an expensive function or heavy-weight code (e.g. memory allocation) repeatedly within a performance-critical loop or function, the overhead for calling that function can accumulate, slowing the program significantly.
+
+Natural langauge description: "If function foo is an expensive function to execute, and is called a large number of times in a loop or recursive function, the program may slow down significantly"
+
+```cpp
+void check_expensive_function_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: expensive function invariant triggered - excessive calls" << endl;
+        abort();
+    }
+}
+
+check_expensive_function_invariant(n > 1000000);  // arbitrary, but large threshold
+for (i = 0; i < n; ++i) { 
+    foo(); // expensive function
+}
+```
+
 F. Problem Statement
 
 [problem statement goes here]
