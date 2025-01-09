@@ -126,14 +126,10 @@ for (i = 0; i < n; ++i) {
 }
 ```
 
-Phase 4 -- Propagate and Insert Conditional Checks. Rather than simply inserting the performance conditions from Phase 2 and 3 directly at the observed bottlenecks, you should propagate these constraints to the most effective locations within the control flow (if/else blocks, loops, function calls) and data flow (where variables are set vs. used) of the program. This means you may move or transform the conditions from deep inside loops or function calls to points where the checks can be made just once, such as shortly after reading inputs or at the beginning of a function call, thus avoiding unnecessary overhead and ensuring broader coverage. When placing these checks, follow the format below:
-```
-if (/* condition */) {
-    cerr << "Warning: Potential performance bottleneck triggered!" << endl;
-    abort();
-}
-```
-You should also ensure that if multiple constraints overlap, they are properly merged or adjusted to reflect the conditions under which the program is likely to run slowly. The final program output should include all of the newly inserted checks at the chosen points, each placed in a manner that captures the performance issue as early and efficiently as possible.
+Phase 4 -- Propagate and Insert Conditional Checks. Rather than simply inserting the performance conditions from Phase 2 and 3 directly at the observed bottlenecks, you should propagate these constraints to the most effective locations within the control flow (if/else blocks, loops, function calls) and data flow (where variables are set vs. used) of the program. This means you may move or transform the conditions from deep inside loops or function calls to points where the checks can be made just once, such as shortly after reading inputs or at the beginning of a function call, thus avoiding unnecessary overhead and ensuring broader coverage. When placing these checks, follow the format illustrated in Phase 3. Also, make sure these checks are free of any compilation errors.
+
+You should also ensure that if multiple constraints overlap, they are properly merged or adjusted to reflect the conditions under which the program is likely to run slowly. The final program output should include all of the newly inserted checks at the chosen points, each placed in a manner that captures the performance issue as early and efficiently as possible. Also, make sure that the transformed, instrumented program is free of any compilation errors and can be directly run by users without any compilation or runtime issues.
+
 
 C. Output Requirements
 
