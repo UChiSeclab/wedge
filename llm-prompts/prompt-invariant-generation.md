@@ -40,8 +40,86 @@ D. Important Considerations
 
 E. In-context Examples
 
-[in-context examples of invariants go here]
+In this part, we present a set of in-context examples illustrating how performance-characterizing invariants can be described in natural language and then implemented as runtime checks. These examples are not exhaustive and are not meant to confine your solution space; instead, they illustrate how diverse performance triggers might be captured. You should feel free to propose any other form of invariants that your analysis suggests.
 
+Example Invariant #1:
+
+A potential slowdown arises when certain arrays or lists grow large, causing repeated operations. One way to detect this is to check if the size of a critical array arr (used in a nested loop) exceeds a broad threshold.
+
+Natural language description: “If arr is very large and used in nested loops, the code may repeat operations too many times.”
+
+Code implementing the natural language description:
+
+```cpp
+// Sample checker function
+void check_size_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: size_invariant triggered - array too large for nested loops" << endl;
+        abort();
+    }
+}
+
+// Usage in main or function
+int arrSize = arr.size();
+check_size_invariant(arrSize > 50000);
+```
+
+Example Invariant #2:
+
+Repeated sorting or searching on a data structure can degrade performance, especially if the data structure is large or if the sorting is called multiple times in a loop.
+
+Natural language description: “If a large portion of the code’s execution time is spent in sorting a data structure repeatedly, performance may degrade. Check if the data structure is frequently resorted or reprocessed when it has many elements.”
+
+Code implementing the natural language description:
+
+```cpp
+void check_sort_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: sort_invariant triggered - repeatedly sorting large data" << endl;
+        abort();
+    }
+}
+
+// After reading input or before sorting
+int elementCount = someDataStructure.size();
+check_sort_invariant(elementCount > 100000 && /* some condition indicating repeated sorts */);
+```
+
+Example Invariant #3:
+
+Recursion (e.g., graph traversal or the iterative version of it, recurssive dynamic programming, recurssive computation like computing the next Fibonacci number, etc.) can become expensive if it explores a large search space. A sign of this might be a high branching factor combined with a deep recursion depth.
+
+Natural language description: “If the recursion depth is likely to exceed a certain level or if many branches are processed at each recursive call, the computation may become very expensive.”
+
+```cpp
+void check_dfs_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: dfs_invariant triggered - high recursion depth or branching factor" << endl;
+        abort();
+    }
+}
+
+// Before calling dfs or inside setup
+check_dfs_invariant((maxDepthEstimate > 50) && (branchFactorEstimate > 10));
+```
+
+Example Invariant #4:
+
+Memory usage spikes or large matrix operations can slow down computation if array dimensions become too large. If the program initializes a 2D array based on input dimensions n and m, certain input combinations can trigger large memory footprints or nested loops over the entire matrix.
+
+Natural language description: “If n and m together exceed a threshold that implies large matrix computations, the program may slow significantly.”
+
+```cpp
+void check_matrix_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: matrix_invariant triggered - potentially large matrix operations" << endl;
+        abort();
+    }
+}
+
+// After reading n, m
+check_matrix_invariant(n * m > 1000000);
+```
 
 F. Problem Statement
 
