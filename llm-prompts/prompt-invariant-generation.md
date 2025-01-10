@@ -145,31 +145,24 @@ D. Important Considerations
 
 E. Problem Statement
 
-[problem statement goes here]
-
+{problem_statement}
 
 F. Program Solving the Problem Statement
 
-[code goes here]
+{one_solution}
 
 
-G. The Fast and Slow Inputs
+G. The Slow and Fast Inputs
 
-G.1. Fast Input
+G.1. Slow Input
 
-[input goes here]
+{slow_input}
 
-G.2. Slow Input
+G.2. Fast Input
 
-[input goes here]
+{fast_input}
 
+H. Line-level Hit Count Information for Both Fast and Slow Solution (aggregated)
 
-H. Line-level Hit Counts
+{product_cov}
 
-H.1. Line-level Hit Counts for Fast Input:
-
-[annotated code goes here]
-
-H.2. Line-level Hit Counts for Slow Input:
-
-[annotated code goes here]

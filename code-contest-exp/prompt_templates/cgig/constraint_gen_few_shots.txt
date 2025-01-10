@@ -1,704 +1,169 @@
-You are an experienced Python software engineer. The below are a coding problem and a solution to the problem that contains some structures, e.g., loop, or functions. For example, library functions will be slow when feeding with certain parameters. Your task is to generate performance-characterizing conditions that describe such circumstances from the solution, such that certain code snippets will run slower when the conditions are satisfied and faster when not. Please insert the generateed conditions in the form of additional assertion checks in the original solution. Do not hardcode the conditions specific for the given slow input. Instead, extract conditions that generally hold for the category of slow inputs. The checkers should look like `if (condition) {cerr << "Warning: ..." << endl; abort();}`. Conditions on inputs are preferred and conditions inside loops are not preferred. I will provide you with a few examples to illustrate how to do that.
+A. Context:
 
-Problem Statement (surrounded by leading and trailing "--------"):
+You are an experienced C software engineer specializing in performance analysis, bug finding, and fuzzing-based testing. You will receive the following:
 
--------- Problem begins
+1. A problem statement describing the task or algorithm.
+2. A C program that implements a solution to the problem described.
+3. Two inputs: a fast input on which the program completes quickly, and slow input on which the program completes more slowly. These contrasting inputs are similar in size/structure but exhibit a significant difference in running time. The key idea behind this is to highlight subtle performance inefficiencies that aren’t always obvious with trivial min/max input sizes.
+4. Line-level hit counts showing how often each line of code executes for both the slow and fast inputs. The key idea analyzing both fast and slow runs is to help pinpoint which parts of the code get “hit” many more times under the slow scenario.
 
-{problem_statement}
+B. Task
 
--------- Problem ends
-
-Here is a solution we are working on:
-
-{one_solution}
-
-Here are two inputs that look similar but under one input the solution runs faster and under the other input the solution runs slower. In addition, the line-level hit count information of slow and fast inputs is provided to give you some hints about the executions. You are going to reason why the slow input runs slower. Then you are going to generate performance-characterizing conditions such that when the conditions are satisfied, the program will run slow. Please insert the generated conditions back to the solution program as checkers.
-
-slow input:
-
-{slow_input}
-
-fast input:
-
-{fast_input}
-
-hit count information of slow input and fast input (aggregated):
-
-{product_cov}
+Your overall goal is to analyze and reason about why the program runs slowly for the slow input and then insert runtime checks into the original code to detect when similar slowdown conditions might occur. Ultimately, these checks will be used by a fuzzer to produce new test inputs that trigger the slow paths.
 
 Based on the above information, you will work in phases:
 
-Phase 1: Identify expensive code (or expensive function calls) that are likely (one of) the bottlenecks of performance of the whole program, or whether or not executing the code or how many times of execution of the code dominates or significantly affects the performance of the whole program.
+Phase 1 -- Identify Expensive or Inefficient Code Segments. In this phase you need to compare line-level hit counts for the fast and slow runs. Next, pinpoint lines or functions that appear especially expensive or frequently executed under the slow input but less so under the fast input.
 
-Phase 2: Generating the conditions that, when satisfied, lead the identified expensive code or function calls to run slow.
+Phase 2 -- Derive Performance-Characterizing Invariants or Conditions (natural language). Based on the analysis of expensive or inefficient code segments and the insights gained from comparing contrasting inputs, generate natural language statements that describe when the code is likely to run slowly. These statements should not replicate specific values from the slow input. Instead, they must reflect broader triggers for slow performance—any noteworthy property in the data or control flow (e.g., relationships between input parameters, algorithmic edge cases, structural characteristics of data) that may cause repeated computations or lead the code into inefficient paths.
 
-Phase 3: Insert the generated conditions in the form of checking functions (with assertions) to the *appropriate program point* in the original program and generate the transformed program.
-
-Examples of patterns of potential performance-characterizing conditions:
-# Pattern 1: expensive code/function call inside if/else block
-## if block:
-```
-if (guarding_condition) {
-    // some heave-weight code or expensive function call which is likely going to run very slow
-    ...
-} else {
-    // empty or trivial code, e.g., an int assignment
-    ...
-}
-```
-
-generated condition: `guarding_condition` (the program will hopefully run slower when the condition is satisfied)
-
-checker to be inserted:
-```
-...
-void check_perf_condition_1(bool condition) {
-    if (condition) {
-        cout << "perf_condition_1 satisfied";
-        abort();
-    } else {
-        cout << "perf_condition_1 not satisfied";
-    }
-}
-...
-int main() {
-    ...
-    check_perf_condition_1(guarding_condition); // inserted checker
-    if (guarding_condition) {
-        ...
-}
-```
-
-## else block
-```
-if (guarding_condition) {
-    // empty or trivial code, e.g., an int assignment
-    ...
-} else {
-    // some heave-weight code or expensive function call which is likely going to run very slow
-    ...
-}
-```
-
-generateed condition: `!guarding_condition` (the program will hopefully run slower when the condition is satisfied)
-
-checker to be inserted:
-```
-...
-void check_perf_condition_2(bool condition) {
-    if (condition) {
-        cout << "perf_condition_2 satisfied";
-        abort();
-    } else {
-        cout << "perf_condition_2 not satisfied";
-    }
-}
-...
-int main() {
-    ...
-    check_perf_condition_2(!guarding_condition); // inserted checker
-    if (guarding_condition) {
-        ...
-}
-```
-
-# Pattern 2: expensive code/function inside for loop
-## for loop
-```
-// according to the problem statement, the input n cannot be greater than MAX_N, otherwise the input is invalid
-// validity condition: n <= MAX_N
-for (int i = 0; i < n; i++) {
-    // some heave-weight code or expensive function call which is likely going to run very slow
-    ...
-}
-```
-
-generated condition: `n == MAX_N` (the program will hopefully run slower when the condition is satisfied as the loop count is maximized) (a condition saying n is close to MAX_N is acceptable, e.g., MAX_N=10000 and the generated condition is `n >= MAX_N - 100`, etc.)
-
-checker to be inserted:
-```
-...
-void check_perf_condition_1(bool condition) {
-    if (condition) {
-        cout << "perf_condition_1 satisfied";
-        abort();
-    } else {
-        cout << "perf_condition_1 not satisfied";
-    }
-}
-...
-int main() {
-    ...
-    check_perf_condition_1(n == MAX_N); // inserted checker
-    for (int i = 0; i < n; i++) {
-        ...
-}
-```
-
-## while loop
-```
-// according to the problem statement, the input n cannot be greater than MAX_N, otherwise the input is invalid
-// validity condition: n <= MAX_N
-while (i < n) {
-    // some heave-weight code or expensive function call which is likely going to run very slow
-    i = i * 2;
-    ...
-}
-```
-
-generated condition: `n == MAX_N` (the program will hopefully run slower when the condition is satisfied as the loop count is maximized) (a condition saying n is close to MAX_N is acceptable, e.g., MAX_N=10000 and the generated condition is `n >= MAX_N - 100`, etc.)
-
-checker to be inserted:
-```
-...
-void check_perf_condition_1(bool condition) {
-    if (condition) {
-        cout << "perf_condition_1 satisfied";
-        abort();
-    } else {
-        cout << "perf_condition_1 not satisfied";
-    }
-}
-...
-int main() {
-    ...
-    check_perf_condition_1(n == MAX_N); // inserted checker
-    while (i < n) {
-        ...
-}
-```
-
-# Pattern 3: expensive code/function inside a loop where an exit (break, return, etc.) exists or after exit
-## break in a loop
-```
-while(i < n) {
-    // some heave-weight code or expensive function call which is likely going to run very slow
-    ...
-    if (!guarding_condition) {
-        break
-    }
-}
-```
-
-generated condition: `guarding_condition` (hopefully the program will run slower when it does not break early)
-
-checker to be inserted:
-```
-...
-void check_perf_condition_1(bool condition) {
-    if (condition) {
-        cout << "perf_condition_1 satisfied";
-        abort();
-    } else {
-        cout << "perf_condition_1 not satisfied";
-    }
-}
-...
-int main() {
-    ...
-    check_perf_condition_1(guarding_condition); // inserted checker
-    if (!guarding_condition) {
-        ...
-}
-```
-
-## early return
-```
-void fun() {
-    ...
-    if (!guarding_condition) {
-        return;
-    }
-    // some heave-weight code or expensive function call which is likely going to run very slow
-}
-```
-
-generated condition: `guarding_condition` (hopefully the program will run slower when it does not return early)
-
-checker to be inserted:
-```
-...
-void check_perf_condition_1(bool condition) {
-    if (condition) {
-        cout << "perf_condition_1 satisfied";
-        abort();
-    } else {
-        cout << "perf_condition_1 not satisfied";
-    }
-}
-...
-int main() {
-    ...
-    check_perf_condition_1(guarding_condition); // inserted checker
-    if (!guarding_condition) {
-        ...
-}
-```
-
-# Pattern 4: function specific performance characterizing condition
-## size of input
-```
-// according to the problem statement, the input n cannot be greater than MAX_N, otherwise the input is invalid
-// validity condition: n <= MAX_N
-vector<int> a(n); 
-int target;
-it = find(a.begin(), a.end(), target);
-...
-```
-
-generated condition: `n == MAX_N` (the program will hopefully run slower when the condition is satisfied as the loop count is maximized) (a condition saying n is close to MAX_N is acceptable, e.g., MAX_N=10000 and the generated condition is `n >= MAX_N - 100`, etc.)
-
-checker to be inserted:
-```
-...
-void check_perf_condition_1(bool condition) {
-    if (condition) {
-        cout << "perf_condition_1 satisfied";
-        abort();
-    } else {
-        cout << "perf_condition_1 not satisfied";
-    }
-}
-...
-int main() {
-    ...
-    check_perf_condition_1(n == MAX_N); // inserted checker
-    it = find(a.begin(), a.end(), target);
-    ...
-}
-```
-
-## internal condition of input
-```
-// according to the problem statement, the input n cannot be greater than MAX_N, otherwise the input is invalid
-// validity condition: n <= MAX_N
-vector<int> a(n); 
-sort(a.begin(), a.end());
-...
-```
-
-generate condition: 
-    `n == MAX_N` (the program will hopefully run slower when the condition is satisfied as the loop count is maximized) (a condition saying n is close to MAX_N is acceptable, e.g., MAX_N=10000 and the generated condition is `n >= MAX_N - 100`, etc.)
-    `is_sorted(a.begin(), a.end(), std::greater<int>())` (when the array is reversely sorted the sorting function will run slowest)
-
-checker to be inserted:
-```
-...
-void check_perf_condition_1(bool condition) {
-    if (condition) {
-        cout << "perf_condition_1 satisfied";
-        abort();
-    } else {
-        cout << "perf_condition_1 not satisfied";
-    }
-}
-void check_perf_condition_2(bool condition) {
-    if (condition) {
-        cout << "perf_condition_2 satisfied";
-        abort();
-    } else {
-        cout << "perf_condition_2 not satisfied";
-    }
-}
-...
-int main() {
-    ...
-    check_perf_condition_1(n == MAX_N); // inserted checker
-    check_perf_condition_2(is_sorted(a.begin(), a.end(), std::greater<int>())); // inserted checker
-    sort(a.begin(), a.end());
-    ...
-}
-```
-
-Examples of generating performance-characterizing conditions from real code:
-### Instruction:
-Generate performance-characterizing conditions from the given solution program solving the given problem and insert them to the original solution program to produce the transformed program.
-
-Problem statement:
-
-Allen wants to enter a fan zone that occupies a round square and has n entrances.
-
-There already is a queue of a_i people in front of the i-th entrance. Each entrance allows one person from its queue to enter the fan zone in one minute.
-
-Allen uses the following strategy to enter the fan zone: 
-
-  * Initially he stands in the end of the queue in front of the first entrance. 
-  * Each minute, if he is not allowed into the fan zone during the minute (meaning he is not the first in the queue), he leaves the current queue and stands in the end of the queue of the next entrance (or the first entrance if he leaves the last entrance).
-
-
-
-Determine the entrance through which Allen will finally enter the fan zone.
-
-Input
-
-The first line contains a single integer n (2 ≤ n ≤ 10^5) — the number of entrances.
-
-The second line contains n integers a_1, a_2, …, a_n (0 ≤ a_i ≤ 10^9) — the number of people in queues. These numbers do not include Allen.
-
-Output
-
-Print a single integer — the number of entrance that Allen will use.
-
-Examples
-
-Input
-
-4
-2 3 2 0
-
-
-Output
-
-3
-
-
-Input
-
-2
-10 10
-
-
-Output
-
-1
-
-
-Input
-
-6
-5 2 6 5 7 4
-
-
-Output
-
-6
-
-Note
-
-In the first example the number of people (not including Allen) changes as follows: [2, 3, 2, 0] → [1, 2, 1, 0] → [0, 1, 0, 0]. The number in bold is the queue Alles stands in. We see that he will enter the fan zone through the third entrance.
-
-In the second example the number of people (not including Allen) changes as follows: [10, 10] → [9, 9] → [8, 8] → [7, 7] → [6, 6] → \\\ [5, 5] → [4, 4] → [3, 3] → [2, 2] → [1, 1] → [0, 0].
-
-In the third example the number of people (not including Allen) changes as follows: [5, 2, 6, 5, 7, 4] → [4, 1, 5, 4, 6, 3] → [3, 0, 4, 3, 5, 2] → \\\ [2, 0, 3, 2, 4, 1] → [1, 0, 2, 1, 3, 0] → [0, 0, 1, 0, 2, 0].
-
-Solution code:
-
-#include <bits/stdc++.h>
-using namespace std;
-int main() {
-  int i, j, k, l, m, n;
-  while (scanf("%d", &n) != EOF) {
-    int x[n];
-    for (i = 0; i < n; i++) {
-      scanf("%d", &x[i]);
-    }
-    int b = 0;
-    for (i = 0; i < n; i++) {
-      x[i] -= i;
-      if (x[i] < 1) {
-        printf("%d\n", i + 1);
-        b = 1;
-        break;
-      }
-      x[i] -= n;
-    }
-    j = 0;
-    if (b == 0) {
-      while (1) {
-        if (x[j] <= 0) {
-          printf("%d\n", j + 1);
-          break;
-        }
-        x[j] -= n;
-        j++;
-        while (j == n) j = 0;
-      }
-    }
-  }
-  return 0;
-}
-
-### Response:
-1. Identify expensive code (or expensive function calls) that are likely (one of) the bottlenecks of performance of the whole program.
-In the given code, the two for loops will be executed at most n times, where 2 ≤ n ≤ 10^5, so the for loops may be expensive. Plus, the while loop with the condition `while (1)` will possibly be executed many times and should be considered expensive code. The while loop with condition `while (j == n)` will be executed every n times of the parent while loop when j count from 0 to n so it's not considered expensive code.
-
-2. Reason and generate performance-characterizing condition:
-According to the problem statement, 2 ≤ n ≤ 10^5, so we can generate a condition of `n >= 10^5 - 100` which can hopefully make the for loops run slower when it is satisfied. For the `while(1)` loop, it will break when `x[j] <= 0`, and in each iteration x[j] will be decreased by n, so the elements in the array `x` should be as large as possible. Plus, `b == 0` must be satisfied to enter the while loop, which means x[i] must be greater than i + 1 so that `b = 1` won't be executed. So we can generate a condition `std::all_of(x, x + n, [](int v)) { return v == 10^9;}` which means the elements in array x must be sufficiently large.
-
-3. Insert generated conditions and produce transformed program:
-<transformed_program_start>
-```
-#include <bits/stdc++.h>
-using namespace std;
-
-void check_perf_condition_1(bool condition) {
-    if (condition) {
-        cout << "perf_condition_1 satisfied";
-        abort();
-    } else {
-        cout << "perf_condition_1 not satisfied";
-    }
-}
-
-void check_perf_condition_2(bool condition) {
-    if (condition) {
-        cout << "perf_condition_2 satisfied";
-        abort();
-    } else {
-        cout << "perf_condition_2 not satisfied";
-    }
-}
-
-
-int main() {
-  int i, j, k, l, m, n;
-  while (scanf("%d", &n) != EOF) {
-    int x[n];
-    check_perf_condition_1(n >= 1e5 - 10);
-    for (i = 0; i < n; i++) {
-      scanf("%d", &x[i]);
-    }
-    int b = 0;
-    for (i = 0; i < n; i++) {
-      x[i] -= i;
-      if (x[i] < 1) {
-        printf("%d\n", i + 1);
-        b = 1;
-        break;
-      }
-      x[i] -= n;
-    }
-    j = 0;
-
-    check_perf_condition_2(std::all_of(x, x + n, [](int v)) { return v == 1e9;});
-    if (b == 0) {
-      while (1) {
-        if (x[j] <= 0) {
-          printf("%d\n", j + 1);
-          break;
-        }
-        x[j] -= n;
-        j++;
-        while (j == n) j = 0;
-      }
-    }
-  }
-  return 0;
-}
-```
-<transformed_program_end>
-
-### Instruction:
-
-Generate performance-characterizing conditions from the given solution program solving the given problem and insert them to the original solution program to produce the transformed program.
-
-Problem statement:
-
-An expedition group flew from planet ACM-1 to Earth in order to study the bipedal species (its representatives don't even have antennas on their heads!).
-
-The flying saucer, on which the brave pioneers set off, consists of three sections. These sections are connected by a chain: the 1-st section is adjacent only to the 2-nd one, the 2-nd one — to the 1-st and the 3-rd ones, the 3-rd one — only to the 2-nd one. The transitions are possible only between the adjacent sections.
-
-The spacecraft team consists of n aliens. Each of them is given a rank — an integer from 1 to n. The ranks of all astronauts are distinct. The rules established on the Saucer, state that an alien may move from section a to section b only if it is senior in rank to all aliens who are in the segments a and b (besides, the segments a and b are of course required to be adjacent). Any alien requires exactly 1 minute to make a move. Besides, safety regulations require that no more than one alien moved at the same minute along the ship.
-
-Alien A is senior in rank to alien B, if the number indicating rank A, is more than the corresponding number for B.
-
-At the moment the whole saucer team is in the 3-rd segment. They all need to move to the 1-st segment. One member of the crew, the alien with the identification number CFR-140, decided to calculate the minimum time (in minutes) they will need to perform this task.
-
-Help CFR-140, figure out the minimum time (in minutes) that all the astronauts will need to move from the 3-rd segment to the 1-st one. Since this number can be rather large, count it modulo m.
-
-Input
-
-The first line contains two space-separated integers: n and m (1 ≤ n, m ≤ 109) — the number of aliens on the saucer and the number, modulo which you should print the answer, correspondingly.
-
-Output
-
-Print a single number — the answer to the problem modulo m.
-
-Examples
-
-Input
-
-1 10
-
-
-Output
-
-2
-
-
-Input
-
-3 8
-
-
-Output
-
-2
-
-Note
-
-In the first sample the only crew member moves from segment 3 to segment 2, and then from segment 2 to segment 1 without any problems. Thus, the whole moving will take two minutes.
-
-To briefly describe the movements in the second sample we will use value <image>, which would correspond to an alien with rank i moving from the segment in which it is at the moment, to the segment number j. Using these values, we will describe the movements between the segments in the second sample: <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>, <image>; In total: the aliens need 26 moves. The remainder after dividing 26 by 8 equals 2, so the answer to this test is 2.
-
-The solution we are working on:
-
-#include <bits/stdc++.h>
-using namespace std;
-const long long int mod = 1e9 + 7;
-void __print(long long int x) { cerr << x; }
-void __print(float x) { cerr << x; }
-void __print(double x) { cerr << x; }
-void __print(long double x) { cerr << x; }
-void __print(char x) { cerr << '\'' << x << '\''; }
-void __print(const char *x) { cerr << '\"' << x << '\"'; }
-void __print(const string &x) { cerr << '\"' << x << '\"'; }
-void __print(bool x) { cerr << (x ? "true" : "false"); }
-template <typename T, typename V>
-void __print(const pair<T, V> &x) {
-  cerr << '{';
-  __print(x.first);
-  cerr << ',';
-  __print(x.second);
-  cerr << '}';
-}
-template <typename T>
-void __print(const T &x) {
-  long long int f = 0;
-  cerr << '{';
-  for (auto &i : x) cerr << (f++ ? "," : ""), __print(i);
-  cerr << "}";
-}
-void _print() { cerr << "]\n"; }
-template <typename T, typename... V>
-void _print(T t, V... v) {
-  __print(t);
-  if (sizeof...(v)) cerr << ", ";
-  _print(v...);
-}
-long long int fast_modulo_better_method(long long int base, long long int pow,
-                                        long long int mod) {
-  long long int res = 1;
-  while (pow > 0) {
-    if (pow & 1) {
-      res = (res * base) % mod;
-    }
-    base = (base * base) % mod;
-    pow = pow >> 1;
-  }
-  return res;
-}
-void solve() {
-  long long int n, m;
-  cin >> n >> m;
-  cout << (fast_modulo_better_method(3, n, m) - 1 + m) % m << endl;
-}
-int32_t main() {
-  ios_base::sync_with_stdio(false);
-  cin.tie(NULL);
-  cout.tie(NULL);
-  long long int t = 1;
-  while (t--) {
-    solve();
-  }
-}
-
-
-### Response:
-1. Identify expensive code (or expensive function calls) that are likely (one of) the bottlenecks of performance of the whole program.
-
-In the given code, the while loop `while (pow > 0)` might be executed many times and could potentially be expensive. The other while loop `while (t--)` will be executed only once so there's no space to make it run slower.
-
-2. Reason and generate performance-characterizing condition:
-
-In each iteration pow will be `pow >> 1`, so pow should be as large as possible to make the loop runs longer. According to the problem statement `1 ≤ n, m ≤ 10^9`, we can generate a condition `n == 1e9`.
-
-3. Insert generated conditions and produce transformed program:
-
-#include <bits/stdc++.h>
-using namespace std;
-
-void check_perf_condition_1(bool condition) {
-    if (condition) {
-        cout << "perf_condition_1 satisfied";
-        abort();
-    } else {
-        cout << "perf_condition_1 not satisfied";
-    }
-}
-
-const long long int mod = 1e9 + 7;
-void __print(long long int x) { cerr << x; }
-void __print(float x) { cerr << x; }
-void __print(double x) { cerr << x; }
-void __print(long double x) { cerr << x; }
-void __print(char x) { cerr << '\'' << x << '\''; }
-void __print(const char *x) { cerr << '\"' << x << '\"'; }
-void __print(const string &x) { cerr << '\"' << x << '\"'; }
-void __print(bool x) { cerr << (x ? "true" : "false"); }
-template <typename T, typename V>
-void __print(const pair<T, V> &x) {
-  cerr << '{';
-  __print(x.first);
-  cerr << ',';
-  __print(x.second);
-  cerr << '}';
-}
-template <typename T>
-void __print(const T &x) {
-  long long int f = 0;
-  cerr << '{';
-  for (auto &i : x) cerr << (f++ ? "," : ""), __print(i);
-  cerr << "}";
-}
-void _print() { cerr << "]\n"; }
-template <typename T, typename... V>
-void _print(T t, V... v) {
-  __print(t);
-  if (sizeof...(v)) cerr << ", ";
-  _print(v...);
-}
-long long int fast_modulo_better_method(long long int base, long long int pow,
-                                        long long int mod) {
-  long long int res = 1;
-  while (pow > 0) {
-    if (pow & 1) {
-      res = (res * base) % mod;
-    }
-    base = (base * base) % mod;
-    pow = pow >> 1;
-  }
-  return res;
-}
-void solve() {
-  long long int n, m;
-  check_perf_condition_1(n == 1e9);
-  cin >> n >> m;
-  cout << (fast_modulo_better_method(3, n, m) - 1 + m) % m << endl;
-}
-int32_t main() {
-  ios_base::sync_with_stdio(false);
-  cin.tie(NULL);
-  cout.tie(NULL);
-  long long int t = 1;
-  while (t--) {
-    solve();
-  }
-}
-
-Notes:
-1. The "check_perf_condition_*" checker functions should be named in order like 1, 2, 3, ...
-2. For the validity condition of the loop count, it is not always available. Sometimes you might need to assume that the loop count cannot exceed the max value of the type in the programming language (when the upper bound is not specified or cannot be inferred). Or maybe it's not appropriate to infer a condition here, then just skip it.
-3. Not all loops can be generateed into some meaningful conditions, e.g., `while (scanf("%d", &n) != EOF)`, no interesting conditions here, just skip it.
-4. If you failed to generate any meaningful performance characterizing condition, just leave the solution as it was.
-5. Note that In the problem statement 10000(10^5) is usually written as 105, 100000(10^6) is usually written as 106, etc.
-6. You are allowed to write and use any helper function if required.
-7. Please make sure that the transformed program only addes the checker and everything else is not changed.
-8. In the end please produce the transformed program with inserted condition checkers, in the format:
-<transformed_program_start>
+Phase 3 -- For each natural language invariant from Phase 2, write a valid C code snippet (free of compilation errors) that checks if the invariant holds at runtime. This code should follow the format below, using an if statement that outputs a warning and terminates execution if the invariant’s condition is triggered. These checkers will later be integrated into the original program:
 ```cpp
-transformed program
+if (/* condition */) {
+    cerr << "Warning: Performance bottleneck condition triggered!" << endl;
+    abort();
+}
 ```
-<transformed_program_end>
 
+To help with this transformation, here is a set of in-context examples illustrating how performance-characterizing invariants can be described in natural language and then implemented as runtime checks. Note that these examples are not exhaustive and are not meant to confine your solution space; instead, they illustrate how diverse performance triggers might be captured. You should feel free to propose any other form of invariants that your analysis suggests.
+
+Example Invariant #1:
+
+A potential slowdown arises when certain arrays or lists grow large, causing repeated operations. One way to detect this is to check if the size of a critical array arr (used in a nested loop) exceeds a broad threshold.
+
+Natural language description: “If arr is very large and used in nested loops, the code may repeat operations too many times.”
+
+Code implementing the natural language description:
+
+```cpp
+// Sample checker function
+void check_size_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: size_invariant triggered - array too large for nested loops" << endl;
+        abort();
+    }
+}
+
+// Usage in main or function
+int arrSize = arr.size();
+check_size_invariant(arrSize > 50000);
+```
+
+Example Invariant #2:
+
+Repeated sorting or searching on a data structure can degrade performance, especially if the data structure is large or if the sorting is called multiple times in a loop.
+
+Natural language description: “If a large portion of the code’s execution time is spent in sorting a data structure repeatedly, performance may degrade. Check if the data structure is frequently resorted or reprocessed when it has many elements.”
+
+Code implementing the natural language description:
+
+```cpp
+void check_sort_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: sort_invariant triggered - repeatedly sorting large data" << endl;
+        abort();
+    }
+}
+
+// After reading input or before sorting
+int elementCount = someDataStructure.size();
+check_sort_invariant(elementCount > 100000 && /* some condition indicating repeated sorts */);
+```
+
+Example Invariant #3:
+
+Recursion (e.g., graph traversal or the iterative version of it, recurssive dynamic programming, recurssive computation like computing the next Fibonacci number, etc.) can become expensive if it explores a large search space. A sign of this might be a high branching factor combined with a deep recursion depth.
+
+Natural language description: “If the recursion depth is likely to exceed a certain level or if many branches are processed at each recursive call, the computation may become very expensive.”
+
+```cpp
+void check_dfs_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: dfs_invariant triggered - high recursion depth or branching factor" << endl;
+        abort();
+    }
+}
+
+// Before calling dfs or inside setup
+check_dfs_invariant((maxDepthEstimate > 50) && (branchFactorEstimate > 10));
+```
+
+Example Invariant #4:
+
+Memory usage spikes or large matrix operations can slow down computation if array dimensions become too large. If the program initializes a 2D array based on input dimensions n and m, certain input combinations can trigger large memory footprints or nested loops over the entire matrix.
+
+Natural language description: “If n and m together exceed a threshold that implies large matrix computations, the program may slow significantly.”
+
+```cpp
+void check_matrix_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: matrix_invariant triggered - potentially large matrix operations" << endl;
+        abort();
+    }
+}
+
+// After reading n, m
+check_matrix_invariant(n * m > 1000000);
+```
+
+Example invariant #5:
+
+If a program runs an expensive function or heavy-weight code (e.g. memory allocation) repeatedly within a performance-critical loop or function, the overhead for calling that function can accumulate, slowing the program significantly.
+
+Natural langauge description: "If function foo is an expensive function to execute, and is called a large number of times in a loop or recursive function, the program may slow down significantly"
+
+```cpp
+void check_expensive_function_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: expensive function invariant triggered - excessive calls" << endl;
+        abort();
+    }
+}
+
+check_expensive_function_invariant(n > 1000000);  // arbitrary, but large threshold
+for (i = 0; i < n; ++i) { 
+    foo(); // expensive function
+}
+```
+
+Phase 4 -- Propagate and Insert Conditional Checks. Rather than simply inserting the performance conditions from Phase 2 and 3 directly at the observed bottlenecks, you should propagate these constraints to the most effective locations within the control flow (if/else blocks, loops, function calls) and data flow (where variables are set vs. used) of the program. This means you may move or transform the conditions from deep inside loops or function calls to points where the checks can be made just once, such as shortly after reading inputs or at the beginning of a function call, thus avoiding unnecessary overhead and ensuring broader coverage. When placing these checks, follow the format illustrated in Phase 3. Also, make sure these checks are free of any compilation errors.
+
+You should also ensure that if multiple constraints overlap, they are properly merged or adjusted to reflect the conditions under which the program is likely to run slowly. The final program output should include all of the newly inserted checks at the chosen points, each placed in a manner that captures the performance issue as early and efficiently as possible. Also, make sure that the transformed, instrumented program is free of any compilation errors and can be directly run by users without any compilation or runtime issues.
+
+
+C. Output Requirements
+
+Provide the entire program, including your inserted performance-check conditions in code fences. For each inserted check, add a brief comment or short explanation so it’s clear what the check aims to detect (e.g., “// Check for large input size that triggers repeated iteration”). After the code, briefly summarize why these specific conditions were chosen and how they relate to the slow/fast contrast.
+
+
+D. Important Considerations
+
+1. Avoid hardcoding. Don’t rely solely on the exact values from the provided slow input; think in terms of categories or thresholds that lead to slow execution.
+2. Avoid checks inside tight loops. Place checks in a way that does not significantly degrade performance.
+3. Focus on fuzzer utility. The checks should help a fuzzer detect slow performance triggers by hitting these conditions.
+
+
+E. Problem Statement
+
+{problem_statement}
+
+F. Program Solving the Problem Statement
+
+{one_solution}
+
+
+G. The Slow and Fast Inputs
+
+G.1. Slow Input
+
+{slow_input}
+
+G.2. Fast Input
+
+{fast_input}
+
+
+H. Line-level Hit Count Information for Both Fast and Slow Solution
+
+{product_cov}
 
