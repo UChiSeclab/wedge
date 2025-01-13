@@ -18,7 +18,7 @@ bash Miniconda3-latest-Linux-x86_64.sh
 conda create -n py27 python==2.7.13
 conda create -n py38 python==3.8 
 conda create -n perf python==3.9
-conda activate perf
+conda activate perf # main environment for our experiment
 cd code-contest-exp
 pip install -r requirements.txt
 ```
@@ -51,6 +51,11 @@ git checkout v4.30c
 export AFLPP_DIR=$(pwd)
 ```
 Follow the instructions here: https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/INSTALL.md.
+## Setting PYTHONPATH
+```python
+cd code-contest-exp
+export PYTHONPATH=$(pwd)/scripts:../feedback_collection
+```
 ## Adding the problems
 1. Insert the list of problem ids that you are going to run as the first element of the json file: https://github.com/bastoica/llm4perf/blob/main/code-contest-exp/problem_list.json#L2. When `use_specified_problem` is set to True in `get_cf_problems`, the first element would be used.
 2. Run `add_problem.py`. This will add the problems you specified to `config["problem_root_dir"]`.
