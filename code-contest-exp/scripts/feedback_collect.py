@@ -47,7 +47,13 @@ def get_feedback_type(experiment_name: str):
         raise ValueError(f"Unknown experiment name: {experiment_name}")
 
 def collect_coverage_hit_count(task):
-    solution_file, input_file, language, output_file = task
+    if len(task) == 4:
+        solution_file, input_file, language, output_file = task
+        output_report_file = None
+    elif len(task) == 5:
+        solution_file, input_file, language, output_file, output_report_file = task
+    else:
+        raise ValueError("Invalid task format: " + str(task))
     feedback_script_file = (
         FEEDBACK_COLLECTION_SCRIPT_DIR
         / str(language)
@@ -71,6 +77,15 @@ def collect_coverage_hit_count(task):
             return
         src_with_cov_file = list(output_dir.glob("*.cov"))[0]
         shutil.move(src_with_cov_file, output_file)
+
+        if output_report_file:
+            src_report_file = Path(work_dir) / "cobertura.xml"
+            # only support cpp now
+            assert language == Language.CPP, f"Unsupported language: {language}"
+            # cpp: cobertura.xml
+            # java: coverage.xml, xml_report.xml
+            # python: coverage.xml
+            shutil.move(src_report_file, output_report_file)
 
 def process_problem(problem, experiment_name, problem_root_dir, solution_language, top_k):
     problem_id = problem["name"].split(".")[0]

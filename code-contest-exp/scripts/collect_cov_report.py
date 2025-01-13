@@ -16,7 +16,7 @@ def collect_coverage_hit_count_wrapper(args):
     print("solution_file:", args[0])
     print("input_file:", args[1])
     print("src_with_cov_file", args[3])
-    return collect_coverage_hit_count(*args)
+    return collect_coverage_hit_count(args)
 
 def main(
     experiment_name: str = config["experiment_name"],
