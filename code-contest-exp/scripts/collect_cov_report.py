@@ -11,13 +11,6 @@ from feedback_collect import collect_coverage_hit_count # currently work for cpp
 
 debug = False
 
-def collect_coverage_hit_count_wrapper(args):
-    """Wrapper function to unpack arguments."""
-    print("solution_file:", args[0])
-    print("input_file:", args[1])
-    print("src_with_cov_file", args[3])
-    return collect_coverage_hit_count(args)
-
 def main(
     experiment_name: str = config["experiment_name"],
     problem_root_dir: str = config["problem_root_dir"]
@@ -56,7 +49,7 @@ def main(
 
     max_workers = max(1, int(0.5 * os.cpu_count()))
     with Pool(processes=max_workers) as pool:
-        res = list(tqdm(pool.imap_unordered(collect_coverage_hit_count_wrapper, cov_args), total=len(cov_args)))
+        res = list(tqdm(pool.imap_unordered(collect_coverage_hit_count, cov_args), total=len(cov_args)))
 
     if debug:
         print(len(res))
