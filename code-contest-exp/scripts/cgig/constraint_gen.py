@@ -69,17 +69,22 @@ if __name__ == '__main__':
     prompt_template_file = Path(config["cgig_prompt_template_dir"]) / "constraint_gen_few_shots.txt"
     input_pairs_file = input_pairs_dir / "content_similar_problem_solution_input_pairs_sorted.json"
     problem_solution_input_pairs = json.loads(input_pairs_file.read_text())
+    top_k = 5
 
     for problem_id in problem_solution_input_pairs:
         print(f"Processing {problem_id}")
-        input_pair_solution_map = get_best_input_pairs(problem_id, problem_solution_input_pairs[problem_id], top_k=5)
-        if not input_pair_solution_map:
-            print(f"[Warning] No input pair found for {problem_id}")
+        solution_input_pairs = problem_solution_input_pairs[problem_id] # solutions sorted by max similarity of their input pairs
+        if not solution_input_pairs:
+            print(f"[Warning] No solution + input pair found for {problem_id}")
             continue
-        for input_pair_id in input_pair_solution_map:
-            slow_input_id, fast_input_id = input_pair_id.split("@")
-            solution_ids = input_pair_solution_map[input_pair_id]
-            solution_id = solution_ids[0] # sorted
+
+        if len(solution_input_pairs) < top_k:
+            print(f"[Warning] Only {len(solution_input_pairs)} solutions found for {problem_id}")
+
+        for solution_id in list(solution_input_pairs.keys())[:top_k]:
+            best_input_pair_id = list(solution_input_pairs[solution_id])[0] # best input pair for this solution
+            slow_input_id, fast_input_id = best_input_pair_id.split("@")
+
             product_cov_file = get_product_cov(
                 problem_id,
                 solution_id,
@@ -89,7 +94,7 @@ if __name__ == '__main__':
                 info_line_end=True
             )
 
-            assert product_cov_file, f"product cov file not found for {problem_id}'s solutions"
+            assert product_cov_file.exists(), f"product cov file not found for {problem_id}'s solutions"
 
             prompt = compile_constraint_gen_prompt(
                 prompt_template_file,

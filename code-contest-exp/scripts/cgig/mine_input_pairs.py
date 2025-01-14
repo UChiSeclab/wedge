@@ -8,7 +8,7 @@ from config import config
 from common import Language
 from selector.select_solution import select_solutions
 from utils import get_alphacode_result, filter_problems, get_cf_problems, get_run_time, get_instruction_cnt
-from cpp.coverage.scripts.cov_xml_parser import parse_cobertura_coverage_report as parse_cpp_cobertura_coverage_report
+# from cpp.coverage.scripts.cov_xml_parser import parse_cobertura_coverage_report as parse_cpp_cobertura_coverage_report
 
 # TIME_THRESHOLD = 0.1 # we might no longer need this in gem5
 INSTRUCTION_CNT_THRESHOLD = 10000
@@ -70,7 +70,7 @@ def extract_slow_fast_inputs(alphacode_result: Dict, language: Language, mode: s
                 or (mode == "instruction_cnt" and slow_input_sublist[-1][1] < INSTRUCTION_CNT_THRESHOLD):
                     continue
             # the fast input should be at least 2x faster than the slow input
-            if fast_input_sublist[-1][1] * 2 > slow_input_sublist[0][1]:
+            if fast_input_sublist[-1][1] * 1.2 > slow_input_sublist[0][1]:
                 continue
             fast_input_list = fast_input_sublist
             slow_input_list = slow_input_sublist
@@ -165,48 +165,68 @@ def calculate_jaccard_similarity(input_file_1: Path, input_file_2: Path) -> floa
 
     return len(input_elements_1 & input_elements_2) / len(input_elements_1 | input_elements_2)
 
-def is_same_coverage_diff_hit_count(cov_report_file_1: Path, cov_report_file_2: Path, partial_cover_as_cover: bool=True) -> bool:
-    return True
+# def is_same_coverage_diff_hit_count(cov_report_file_1: Path, cov_report_file_2: Path, partial_cover_as_cover: bool=True) -> bool:
+#     return True
 
-    """Check whether two hit count files have the same coverage but different hit count."""
-    try:
-        src_file_coverage_1 = parse_cpp_cobertura_coverage_report(cov_report_file_1)
-        src_file_coverage_2 = parse_cpp_cobertura_coverage_report(cov_report_file_2)
-    except FileNotFoundError:
-        print(f"At least one of the coverage reports not found: {cov_report_file_1}, {cov_report_file_2}")
-        return False
+#     """Check whether two hit count files have the same coverage but different hit count."""
+#     try:
+#         src_file_coverage_1 = parse_cpp_cobertura_coverage_report(cov_report_file_1)
+#         src_file_coverage_2 = parse_cpp_cobertura_coverage_report(cov_report_file_2)
+#     except FileNotFoundError:
+#         print(f"At least one of the coverage reports not found: {cov_report_file_1}, {cov_report_file_2}")
+#         return False
 
-    if src_file_coverage_1 == src_file_coverage_2:
-        print(f"The two coverage reports are the same: {cov_report_file_1}, {cov_report_file_2}")
-        return False
+#     if src_file_coverage_1 == src_file_coverage_2:
+#         print(f"The two coverage reports are the same: {cov_report_file_1}, {cov_report_file_2}")
+#         return False
 
-    if len(src_file_coverage_1) != len(src_file_coverage_2):
-        raise ValueError("The two coverage reports have different number of files.")
+#     if len(src_file_coverage_1) != len(src_file_coverage_2):
+#         raise ValueError("The two coverage reports have different number of files.")
 
-    cov_hit_count_info_1 = list(src_file_coverage_1.values())[0]
-    cov_hit_count_info_2 = list(src_file_coverage_2.values())[0]
-    if len(cov_hit_count_info_1) != len(cov_hit_count_info_2):
-        raise ValueError("The two coverage reports have different number of lines.")
+#     cov_hit_count_info_1 = list(src_file_coverage_1.values())[0]
+#     cov_hit_count_info_2 = list(src_file_coverage_2.values())[0]
+#     if len(cov_hit_count_info_1) != len(cov_hit_count_info_2):
+#         raise ValueError("The two coverage reports have different number of lines.")
 
-    cov_status_1 = [status for _, (_, status) in cov_hit_count_info_1.items()]
-    cov_status_2 = [status for _, (_, status) in cov_hit_count_info_2.items()]
+#     cov_status_1 = [status for _, (_, status) in cov_hit_count_info_1.items()]
+#     cov_status_2 = [status for _, (_, status) in cov_hit_count_info_2.items()]
 
-    # discard the no coverage cases
-    if all(status == "NOT_COVERED" for status in cov_status_1) or all(status == "NOT_COVERED" for status in cov_status_2):
-        print(f"At least one of the coverage reports have no coverage: {cov_report_file_1}, {cov_report_file_2}")
-        return False
+#     # discard the no coverage cases
+#     if all(status == "NOT_COVERED" for status in cov_status_1) or all(status == "NOT_COVERED" for status in cov_status_2):
+#         print(f"At least one of the coverage reports have no coverage: {cov_report_file_1}, {cov_report_file_2}")
+#         return False
 
-    if partial_cover_as_cover:
-        cov_status_1 = [status if status != "PARTIALLY_COVERED" else "COVERED" for status in cov_status_1]
-        cov_status_2 = [status if status != "PARTIALLY_COVERED" else "COVERED" for status in cov_status_2]
+#     if partial_cover_as_cover:
+#         cov_status_1 = [status if status != "PARTIALLY_COVERED" else "COVERED" for status in cov_status_1]
+#         cov_status_2 = [status if status != "PARTIALLY_COVERED" else "COVERED" for status in cov_status_2]
         
-    # filter out fully covered cases
-    if len([status for status in cov_status_1 if status == "NOT_COVERED"]) == 0 \
-        or len([status for status in cov_status_2 if status == "NOT_COVERED"]) == 0:
-        print(f"At least one of the coverage reports have full coverage: {cov_report_file_1}, {cov_report_file_2}")
-        return False
+#     # filter out fully covered cases
+#     if len([status for status in cov_status_1 if status == "NOT_COVERED"]) == 0 \
+#         or len([status for status in cov_status_2 if status == "NOT_COVERED"]) == 0:
+#         print(f"At least one of the coverage reports have full coverage: {cov_report_file_1}, {cov_report_file_2}")
+#         return False
 
-    return cov_status_1 == cov_status_2
+#     return cov_status_1 == cov_status_2
+
+def sort_solution_input_pairs(solution_input_pairs: Dict[str, Dict[str, Tuple[float, float]]]) -> Dict[str, Dict[str, Tuple[float, float]]]:
+    """Sort solutions by the max similarity of their input pairs."""
+    solution_similarity_map = {solution_id: max(similarity_map.values(), key=lambda item: item[0]) for solution_id, similarity_map in solution_input_pairs.items()}
+    solution_similarity_map = {solution_id: similarity for solution_id, similarity in sorted(solution_similarity_map.items(), key=lambda item: item[1], reverse=True)}
+
+    sorted_solution_input_pairs = {solution_id: solution_input_pairs[solution_id] for solution_id in solution_similarity_map.keys()}
+
+    return sorted_solution_input_pairs
+
+def sort_input_pair_similarity_ratio_map(input_pair_similarity_ratio_map: Dict[str, Tuple[float, float]]) -> Dict[str, Tuple[float, float]]:
+    """
+    Sort input pairs by similarity first (descending), if same, then by ratio (descending).
+    """
+    sorted_input_pair_ids = sorted(
+        input_pair_similarity_ratio_map.keys(),
+        key=lambda x: input_pair_similarity_ratio_map[x],
+        reverse=True  # Sort descending based on similarity and ratio
+    )
+    return {input_pair_id: input_pair_similarity_ratio_map[input_pair_id] for input_pair_id in sorted_input_pair_ids}
 
 def mine_relational_input_pairs(
     problem_id: str,
@@ -244,15 +264,13 @@ def mine_relational_input_pairs(
         if similar_input_pairs:
             # sort the similar input pairs by the similarity
             input_pair_similarity_map = {input_pair: calculate_similarity(input_dir / input_pair[0], input_dir / input_pair[1]) for input_pair in similar_input_pairs}
-            input_pair_similarity_map = {
+            input_pair_similarity_ratio_map = {
                 f"{slow_input_id}@{fast_input_id}": (similarity, get_ratio(alphacode_result, slow_input_id, fast_input_id, solution_id, "instruction_cnt"))\
-                    for (slow_input_id, fast_input_id), similarity in \
-                        sorted(input_pair_similarity_map.items(), key=lambda item: item[1], reverse=True)
+                    for (slow_input_id, fast_input_id), similarity in input_pair_similarity_map.items()
             }
-            solution_input_pairs[solution_id] = input_pair_similarity_map
+            solution_input_pairs[solution_id] = sort_input_pair_similarity_ratio_map(input_pair_similarity_ratio_map)
 
-    return solution_input_pairs
-
+    return sort_solution_input_pairs(solution_input_pairs)
 
 def process_problem(problem):
     problem_id = problem["name"].split(".")[0]
