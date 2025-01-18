@@ -3,25 +3,25 @@
 (A) Context
 
 You are an experienced C software engineer focusing on performance bottlenecks. You have:
-    1. A problem statement describing a task or algorithm (with constraints such as n <= 100).
-    2. A C program that implements a solution to that problem.
-    3. Two inputs: a “fast” input that completes quickly, and a “slow” input that takes much longer—both inputs have similar size/structure.
-    4. Line-level hit counts for both runs, showing which lines get hit significantly more often on the slow input.
+1. A problem statement describing a task or algorithm (with constraints such as n <= 100).
+2. A C program that implements a solution to that problem.
+3. Two inputs: a “fast” input that completes quickly, and a “slow” input that takes much longer—both inputs have similar size/structure.
+4. Line-level hit counts for both runs, showing which lines get hit significantly more often on the slow input.
 
 Your goal is to diagnose why the program runs slowly for the slow input and derive conditions or invariants that capture what triggers this slowdown.
 
 (B) Tasks: Analyze the given code and generate performance-characterizing invariants in natural language
 
 Phase 1: Identify expensive or onefficient code segments. In this phase you are asked to,
-    1. Compare line-level hit counts between the fast and slow runs.
-    2. Pinpoint lines or functions that get significantly more hits under the slow input.
-    3. Infer how these lines might be interacting with data structures, loops, recursion, etc., especially as they relate to the input constraints (e.g., n <= 100).
+1. Compare line-level hit counts between the fast and slow runs.
+2. Pinpoint lines or functions that get significantly more hits under the slow input.
+3. Infer how these lines might be interacting with data structures, loops, recursion, etc., especially as they relate to the input constraints (e.g., n <= 100).
 
 Phase 2: Derive performance-characterizing invariants (natural language). In this phase you are asked to,
-    1. Generate natural language statements that describe conditions under which the program likely enters a slow path.
-    2. Avoid using specific numeric values from the slow input; abstract them into categories or thresholds. However, make sure those thresholds adhere to the input constraints of the problem.
-    3. Correlate these conditions strongly to input patterns (e.g., “when n is close to 100 and there is a nested loop,” or “when a data structure is repeatedly sorted”).
-    4. Ensure your statements are broad enough to catch possible future slow scenarios, but still reflect realistic triggers given the constraints (like n <= 100).
+1. Generate natural language statements that describe conditions under which the program likely enters a slow path.
+2. Avoid using specific numeric values from the slow input; abstract them into categories or thresholds. However, make sure those thresholds adhere to the input constraints of the problem.
+3. Correlate these conditions strongly to input patterns (e.g., “when n is close to 100 and there is a nested loop,” or “when a data structure is repeatedly sorted”).
+4. Ensure your statements are broad enough to catch possible future slow scenarios, but still reflect realistic triggers given the constraints (like n <= 100).
 
 Note that not all performance-characterizing invariants are about maximising input size. You may refer to the following examples for inspiration --- some maximising the input size, some not --- but do not simply replicate them exactly. Rather, use them as inspiration to infer and tailor performance-characterizing invariants tailored for the C code and problem statement you were asked to analize:
 
@@ -125,16 +125,15 @@ for (i = 0; i < n; ++i) {
 ```
 
 (C) Output Requirements
-    1. Provide a list of natural language performance invariants explaining under what conditions the code slows down.
-    2. Do not mention or rely on exact values from the provided slow input.
-    3. Use or suggest threshold values that align with problem constraints (e.g., n <= 100).
-    4. The output should be a concise, descriptive set of statements about performance triggers.
+1. Provide a list of natural language performance invariants explaining under what conditions the code slows down.
+2. Do not mention or rely on exact values from the provided slow input.
+3. Use or suggest threshold values that align with problem constraints (e.g., n <= 100).
+4. The output should be a concise, descriptive set of statements about performance triggers.
 
 (D) Important Considerations
-    1. Avoid hardcoding. Don’t rely solely on the exact values from the provided slow input; think in terms of categories or thresholds that lead to slow execution.
-    2. Avoid checks inside tight loops. Place checks in a way that does not significantly degrade performance.
-    3. Focus on fuzzer utility. The checks should help a fuzzer detect slow performance triggers by hitting these conditions.
-
+1. Avoid hardcoding. Don’t rely solely on the exact values from the provided slow input; think in terms of categories or thresholds that lead to slow execution.
+2. Avoid checks inside tight loops. Place checks in a way that does not significantly degrade performance.
+3. Focus on fuzzer utility. The checks should help a fuzzer detect slow performance triggers by hitting these conditions.
 
 (E) Problem Statement
 
@@ -160,24 +159,24 @@ for (i = 0; i < n; ++i) {
 (A) Context
 
 You have already:
-    1. Identified expensive code segments (Phase 1).
-    2. Derived performance-characterizing invariants in natural language (Phase 2).
+1. Identified expensive code segments (Phase 1).
+2. Derived performance-characterizing invariants in natural language (Phase 2).
 
 Now, you MUST transform these invariants into runtime checks and integrate them into the given C program.
 
 (B) Tasks: Revisit the performance-characteristic invariants you inefered in natural langauge and write faithful, error-free C code snippets to implement them
 
 Phase 3: Implement the natural language invariants inferred previously, in C. In this phase you are asked to, 
-    1. For each natural language invariant from Phase 2, you MUST produce C code that checks the condition at runtime.
-    2. You MUST NOT relax or trivialize the checker code implementing these performance-characterizing invariants. You MUST faithfully implement them as described. 
-    3. Use the following template for writing checker code in C:
-    ```cpp
-        if (/* condition based on the NL invariant */) {
-            cerr << "Warning: Performance bottleneck condition triggered!" << endl;
-            abort();
-        }
-    ```
-    4. Important considerations when inferring performance-characterizing invariants: 
-      a. Avoid hardcoding. Don’t rely solely on the exact values from the provided slow input; think in terms of categories or thresholds that lead to slow execution.
-      b. Avoid checks inside tight loops. Place checks in a way that does not significantly degrade performance.
-      c. Focus on fuzzer utility. The checks should help a fuzzer detect slow performance triggers by hitting these conditions.
+1. For each natural language invariant from Phase 2, you MUST produce C code that checks the condition at runtime.
+2. You MUST NOT relax or trivialize the checker code implementing these performance-characterizing invariants. You MUST faithfully implement them as described. 
+3. Use the following template for writing checker code in C:
+```cpp
+    if (/* condition based on the NL invariant */) {
+        cerr << "Warning: Performance bottleneck condition triggered!" << endl;
+        abort();
+    }
+```
+4. Important considerations when inferring performance-characterizing invariants: 
+a. Avoid hardcoding. Don’t rely solely on the exact values from the provided slow input; think in terms of categories or thresholds that lead to slow execution.
+b. Avoid checks inside tight loops. Place checks in a way that does not significantly degrade performance.
+c. Focus on fuzzer utility. The checks should help a fuzzer detect slow performance triggers by hitting these conditions.
