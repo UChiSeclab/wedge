@@ -82,8 +82,8 @@ def run_solution_early_stop(
     output_dir_of_solutions: Path = None,
 ) -> Dict:
     """check consistency of the output of the solution first, early stop if \
-        there is already 5% of the inputs are invalid or not consistent"""
-        
+        there is already 50% of the inputs are invalid or not consistent"""
+
     # remove the inputs that are already invalid
     # check number of remaining inputs, stop if less than 50% of the total inputs
     early_stop = early_stop_for_input_consistency(
@@ -217,7 +217,7 @@ def check_consistency_of_gen_tests_output(
     early_stop: bool = True,
 ) -> Tuple[List[str], Dict[str, str]]:
     """check and compare the output of generated tests of each solution, \
-        early stop if there is already 5% of the inputs are invalid or \
+        early stop if there is already 50% of the inputs are invalid or \
         not consistent"""
 
     with TempDir() as temp_output_dir:
@@ -238,7 +238,8 @@ def check_consistency_of_gen_tests_output(
             if early_stop:
                 pool.starmap(run_solution_early_stop, test_args)
             else:
-                pool.starmap(run_solution, test_args[:-2])
+                test_args = [arg[:-2] for arg in test_args]
+                pool.starmap(run_solution, test_args)
 
         # check after all solutions are run
         for correct_solution_file_name in correct_solution_file_names:
