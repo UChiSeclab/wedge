@@ -10,12 +10,14 @@ import time
 from fire import Fire
 from tqdm import tqdm
 import tempdir
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import sys
+import collections
+from tempdir import TempDir
 
 from common import Language
 from config import config
-from utils import get_cf_problems, filter_problems, problem_test_gen_failed
+from utils import get_cf_problems, filter_problems, problem_test_gen_failed, get_alphacode_result
 from cgig.cgig_utils import problem_has_extracted_constraint
 
 
@@ -345,6 +347,79 @@ def input_sanitization(input_dir: Path, output_dir: Path):
         print(f"[WARNING] Removing invalid input file: {invalid_input_file}")
         os.remove(input_dir / invalid_input_file)
 
+def record_gen_tests_output(
+    experiment_input_dir: Path,
+    solution_output_dir: Path,
+):
+    """duplicated from gen_tests.py"""
+    result = {}
+    for input_file_name in os.listdir(experiment_input_dir):
+        output_file = solution_output_dir / f"{input_file_name[:-3]}.out"
+        if not output_file.exists():
+            result[input_file_name] = "NO_OUTPUT"
+        else:
+            with open(output_file, "r") as f:
+                output = f.read()
+            if output == "":
+                result[input_file_name] = "EMPTY_OUTPUT"
+            else:
+                result[input_file_name] = output
+
+    return result
+
+def check_consistency_of_output(
+    experiment_input_dir: Path,
+    solution_dir: Path, # solutions/java
+    time_limit: float,
+    correct_solution_file_names: List[str]
+) -> Tuple[List[str], Dict[str, str]]:
+    """duplicated from gen_tests.py check and compare the output of generated tests of each solution, \
+        early stop if there is already 50% of the inputs are invalid or \
+        not consistent"""
+
+    with TempDir() as temp_output_dir:
+        test_args = []
+        solution_result = {}
+        invalid_input_file_names = []
+        solution_major_output_dict = {}
+        for correct_solution_file_name in correct_solution_file_names:
+            correct_solution_file = solution_dir / correct_solution_file_name
+            solution_output_dir = Path(temp_output_dir) / correct_solution_file_name
+            solution_dir.mkdir(exist_ok=True, parents=True)
+            solution_output_dir.mkdir(exist_ok=True, parents=True)
+
+            test_args.append(("consistency_check", correct_solution_file, Language.JAVA, experiment_input_dir, solution_output_dir, time_limit, True, False, False))
+
+        max_workers = max(1, int(0.5 * os.cpu_count()))
+        with Pool(processes=max_workers) as pool:
+            pool.starmap(run_solution, test_args)
+
+        # check after all solutions are run
+        for correct_solution_file_name in correct_solution_file_names:
+            solution_output_dir = Path(temp_output_dir) / correct_solution_file_name
+            solution_result[correct_solution_file_name] = record_gen_tests_output(
+                experiment_input_dir,
+                solution_output_dir,
+            )
+
+        for input_file_name in os.listdir(experiment_input_dir):
+            outputs = [solution_result[correct_solution_file_name][input_file_name] for correct_solution_file_name in correct_solution_file_names]
+            outputs = [output.strip() for output in outputs if output != "NO_OUTPUT" and output != "EMPTY_OUTPUT"]
+            # might need to cut the outputs if too long
+            output_counter = collections.Counter(outputs)
+            if len(output_counter) == 0:
+                invalid_input_file_names.append(input_file_name)
+                continue
+            majority_output = output_counter.most_common(1)[0][0]
+            majority_output_count = output_counter.most_common(1)[0][1]
+            print(f"input_file_name: {input_file_name}, majority_output: {majority_output}, majority_output_count: {majority_output_count}, outputs: {outputs}")
+            if majority_output_count < len(correct_solution_file_names) * 0.95:
+                invalid_input_file_names.append(input_file_name)
+            else:
+                solution_major_output_dict[input_file_name] = majority_output
+
+    return invalid_input_file_names, solution_major_output_dict
+
 
 def main(
     experiment_name: str = config["experiment_name"],
@@ -381,8 +456,10 @@ def main(
         relax_flag = True
     if experiment_name in [
         "constraint_guided_one",
-        "corpus_mutator_with_constraint",
-        "corpus_mutator_with_constraint_multi",
+        "corpus_instrument_fuzz_mutator_with_constraint",
+        "corpus_instrument_fuzz_mutator_with_constraint_multi",
+        "corpus_raw_fuzz_mutator_with_constraint",
+        "corpus_raw_fuzz_mutator_with_constraint_multi",
     ]:
         problem_with_extracted_constraint_only = True
 
@@ -419,9 +496,37 @@ def main(
             raise FileNotFoundError(f"[ERROR]input_dir: {input_dir} does not exist or is empty.")
 
         output_dir = experiment_dir / "output"
+        output_dir.mkdir(exist_ok=True, parents=True)
         time_limit = (
             problem["time_limit"]["seconds"] + problem["time_limit"]["nanos"] / 10**9
         )
+
+        # adopted from gen_tests.py
+        if write_output:
+            alphacode_result = get_alphacode_result(problem_id)
+            correct_solution_file_names = [
+                solution_file_name
+                for solution_file_name in os.listdir(solution_dir / str(Language.JAVA))
+                if ("incorrect" not in solution_file_name) and \
+                    all(v in ["AC", "TLE"] for v in alphacode_result[solution_file_name.split(".")[0]]["verdict"])
+            ]
+            inconsistent_input_file_names, solution_major_output_dict = check_consistency_of_output(
+                input_dir,
+                solution_dir / str(Language.JAVA),
+                time_limit,
+                correct_solution_file_names
+            )
+            
+            print(f"[INFO] number of inconsistent_input_file_names: {len(inconsistent_input_file_names)} out of {len(os.listdir(input_dir))}")
+
+            if len(inconsistent_input_file_names) > 0:
+                # remove input files that lead to inconsistent output in different solutions
+                [Path(input_dir / inconsistent_input_file_name).unlink() for inconsistent_input_file_name in inconsistent_input_file_names if (input_dir / inconsistent_input_file_name).exists()]
+            for input_file_name, majority_output in solution_major_output_dict.items():
+                with open(output_dir / f"{input_file_name[:-3]}.out", "w") as f:
+                    f.write(majority_output)
+
+            write_output = False
 
         problem_res = {}
 
