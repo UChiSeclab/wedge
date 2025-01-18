@@ -144,11 +144,15 @@ for (i = 0; i < n; ++i) {
 
 {one_solution}
 
-(G) The Slow and Fast Inputs
+(G) The Slow & Fast Inputs
 
 (G.1) Slow Input
 
 {slow_input}
+
+(G.2) Fast Input
+
+{fast_input}
 
 
 ## Prompt #2
@@ -177,35 +181,3 @@ Phase 3: Implement the natural language invariants inferred previously, in C. In
       a. Avoid hardcoding. Don’t rely solely on the exact values from the provided slow input; think in terms of categories or thresholds that lead to slow execution.
       b. Avoid checks inside tight loops. Place checks in a way that does not significantly degrade performance.
       c. Focus on fuzzer utility. The checks should help a fuzzer detect slow performance triggers by hitting these conditions.
-
-
-E. Problem Statement
-
-{problem_statement}
-
-F. Program Solving the Problem Statement
-
-{one_solution}
-
-
-G. The Slow and Fast Inputs
-
-G.1. Slow Input
-
-{slow_input}. Adhere to problem input constraints (e.g., n <= 100). If the performance-charaterizing invariant is about n being near 100, reflect that in the code condition. However, note that not all performance-characterizing invariants are about maximising input size.
-
-Phase 4: Propagate and insert the generated conditional checks. In this phase you are asekd to,
-    1. Place each check at an effective point in the control/data flow (e.g., after reading inputs, before heavy loops) so you do not add overhead in tight loops.
-    2. If multiple checks overlap, merge or adjust them carefully to avoid redundant warnings.
-    3. Provide the final, instrumented C code in code fences. Ensure it compiles cleanly and runs without errors.
-    4. For each inserted check, add a short comment explaining which bottleneck it detects.
-
-Note that when generating code in Phase 3 and 4, you MUST:
-    1. Faithfully implement the Phase 2 performance-characterizing invariants that you previously inferred.
-    2. Not degrade performance by placing checks in tight loops.
-    3. Not alter or omit checks to make them trivial.
-
-(C) Output Requirements
-    1. Complete Instrumented Program: Show the original program plus your inserted checks. Use code fences: ```cpp // entire C program with checks ```
-    2. Short Explanation: Summarize why each check was chosen and how it addresses the potential slow scenario from Phase 1 & 2.
-    3. Assertive Implementation: Reiterate that the invariants you wrote in Phase 2 are fully and accurately implemented in code.
