@@ -1,31 +1,29 @@
-A. Context:
+## Prompt #1
 
-You are an experienced C software engineer specializing in performance analysis, bug finding, and fuzzing-based testing. You will receive the following:
+(A) Context
 
-1. A problem statement describing the task or algorithm.
-2. A C program that implements a solution to the problem described.
-3. Two inputs: a fast input on which the program completes quickly, and slow input on which the program completes more slowly. These contrasting inputs are similar in size/structure but exhibit a significant difference in running time. The key idea behind this is to highlight subtle performance inefficiencies that aren’t always obvious with trivial min/max input sizes.
-4. Line-level hit counts showing how often each line of code executes for both the slow and fast inputs. The key idea analyzing both fast and slow runs is to help pinpoint which parts of the code get “hit” many more times under the slow scenario.
+You are an experienced C software engineer focusing on performance bottlenecks. You have:
+    1. A problem statement describing a task or algorithm (with constraints such as n <= 100).
+    2. A C program that implements a solution to that problem.
+    3. Two inputs: a “fast” input that completes quickly, and a “slow” input that takes much longer—both inputs have similar size/structure.
+    4. Line-level hit counts for both runs, showing which lines get hit significantly more often on the slow input.
 
-B. Task
+Your goal is to diagnose why the program runs slowly for the slow input and derive conditions or invariants that capture what triggers this slowdown.
 
-Your overall goal is to analyze and reason about why the program runs slowly for the slow input and then insert runtime checks into the original code to detect when similar slowdown conditions might occur. Ultimately, these checks will be used by a fuzzer to produce new test inputs that trigger the slow paths.
+(B) Tasks: Analyze the given code and generate performance-characterizing invariants in natural language
 
-Based on the above information, you will work in phases:
+Phase 1: Identify expensive or onefficient code segments. In this phase you are asked to,
+    1. Compare line-level hit counts between the fast and slow runs.
+    2. Pinpoint lines or functions that get significantly more hits under the slow input.
+    3. Infer how these lines might be interacting with data structures, loops, recursion, etc., especially as they relate to the input constraints (e.g., n <= 100).
 
-Phase 1 -- Identify Expensive or Inefficient Code Segments. In this phase you need to compare line-level hit counts for the fast and slow runs. Next, pinpoint lines or functions that appear especially expensive or frequently executed under the slow input but less so under the fast input.
+Phase 2: Derive performance-characterizing invariants (natural language). In this phase you are asked to,
+    1. Generate natural language statements that describe conditions under which the program likely enters a slow path.
+    2. Avoid using specific numeric values from the slow input; abstract them into categories or thresholds. However, make sure those thresholds adhere to the input constraints of the problem.
+    3. Correlate these conditions strongly to input patterns (e.g., “when n is close to 100 and there is a nested loop,” or “when a data structure is repeatedly sorted”).
+    4. Ensure your statements are broad enough to catch possible future slow scenarios, but still reflect realistic triggers given the constraints (like n <= 100).
 
-Phase 2 -- Derive Performance-Characterizing Invariants or Conditions (natural language). Based on the analysis of expensive or inefficient code segments and the insights gained from comparing contrasting inputs, generate natural language statements that describe when the code is likely to run slowly. These statements should not replicate specific values from the slow input. Instead, they must reflect broader triggers for slow performance—any noteworthy property in the data or control flow (e.g., relationships between input parameters, algorithmic edge cases, structural characteristics of data) that may cause repeated computations or lead the code into inefficient paths.
-
-Phase 3 -- For each natural language invariant from Phase 2, write a valid C code snippet (free of compilation errors) that checks if the invariant holds at runtime. This code should follow the format below, using an if statement that outputs a warning and terminates execution if the invariant’s condition is triggered. These checkers will later be integrated into the original program:
-```cpp
-if (/* condition */) {
-    cerr << "Warning: Performance bottleneck condition triggered!" << endl;
-    abort();
-}
-```
-
-To help with this transformation, here is a set of in-context examples illustrating how performance-characterizing invariants can be described in natural language and then implemented as runtime checks. Note that these examples are not exhaustive and are not meant to confine your solution space; instead, they illustrate how diverse performance triggers might be captured. You should feel free to propose any other form of invariants that your analysis suggests.
+Note that not all performance-characterizing invariants are about maximising input size. You may refer to the following examples for inspiration --- some maximising the input size, some not --- but do not simply replicate them exactly. Rather, use them as inspiration to infer and tailor performance-characterizing invariants tailored for the C code and problem statement you were asked to analize:
 
 Example Invariant #1:
 
@@ -126,21 +124,59 @@ for (i = 0; i < n; ++i) {
 }
 ```
 
-Phase 4 -- Propagate and Insert Conditional Checks. Rather than simply inserting the performance conditions from Phase 2 and 3 directly at the observed bottlenecks, you should propagate these constraints to the most effective locations within the control flow (if/else blocks, loops, function calls) and data flow (where variables are set vs. used) of the program. This means you may move or transform the conditions from deep inside loops or function calls to points where the checks can be made just once, such as shortly after reading inputs or at the beginning of a function call, thus avoiding unnecessary overhead and ensuring broader coverage. When placing these checks, follow the format illustrated in Phase 3. Also, make sure these checks are free of any compilation errors.
+(C) Output Requirements
+    1. Provide a list of natural language performance invariants explaining under what conditions the code slows down.
+    2. Do not mention or rely on exact values from the provided slow input.
+    3. Use or suggest threshold values that align with problem constraints (e.g., n <= 100).
+    4. The output should be a concise, descriptive set of statements about performance triggers.
 
-You should also ensure that if multiple constraints overlap, they are properly merged or adjusted to reflect the conditions under which the program is likely to run slowly. The final program output should include all of the newly inserted checks at the chosen points, each placed in a manner that captures the performance issue as early and efficiently as possible. Also, make sure that the transformed, instrumented program is free of any compilation errors and can be directly run by users without any compilation or runtime issues.
+(D) Important Considerations
+    1. Avoid hardcoding. Don’t rely solely on the exact values from the provided slow input; think in terms of categories or thresholds that lead to slow execution.
+    2. Avoid checks inside tight loops. Place checks in a way that does not significantly degrade performance.
+    3. Focus on fuzzer utility. The checks should help a fuzzer detect slow performance triggers by hitting these conditions.
 
 
-C. Output Requirements
+(E) Problem Statement
 
-Provide the entire program, including your inserted performance-check conditions in code fences. For each inserted check, add a brief comment or short explanation so it’s clear what the check aims to detect (e.g., “// Check for large input size that triggers repeated iteration”). After the code, briefly summarize why these specific conditions were chosen and how they relate to the slow/fast contrast.
+{problem_statement}
+
+(F) Program Solving the Problem Statement
+
+{one_solution}
+
+(G) The Slow and Fast Inputs
+
+(G.1) Slow Input
+
+{slow_input}
 
 
-D. Important Considerations
+## Prompt #2
 
-1. Avoid hardcoding. Don’t rely solely on the exact values from the provided slow input; think in terms of categories or thresholds that lead to slow execution.
-2. Avoid checks inside tight loops. Place checks in a way that does not significantly degrade performance.
-3. Focus on fuzzer utility. The checks should help a fuzzer detect slow performance triggers by hitting these conditions.
+(A) Context
+
+You have already:
+    1. Identified expensive code segments (Phase 1).
+    2. Derived performance-characterizing invariants in natural language (Phase 2).
+
+Now, you MUST transform these invariants into runtime checks and integrate them into the given C program.
+
+(B) Tasks: Revisit the performance-characteristic invariants you inefered in natural langauge and write faithful, error-free C code snippets to implement them
+
+Phase 3: Implement the natural language invariants inferred previously, in C. In this phase you are asked to, 
+    1. For each natural language invariant from Phase 2, you MUST produce C code that checks the condition at runtime.
+    2. You MUST NOT relax or trivialize the checker code implementing these performance-characterizing invariants. You MUST faithfully implement them as described. 
+    3. Use the following template for writing checker code in C:
+    ```cpp
+        if (/* condition based on the NL invariant */) {
+            cerr << "Warning: Performance bottleneck condition triggered!" << endl;
+            abort();
+        }
+    ```
+    4. Important considerations when inferring performance-characterizing invariants: 
+      a. Avoid hardcoding. Don’t rely solely on the exact values from the provided slow input; think in terms of categories or thresholds that lead to slow execution.
+      b. Avoid checks inside tight loops. Place checks in a way that does not significantly degrade performance.
+      c. Focus on fuzzer utility. The checks should help a fuzzer detect slow performance triggers by hitting these conditions.
 
 
 E. Problem Statement
@@ -156,13 +192,20 @@ G. The Slow and Fast Inputs
 
 G.1. Slow Input
 
-{slow_input}
+{slow_input}. Adhere to problem input constraints (e.g., n <= 100). If the performance-charaterizing invariant is about n being near 100, reflect that in the code condition. However, note that not all performance-characterizing invariants are about maximising input size.
 
-G.2. Fast Input
+Phase 4: Propagate and insert the generated conditional checks. In this phase you are asekd to,
+    1. Place each check at an effective point in the control/data flow (e.g., after reading inputs, before heavy loops) so you do not add overhead in tight loops.
+    2. If multiple checks overlap, merge or adjust them carefully to avoid redundant warnings.
+    3. Provide the final, instrumented C code in code fences. Ensure it compiles cleanly and runs without errors.
+    4. For each inserted check, add a short comment explaining which bottleneck it detects.
 
-{fast_input}
+Note that when generating code in Phase 3 and 4, you MUST:
+    1. Faithfully implement the Phase 2 performance-characterizing invariants that you previously inferred.
+    2. Not degrade performance by placing checks in tight loops.
+    3. Not alter or omit checks to make them trivial.
 
-H. Line-level Hit Count Information for Both Fast and Slow Solution (aggregated)
-
-{product_cov}
-
+(C) Output Requirements
+    1. Complete Instrumented Program: Show the original program plus your inserted checks. Use code fences: ```cpp // entire C program with checks ```
+    2. Short Explanation: Summarize why each check was chosen and how it addresses the potential slow scenario from Phase 1 & 2.
+    3. Assertive Implementation: Reiterate that the invariants you wrote in Phase 2 are fully and accurately implemented in code.
