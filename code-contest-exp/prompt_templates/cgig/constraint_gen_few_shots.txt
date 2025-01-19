@@ -162,8 +162,7 @@ G.2. Fast Input
 
 {fast_input}
 
-
-H. Line-level Hit Count Information for Both Fast and Slow Solution
+H. Line-level Hit Count Information for Both Fast and Slow Solution (aggregated)
 
 {product_cov}
 

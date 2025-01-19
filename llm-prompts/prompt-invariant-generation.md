@@ -160,7 +160,9 @@ for (i = 0; i < n; ++i) {
 
 You have already:
 1. Identified expensive code segments (Phase 1).
-2. Derived performance-characterizing invariants in natural language (Phase 2).
+2. Derived performance-characterizing invariants in natural language (Phase 2). Check out your reasoning and the invariants themselves, here:
+
+{invariants}
 
 Now, you MUST transform these invariants into runtime checks and integrate them into the given C program.
 
@@ -176,7 +178,22 @@ Phase 3: Implement the natural language invariants inferred previously, in C. In
         abort();
     }
 ```
-4. Important considerations when inferring performance-characterizing invariants: 
-a. Avoid hardcoding. Don’t rely solely on the exact values from the provided slow input; think in terms of categories or thresholds that lead to slow execution.
-b. Avoid checks inside tight loops. Place checks in a way that does not significantly degrade performance.
-c. Focus on fuzzer utility. The checks should help a fuzzer detect slow performance triggers by hitting these conditions.
+
+Phase 4: Propagate and insert conditional checks. In this phase you are asked to,
+1. Place each check at an effective point in the control/data flow (e.g., after reading inputs, before heavy loops) so you do not add overhead in tight loops.
+2. If multiple checks overlap, merge or adjust them carefully to avoid redundant warnings.
+3. Provide the final, instrumented C code in code fences. Ensure it compiles cleanly and runs without errors.
+4. For each inserted check, add a short comment explaining which bottleneck it detects.
+
+Note the following important considerations when translating the inferred performance-characterizing invariants into code and propagating the checkers to the most efective program point by instrumenting the original code: 
+1. Avoid hardcoding. Don’t rely solely on the exact values from the provided slow input; think in terms of categories or thresholds that lead to slow execution.
+2. Avoid checks inside tight loops. Place checks in a way that does not significantly degrade performance.
+3. Focus on fuzzer utility. The checks should help a fuzzer detect slow performance triggers by hitting these conditions.
+
+As a refresher, below you are provided with the same program statement and C code for which you already inferred performance-characterizing invariants:
+
+Problem statement:
+{problem_statement}
+
+Solution (C code):
+{solution}
