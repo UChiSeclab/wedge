@@ -87,18 +87,21 @@ def compile_invariants_prompt(
 
 def compile_checker_prompt(
   checker_template_file: Path,
-  invariants_txt: str
+  problem_statement_file: Path,
+  solution_file: Path,
+  invariants_txt: str,
+  
 ) -> str:
 
   template_text = checker_template_file.read_text()
   problem_statement = problem_statement_file.read_text()
-  product_cov = product_cov_file.read_text()
+  solution = solution_file.read_text()
 
   checker_prompt = (
     template_text
-    .replace("{problem_statement}", problem_statement)
-    .replace("{product_cov}", product_cov)
     .replace("{invariants}", invariants_txt)
+    .replace("{problem_statement}", problem_statement)
+    .replace("{one_solution}", solution)
   )
   return checker_prompt
 
@@ -111,8 +114,8 @@ if __name__ == '__main__':
   input_pairs_dir = Path(config["input_pairs_dir"])
   extracted_constraints_dir = Path(config["constraints_dir"])
   
-  invariants_template_file = Path(config["cgig_prompt_template_dir"]) / "invariants_prompt.txt"
-  checker_template_file = Path(config["cgig_prompt_template_dir"]) / "checker_prompt.txt"
+  invariants_template_file = Path(config["cgig_prompt_template_dir"]) / "constraint_gen_invariants_prompt.txt"
+  checker_template_file = Path(config["cgig_prompt_template_dir"]) / "constraint_gen_checker_prompt.txt"
 
   input_pairs_file = input_pairs_dir / "content_similar_problem_solution_input_pairs_sorted.json"
   problem_solution_input_pairs = json.loads(input_pairs_file.read_text())
@@ -167,6 +170,8 @@ if __name__ == '__main__':
 
         checker_prompt = compile_checker_prompt(
           checker_template_file,
+          problem_root_dir / problem_id / "problem_statement.txt",
+          problem_root_dir / problem_id / "solutions" / "cpp" / f"{solution_id}.cpp",
           invariants_txt=invariants_response.strip()
         )
         msg_list.append({"role": "user", "content": checker_prompt})
@@ -188,3 +193,4 @@ if __name__ == '__main__':
 
         c_checker_file.write_text(c_code)
         print(f"[Info] Done generating invariants & checker for {problem_id}-{solution_id}; see {combined_responses_file}")
+
