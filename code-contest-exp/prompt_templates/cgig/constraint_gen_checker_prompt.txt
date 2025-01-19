@@ -10,6 +10,8 @@ Now, you MUST transform these invariants into runtime checks and integrate them 
 
 (B) Tasks: Revisit the performance-characteristic invariants you inefered in natural langauge and write faithful, error-free C code snippets to implement them
 
+You MUST do so in two phases: first, translating the invariants into checker code in C (phase 3, below); and second, integrating those checker C code snippets with the original program for which you inferred those invariants (phase 4, below).   
+
 Phase 3: Implement the natural language invariants inferred previously, in C. In this phase you are asked to, 
 1. For each natural language invariant from Phase 2, you MUST produce C code that checks the condition at runtime.
 2. You MUST NOT relax or trivialize the checker code implementing these performance-characterizing invariants. You MUST faithfully implement them as described. 
@@ -20,6 +22,107 @@ Phase 3: Implement the natural language invariants inferred previously, in C. In
         abort();
     }
 ```
+Note that not all performance-characterizing invariants are about maximising input size. You may refer to the following examples for inspiration --- some maximising the input size, some not --- but do not simply replicate them exactly. Rather, use them as inspiration to infer and tailor performance-characterizing invariants tailored for the C code and problem statement you were asked to analize:
+
+Example Invariant #1:
+
+A potential slowdown arises when certain arrays or lists grow large, causing repeated operations. One way to detect this is to check if the size of a critical array arr (used in a nested loop) exceeds a broad threshold.
+
+Natural language description: “If arr is very large and used in nested loops, the code may repeat operations too many times.”
+
+Code implementing the natural language description:
+
+```cpp
+// Sample checker function
+void check_size_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: size_invariant triggered - array too large for nested loops" << endl;
+        abort();
+    }
+}
+
+// Usage in main or function
+int arrSize = arr.size();
+check_size_invariant(arrSize > 50000);
+```
+
+Example Invariant #2:
+
+Repeated sorting or searching on a data structure can degrade performance, especially if the data structure is large or if the sorting is called multiple times in a loop.
+
+Natural language description: “If a large portion of the code’s execution time is spent in sorting a data structure repeatedly, performance may degrade. Check if the data structure is frequently resorted or reprocessed when it has many elements.”
+
+Code implementing the natural language description:
+
+```cpp
+void check_sort_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: sort_invariant triggered - repeatedly sorting large data" << endl;
+        abort();
+    }
+}
+
+// After reading input or before sorting
+int elementCount = someDataStructure.size();
+check_sort_invariant(elementCount > 100000 && /* some condition indicating repeated sorts */);
+```
+
+Example Invariant #3:
+
+Recursion (e.g., graph traversal or the iterative version of it, recurssive dynamic programming, recurssive computation like computing the next Fibonacci number, etc.) can become expensive if it explores a large search space. A sign of this might be a high branching factor combined with a deep recursion depth.
+
+Natural language description: “If the recursion depth is likely to exceed a certain level or if many branches are processed at each recursive call, the computation may become very expensive.”
+
+```cpp
+void check_dfs_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: dfs_invariant triggered - high recursion depth or branching factor" << endl;
+        abort();
+    }
+}
+
+// Before calling dfs or inside setup
+check_dfs_invariant((maxDepthEstimate > 50) && (branchFactorEstimate > 10));
+```
+
+Example Invariant #4:
+
+Memory usage spikes or large matrix operations can slow down computation if array dimensions become too large. If the program initializes a 2D array based on input dimensions n and m, certain input combinations can trigger large memory footprints or nested loops over the entire matrix.
+
+Natural language description: “If n and m together exceed a threshold that implies large matrix computations, the program may slow significantly.”
+
+```cpp
+void check_matrix_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: matrix_invariant triggered - potentially large matrix operations" << endl;
+        abort();
+    }
+}
+
+// After reading n, m
+check_matrix_invariant(n * m > 1000000);
+```
+
+Example invariant #5:
+
+If a program runs an expensive function or heavy-weight code (e.g. memory allocation) repeatedly within a performance-critical loop or function, the overhead for calling that function can accumulate, slowing the program significantly.
+
+Natural langauge description: "If function foo is an expensive function to execute, and is called a large number of times in a loop or recursive function, the program may slow down significantly"
+
+```cpp
+void check_expensive_function_invariant(bool condition) {
+    if (condition) {
+        cerr << "Warning: expensive function invariant triggered - excessive calls" << endl;
+        abort();
+    }
+}
+
+check_expensive_function_invariant(n > 1000000);  // arbitrary, but large threshold
+for (i = 0; i < n; ++i) { 
+    foo(); // expensive function
+}
+```
+
 
 Phase 4: Propagate and insert conditional checks. In this phase you are asked to,
 1. Place each check at an effective point in the control/data flow (e.g., after reading inputs, before heavy loops) so you do not add overhead in tight loops.
