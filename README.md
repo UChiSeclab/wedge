@@ -150,5 +150,11 @@ For fuzzing strategies:
 python scripts/run.py --experiment_name ${strategy} --problem_with_extracted_constraint_only True >> log/run/${strategy}.log
 ```
 
+## Sanitize alphacode test results
+Since a considerable proportion of alphacode tests might violate the specified input constraints from the problem statements, we rely on the generated input validators to sanitize the alphacode tests.
+```bash
+python scripts/sanitize_alphacode_result.py
+```
+
 ## About monitoring the experiments
 Just check the log files and corresponding output files to see if everything is going OK. For example, when running `run.py`, check if the number of files under `results/${strategy}` is keeping increasing, etc.
