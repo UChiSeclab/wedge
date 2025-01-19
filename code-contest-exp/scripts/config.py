@@ -8,6 +8,7 @@ with open(problem_list_path, "r", encoding="utf-8") as file:
     problem_lists = json.load(file)
 
 config = {
+    "root_dir": Path(__file__).parent.parent.parent.absolute().as_posix(),
     "problem_root_dir": "./problems",
     "result_root_dir": "./results",
     "prompt_template_root_dir": "./prompt_templates",
@@ -39,6 +40,7 @@ config = {
     "raw_fuzz_dir": "./constraint_guided_input_gen/raw_fuzz",
     "constraint_guided_one_fuzz_dir": "./constraint_guided_input_gen/constraint_guided_one_fuzz",
     "constraint_guided_multi_fuzz_dir": "./constraint_guided_input_gen/constraint_guided_multi_fuzz",
+    "effi_learner_dir": "./results/effi_learner",
 }
 
 # Manual Test

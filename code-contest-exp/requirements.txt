@@ -1,5 +1,5 @@
 # torch==2.2.0
-transformers==4.43.0
+transformers==4.48.0
 fire==0.6.0
 datasets==2.21.0
 scikit-learn==1.5.1
@@ -11,3 +11,5 @@ pygount==1.8.0
 evalplus==0.3.1
 gcovr==8.2
 Pympler # evalperf dependency
+sentencepiece==0.2.0
+memory_profiler==0.61.0

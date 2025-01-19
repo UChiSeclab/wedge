@@ -1,9 +1,11 @@
 from pathlib import Path
 import json
 from typing import Literal, Dict, List, Tuple
+from pathlib import Path
 
-from utils import squeeze_time_dict, get_alphacode_result
+from utils import squeeze_time_dict, get_alphacode_result, get_experiment_result
 from config import config
+from analysis.time_statistics import get_top_k_slow_inputs_over_all_solutions
 
 debug = False
 
@@ -126,3 +128,18 @@ def select_most_differentiating_input(
         print("fast time: ", fast_time_stat[most_differentiating_input])
 
     return most_differentiating_input
+
+"""
+For efficoder experiment
+"""
+def select_slowest_input_files(problem_id: str, strategy: str, top_k: int=5) -> List[Path]:
+    time_dict = get_experiment_result(problem_id, strategy)
+    _, top_k_slowest_inputs = get_top_k_slow_inputs_over_all_solutions(time_dict, top_k=top_k, use_max_or_avg="avg", mode="instruction_cnt")
+    problem_dir = Path(config["problem_root_dir"]) / problem_id
+    if strategy == "alphacode":
+        input_dir = problem_dir / "input"
+    else:
+        input_dir = problem_dir / strategy / "input"
+    input_files = [input_dir / f"{input_name}" for input_name in top_k_slowest_inputs]
+
+    return input_files
