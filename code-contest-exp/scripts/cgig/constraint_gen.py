@@ -187,7 +187,7 @@ if __name__ == '__main__':
           f.write(checker_response + "\n")
 
         if "```cpp" in checker_response:
-          c_code = checker_response.split("```c")[-1].split("```")[0].strip()
+          c_code = checker_response.split("```cpp")[-1].split("```")[0].strip()
         else:
           c_code = checker_response.strip()
 
