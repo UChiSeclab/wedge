@@ -16,7 +16,7 @@ from utils import get_cf_problems, filter_problems, get_alphacode_result, \
     record_failing_problem
 from cgig.cgig_utils import problem_has_extracted_constraint
 from gpt_caller import write_test_generator
-from run import run_solution
+from run import run_solution, check_same_output
 from selector.select_solution import select_solutions
 from prompt import PromptTemplate
 from evalperf_driver import sample_inputs
@@ -258,7 +258,11 @@ def check_consistency_of_gen_tests_output(
                 invalid_input_file_names.append(input_file_name)
                 continue
             majority_output = output_counter.most_common(1)[0][0]
-            majority_output_count = output_counter.most_common(1)[0][1]
+            majority_output_count = 0
+            # use check_same_output to involve some tolerance
+            for output in outputs:
+                if check_same_output(majority_output.split(), output.split()):
+                    majority_output_count += 1
             if majority_output_count < len(correct_solution_file_names) * 0.95:
                 invalid_input_file_names.append(input_file_name)
             else:

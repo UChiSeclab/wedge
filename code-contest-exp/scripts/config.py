@@ -41,6 +41,7 @@ config = {
     "constraint_guided_one_fuzz_dir": "./constraint_guided_input_gen/constraint_guided_one_fuzz",
     "constraint_guided_multi_fuzz_dir": "./constraint_guided_input_gen/constraint_guided_multi_fuzz",
     "effi_learner_dir": "./results/effi_learner",
+    "max_num_solutions_for_consistency_check": 20,
 }
 
 # Manual Test

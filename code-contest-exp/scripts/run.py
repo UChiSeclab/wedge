@@ -94,6 +94,8 @@ def compile_solution(tmp_dir: Path, solution_code: str, language: Language):
 
 
 def check_same_output(output_A: List[str], output_B: List[str]) -> bool:
+    if output_A == output_B:
+        return True
     if len(output_A) != len(output_B):
         return False
     for idx, Ai in enumerate(output_A):
@@ -258,6 +260,8 @@ def run_solution(
                                     # don't write output for the later runs when 
                                     # collecting the execution statistics in run.py
                                     program_output = program_output.split()
+                                    if not output_path.exists():
+                                        raise ValueError(f"output_path: {output_path} does not exist.")
                                     with open(output_path, "r", encoding="utf-8") as file:
                                         gt_output = file.read().split()
                                     if not check_same_output(gt_output, program_output):
@@ -411,7 +415,11 @@ def check_consistency_of_output(
                 invalid_input_file_names.append(input_file_name)
                 continue
             majority_output = output_counter.most_common(1)[0][0]
-            majority_output_count = output_counter.most_common(1)[0][1]
+            majority_output_count = 0
+            # use check_same_output to involve some tolerance
+            for output in outputs:
+                if check_same_output(majority_output.split(), output.split()):
+                    majority_output_count += 1
             print(f"input_file_name: {input_file_name}, majority_output: {majority_output}, majority_output_count: {majority_output_count}, outputs: {outputs}")
             if majority_output_count < len(correct_solution_file_names) * 0.95:
                 invalid_input_file_names.append(input_file_name)
@@ -510,13 +518,15 @@ def main(
                 if ("incorrect" not in solution_file_name) and \
                     all(v in ["AC", "TLE"] for v in alphacode_result[solution_file_name.split(".")[0]]["verdict"])
             ]
+            correct_solution_file_names = sorted(correct_solution_file_names)
+            correct_solution_file_names = correct_solution_file_names[:config["max_num_solutions_for_consistency_check"]]
             inconsistent_input_file_names, solution_major_output_dict = check_consistency_of_output(
                 input_dir,
                 solution_dir / str(Language.JAVA),
                 time_limit,
                 correct_solution_file_names
             )
-            
+
             print(f"[INFO] number of inconsistent_input_file_names: {len(inconsistent_input_file_names)} out of {len(os.listdir(input_dir))}")
 
             if len(inconsistent_input_file_names) > 0:
