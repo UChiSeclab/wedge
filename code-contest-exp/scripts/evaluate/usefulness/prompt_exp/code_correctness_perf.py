@@ -152,11 +152,12 @@ The maximum memory peak requirement is: {merged_script_stats["max_peak_memory_us
 
 if __name__ == '__main__':
     # adhoc test case
-    solution_file = Path(f"{config["root_dir"]}/code-contest-exp/problems/8_B/solutions/python3/solutions_0004.py")
-    input_file_list = Path(f"{config["root_dir"]}/code-contest-exp/problems/8_B/time_contrast/input").glob("*.in")
-    gt_output_file_list = Path(f"{config["root_dir"]}/code-contest-exp/problems/8_B/time_contrast/output").glob("*.out")
+    root_dir = config["root_dir"]
+    solution_file = Path(f"{root_dir}/code-contest-exp/problems/8_B/solutions/python3/solutions_0004.py")
+    input_file_list = Path(f"{root_dir}/code-contest-exp/problems/8_B/time_contrast/input").glob("*.in")
+    gt_output_file_list = Path(f"{root_dir}/code-contest-exp/problems/8_B/time_contrast/output").glob("*.out")
     # make sure all input files have corresponding output files, otherwise the input will be discarded
-    solution_work_dir = Path(f"{config["root_dir"]}/code-contest-exp/tmp_work")
+    solution_work_dir = Path(f"{root_dir}/code-contest-exp/tmp_work")
 
     merged_script_stats, merged_line_profile_file, merged_mem_profile_file, merged_instruction_cnt, correctness = run_solution_multi_inputs(solution_file, input_file_list, gt_output_file_list, solution_work_dir)
 

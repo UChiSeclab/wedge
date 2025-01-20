@@ -80,7 +80,7 @@ def edit_solutions(problem: Dict, input_set: str, input_selection_type: str, sol
     # edit model should be the same as the solution model
     task_description = problem["description"]
     problem_id = problem["name"].split(".")[0]
-    if input_set in ["alphacode", "plain_problem", "feedback_multi_solution_diff_input", "evalperf_slow_solution", "evalperf_random_solution"]:
+    if input_set in ["alphacode", "plain_problem", "feedback_multi_solution_diff_input", "evalperf_slow_solution", "evalperf_random_solution", "feedback_diff_solution"]:
         input_output_pairs = get_input_output_pairs(problem, input_set)
     else:
         raise NotImplementedError(f"Input set type {input_set} not supported")
