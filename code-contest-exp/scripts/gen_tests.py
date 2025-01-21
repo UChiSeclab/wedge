@@ -231,6 +231,7 @@ def check_consistency_of_gen_tests_output(
             solution_dir.mkdir(exist_ok=True, parents=True)
             solution_output_dir.mkdir(exist_ok=True, parents=True)
 
+            # write_output=True
             test_args.append(("consistency_check", correct_solution_file, Language.JAVA, experiment_input_dir, solution_output_dir, time_limit, True, correct_solution_file_names, Path(temp_output_dir)))
 
         max_workers = max(1, int(0.5 * os.cpu_count()))
