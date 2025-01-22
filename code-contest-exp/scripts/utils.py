@@ -194,7 +194,7 @@ def filter_problems(problems, filter_with_inconsistency_threshold: bool = True, 
                     if all(label in ["AC", "TLE"] for label in data[item]["verdict"]):
                         actual_correct += 1
 
-            if actual_correct / labeled_correct > 0.95:
+            if actual_correct / labeled_correct >= 0.95:
                 filtered_problems_with_inconsistency.append(problem)
             else:
                 print(f"Problem {problem_name} has more than 5% incorrect solutions labeled as correct.")
