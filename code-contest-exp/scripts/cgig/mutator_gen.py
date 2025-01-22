@@ -25,11 +25,12 @@ def write_fuzz_dirvers(
     mutator_gen_root_dir: Path,
     problem_id: str,
     problem: Dict,
+    solution_driver_selection_type: str = "multi_fast",
     num_drivers: int = 5
 ) -> List[Path]:
     fuzz_driver_dir = mutator_gen_root_dir / problem_id / "fuzz_driver"
     fuzz_driver_dir.mkdir(parents=True, exist_ok=True)
-    fast_solution_ids, fast_solutions = select_solutions(problem_id, problem, "multi_fast", Language.CPP, top_k=num_drivers)
+    fast_solution_ids, fast_solutions = select_solutions(problem_id, problem, solution_driver_selection_type, Language.CPP, top_k=num_drivers)
     # dump fast solutions
     fuzz_driver_files = []
     for i, solution_id in enumerate(fast_solution_ids):
@@ -281,7 +282,7 @@ def main(
             constraints_content = constraints_content,
         )
 
-        fuzz_driver_file_list = write_fuzz_dirvers(mutator_gen_root_dir, problem_id, problem, num_drivers=5) # 5 drivers for retrying
+        fuzz_driver_file_list = write_fuzz_dirvers(mutator_gen_root_dir, problem_id, problem, solution_driver_selection_type="instrumented_multi_solution", num_drivers=5) # 5 drivers for retrying
         mutator_gen_mode_dir = mutator_gen_root_dir / problem_id / mutator_mode
 
         if mutator_gen_mode_dir.exists():
