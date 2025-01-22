@@ -5,7 +5,7 @@ import json
 from utils import get_alphacode_result, mean
 from common import Language
 from config import config
-from cgig.cgig_utils import get_best_input_pair
+from cgig.cgig_utils import get_best_input_pair, get_problem_solution_input_pairs
 
 def get_solutions_in_language(
     problem: Dict, sol_language: Language
@@ -150,9 +150,7 @@ def select_solutions(
     elif solution_selection_type == "instrumented_first_solution":
         if len(filtered_solution_idxs) < 1:
             return None, None
-        input_pairs_dir = Path(config["input_pairs_dir"])
-        input_pairs_file = input_pairs_dir / "content_similar_problem_solution_input_pairs_sorted.json"
-        problem_solution_input_pairs = json.loads(input_pairs_file.read_text())
+        problem_solution_input_pairs = get_problem_solution_input_pairs()
         best_input_pair, solution_ids = get_best_input_pair(problem_id, problem_solution_input_pairs[problem_id])
         if not best_input_pair:
             raise ValueError(f"No input pair found for {problem_id}")
@@ -169,9 +167,7 @@ def select_solutions(
     elif solution_selection_type == "instrumented_multi_solution":
         if len(filtered_solution_idxs) < 1:
             return None, None
-        input_pairs_dir = Path(config["input_pairs_dir"])
-        input_pairs_file = input_pairs_dir / "content_similar_problem_solution_input_pairs_sorted.json"
-        problem_solution_input_pairs = json.loads(input_pairs_file.read_text())
+        problem_solution_input_pairs = get_problem_solution_input_pairs()
         solution_input_pairs = problem_solution_input_pairs[problem_id]
         selected_solution_ids = []
         selected_solutions = []

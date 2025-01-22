@@ -3,12 +3,11 @@ import os
 import sys
 import subprocess
 import shutil
-from typing import List, Tuple, Literal
-import json
+from typing import Literal
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from config import config
-from cgig.cgig_utils import find_mutator_file, select_first_solution, get_best_input_pair
+from cgig.cgig_utils import find_mutator_file, get_best_input_pair, get_problem_solution_input_pairs
 from fire import Fire
 
 def eprint(*args, **kwargs):
@@ -107,10 +106,8 @@ def main(
     mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "custom_mutator"] = "custom_mutator",
 ):
     problem_root_dir = Path(config["problem_root_dir"])
-    input_pairs_dir = Path(config["input_pairs_dir"])
     extracted_constraints_dir = Path(config["constraints_dir"])
-    input_pairs_file = input_pairs_dir / "content_similar_problem_solution_input_pairs_sorted.json"
-    problem_solution_input_pairs = json.loads(input_pairs_file.read_text())
+    problem_solution_input_pairs = get_problem_solution_input_pairs()
 
     if mutator_type == "mutator_with_generator":
         mutator_gen_root_dir = Path(config["mutator_with_generator_dir"])

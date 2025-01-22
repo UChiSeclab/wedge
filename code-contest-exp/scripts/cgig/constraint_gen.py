@@ -7,6 +7,7 @@ from feedback_collect import collect_coverage_hit_count
 from config import config
 from common import Language
 from gpt_caller import request_conversation
+from cgig.cgig_utils import get_problem_solution_input_pairs
 
 def get_product_cov(
   problem_id: str,
@@ -108,15 +109,13 @@ def main(
   top_k: int = 10
 ):
   problem_root_dir = Path(config["problem_root_dir"])
-  input_pairs_dir = Path(config["input_pairs_dir"])
   extracted_constraints_dir = Path(config["constraints_dir"])
   cov_data_root_dir = Path(config["cov_data_dir"])
   
   invariants_template_file = Path(config["cgig_prompt_template_dir"]) / "constraint_gen_invariants_prompt.txt"
   checker_template_file = Path(config["cgig_prompt_template_dir"]) / "constraint_gen_checker_prompt.txt"
 
-  input_pairs_file = input_pairs_dir / "content_similar_problem_solution_input_pairs_sorted.json"
-  problem_solution_input_pairs = json.loads(input_pairs_file.read_text())
+  problem_solution_input_pairs = get_problem_solution_input_pairs()
 
   for problem_id in problem_solution_input_pairs:
     print(f"Processing {problem_id}")

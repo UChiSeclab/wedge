@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List, Tuple, Dict, Literal
+import json
 
 from config import config
 from common import Language
@@ -129,6 +130,11 @@ def parse_constraints_content_from_response(gpt_response_file: Path, include_cod
     assert i < len(lines) - 1, "No constraints found"
 
     return "\n".join(lines[:i])
+
+def get_problem_solution_input_pairs() -> Dict[str, Dict[str, List[Tuple[str, str]]]]:
+    # get the problem-solution-input pairs mapping
+    input_pairs_file = Path(config["input_pairs_dir"]) / "content_similar_problem_solution_input_pairs_sorted.json"
+    return json.loads(input_pairs_file.read_text())
 
 def parse_constraints_content(problem_id: str, mutator_type: Literal["mutator_with_constraint", "mutator_with_constraint_multi"], include_code: bool = True) -> str:
     # parse the constraints content from one or multiple GPT responses

@@ -4,12 +4,12 @@ import os
 from multiprocessing import Pool
 from tqdm import tqdm
 from typing import Literal
-import json
 
 from config import config
 from utils import filter_problems, get_cf_problems
 from common import Language
 from feedback_collect import collect_coverage_hit_count # currently work for cpp only
+from cgig.cgig_utils import get_problem_solution_input_pairs
 
 debug = False
 
@@ -53,9 +53,7 @@ def main(
                         cov_args.append((solution_file, input_file, solution_lang, src_with_cov_file, cov_report_file))
 
     elif mode == "input_pairs":
-        input_pairs_dir = Path(config["input_pairs_dir"])
-        input_pairs_file = input_pairs_dir / "content_similar_problem_solution_input_pairs_sorted.json"
-        problem_solution_input_pairs = json.loads(input_pairs_file.read_text())
+        problem_solution_input_pairs = get_problem_solution_input_pairs()
 
         for problem_id in problem_solution_input_pairs:
             print("problem_id:", problem_id)
