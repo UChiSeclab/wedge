@@ -192,7 +192,7 @@ def main(
     # Collect all tasks across problems
     all_tasks = []
     for problem in tqdm(filtered_problems):
-        tasks = process_problem(problem, experiment_name, problem_root_dir, solution_language, top_k)
+        tasks = process_problem(problem, experiment_name, problem_root_dir, Language.str_to_lang(solution_language), top_k)
         all_tasks.extend(tasks)
 
     # Process all tasks in parallel

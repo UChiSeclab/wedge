@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import List, Tuple, Dict, Literal
 
 from config import config
-from utils import get_run_time
 from common import Language
 
 def cov_file_exists(problem_id: str, solution_id: str, input_id: str, language: Language = Language.CPP) -> bool:
@@ -47,7 +46,8 @@ def get_best_input_pair_by_freq(solution_input_pairs: Dict[str, List[Tuple[str, 
 
     return best_input_pair, input_pair_freq[best_input_pair] # not sorted
 
-def get_best_input_pair(solution_input_pairs: Dict[str, List[Tuple[str, str]]]) -> Tuple[Tuple[str, str], List[str]]:
+@DeprecationWarning
+def get_best_input_pair(problem_id:str, solution_input_pairs: Dict[str, List[Tuple[str, str]]]) -> Tuple[Tuple[str, str], List[str]]:
     # get the input pair with the highest similarity and get the solution where the input pair is used and the run time ratio is the highest
     # assume the list of input pairs has been sorted by similarity
     if len(solution_input_pairs) == 0:
@@ -123,8 +123,7 @@ def parse_constraints_content_from_response(gpt_response_file: Path, include_cod
     lines = response.split("\n")
     for i in range(len(lines)):
         line = lines[i].strip().lower()
-        if "insert" in line and "condition" in line \
-            and ("phase 3:" in line or line.startswith("3.")):
+        if "=== Checker Response ===" in line:
                 break
 
     assert i < len(lines) - 1, "No constraints found"

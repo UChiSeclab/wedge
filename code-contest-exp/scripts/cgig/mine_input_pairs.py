@@ -69,7 +69,7 @@ def extract_slow_fast_inputs(alphacode_result: Dict, language: Language, mode: s
             if (mode == "run_time" and slow_input_sublist[-1][1] < TIME_THRESHOLD) \
                 or (mode == "instruction_cnt" and slow_input_sublist[-1][1] < INSTRUCTION_CNT_THRESHOLD):
                     continue
-            # the fast input should be at least 2x faster than the slow input
+            # the fast input should be at least 1.2x faster than the slow input
             if fast_input_sublist[-1][1] * 1.2 > slow_input_sublist[0][1]:
                 continue
             fast_input_list = fast_input_sublist
@@ -81,49 +81,6 @@ def extract_slow_fast_inputs(alphacode_result: Dict, language: Language, mode: s
             slow_fast_input_dict[solution_id] = (slow_input_list, fast_input_list)
 
     return slow_fast_input_dict
-
-def is_similar_input_old(input_file_1: Path, input_file_2: Path) -> bool:
-    """Check if two inputs are similar."""
-    with open(input_file_1, 'r') as f:
-        input_1 = f.read()
-    with open(input_file_2, 'r') as f:
-        input_2 = f.read()
-
-    # Check if the inputs have small edit distance
-    matcher = difflib.SequenceMatcher(None, input_1, input_2)
-    diff_ratio = 1 - matcher.ratio()
-    if diff_ratio < DIFF_RATIO_THRESHOLD:
-        return True
-    # Check if the inputs have the same size
-    if len(input_1.split()) == len(input_2.split()):
-        # if same elements, different order
-        if set(input_1.split()) == set(input_2.split()):
-            return True
-
-    return False
-
-def is_similar_input_old_good(input_file_1: Path, input_file_2: Path) -> bool:
-    """Check if two inputs are similar."""
-    with open(input_file_1, 'r') as f:
-        input_1 = f.read()
-    with open(input_file_2, 'r') as f:
-        input_2 = f.read()
-
-    input_elements_1 = input_1.split()
-    input_elements_2 = input_2.split()
-    
-    if len(input_elements_1) != len(input_elements_2):
-        return False
-
-    num_diff_elements = 0
-    for e1, e2 in zip(input_elements_1, input_elements_2):
-        if e1 != e2:
-            num_diff_elements += 1
-
-    if len(input_elements_1) >= 3 and num_diff_elements == 1:
-        return True
-
-    return False
 
 def is_similar_input(input_file_1: Path, input_file_2: Path) -> bool:
     return calculate_similarity(input_file_1, input_file_2) > 0.1
@@ -164,49 +121,6 @@ def calculate_jaccard_similarity(input_file_1: Path, input_file_2: Path) -> floa
     input_elements_2 = set(input_2.split())
 
     return len(input_elements_1 & input_elements_2) / len(input_elements_1 | input_elements_2)
-
-# def is_same_coverage_diff_hit_count(cov_report_file_1: Path, cov_report_file_2: Path, partial_cover_as_cover: bool=True) -> bool:
-#     return True
-
-#     """Check whether two hit count files have the same coverage but different hit count."""
-#     try:
-#         src_file_coverage_1 = parse_cpp_cobertura_coverage_report(cov_report_file_1)
-#         src_file_coverage_2 = parse_cpp_cobertura_coverage_report(cov_report_file_2)
-#     except FileNotFoundError:
-#         print(f"At least one of the coverage reports not found: {cov_report_file_1}, {cov_report_file_2}")
-#         return False
-
-#     if src_file_coverage_1 == src_file_coverage_2:
-#         print(f"The two coverage reports are the same: {cov_report_file_1}, {cov_report_file_2}")
-#         return False
-
-#     if len(src_file_coverage_1) != len(src_file_coverage_2):
-#         raise ValueError("The two coverage reports have different number of files.")
-
-#     cov_hit_count_info_1 = list(src_file_coverage_1.values())[0]
-#     cov_hit_count_info_2 = list(src_file_coverage_2.values())[0]
-#     if len(cov_hit_count_info_1) != len(cov_hit_count_info_2):
-#         raise ValueError("The two coverage reports have different number of lines.")
-
-#     cov_status_1 = [status for _, (_, status) in cov_hit_count_info_1.items()]
-#     cov_status_2 = [status for _, (_, status) in cov_hit_count_info_2.items()]
-
-#     # discard the no coverage cases
-#     if all(status == "NOT_COVERED" for status in cov_status_1) or all(status == "NOT_COVERED" for status in cov_status_2):
-#         print(f"At least one of the coverage reports have no coverage: {cov_report_file_1}, {cov_report_file_2}")
-#         return False
-
-#     if partial_cover_as_cover:
-#         cov_status_1 = [status if status != "PARTIALLY_COVERED" else "COVERED" for status in cov_status_1]
-#         cov_status_2 = [status if status != "PARTIALLY_COVERED" else "COVERED" for status in cov_status_2]
-        
-#     # filter out fully covered cases
-#     if len([status for status in cov_status_1 if status == "NOT_COVERED"]) == 0 \
-#         or len([status for status in cov_status_2 if status == "NOT_COVERED"]) == 0:
-#         print(f"At least one of the coverage reports have full coverage: {cov_report_file_1}, {cov_report_file_2}")
-#         return False
-
-#     return cov_status_1 == cov_status_2
 
 def sort_solution_input_pairs(solution_input_pairs: Dict[str, Dict[str, Tuple[float, float]]]) -> Dict[str, Dict[str, Tuple[float, float]]]:
     """Sort solutions by the max similarity of their input pairs."""

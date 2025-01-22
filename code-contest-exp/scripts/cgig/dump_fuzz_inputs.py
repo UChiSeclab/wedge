@@ -68,7 +68,7 @@ def main(
         with Pool(processes = int(0.5 * os.cpu_count())) as pool:
             tasks = []
             for problem_id in problem_solution_input_pairs:
-                best_input_pair, solution_ids = get_best_input_pair(problem_solution_input_pairs[problem_id])
+                best_input_pair, solution_ids = get_best_input_pair(problem_id, problem_solution_input_pairs[problem_id])
                 if not best_input_pair:
                     print(f"[Warning] No input pair found for {problem_id}")
                     continue
