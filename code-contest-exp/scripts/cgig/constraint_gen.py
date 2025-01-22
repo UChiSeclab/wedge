@@ -1,12 +1,12 @@
 from pathlib import Path
 import json
-from typing import Dict, List, Tuple
+from fire import Fire
 
-from cgig.cgig_utils import get_best_input_pairs
 from cpp.coverage.scripts.cov_product_gen import main as dump_product_cov
+from feedback_collect import collect_coverage_hit_count
 from config import config
 from common import Language
-
+from gpt_caller import request_conversation
 
 def get_product_cov(
   problem_id: str,
@@ -89,7 +89,6 @@ def compile_checker_prompt(
   checker_template_file: Path,
   problem_statement_file: Path,
   solution_file: Path,
-  invariants_txt: str,
   
 ) -> str:
 
@@ -99,20 +98,19 @@ def compile_checker_prompt(
 
   checker_prompt = (
     template_text
-    .replace("{invariants}", invariants_txt)
     .replace("{problem_statement}", problem_statement)
     .replace("{one_solution}", solution)
   )
   return checker_prompt
 
 
-if __name__ == '__main__':
-
-  from gpt_caller import request_conversation
-
+def main(
+  top_k: int = 5
+):
   problem_root_dir = Path(config["problem_root_dir"])
   input_pairs_dir = Path(config["input_pairs_dir"])
   extracted_constraints_dir = Path(config["constraints_dir"])
+  cov_data_root_dir = Path(config["cov_data_dir"])
   
   invariants_template_file = Path(config["cgig_prompt_template_dir"]) / "constraint_gen_invariants_prompt.txt"
   checker_template_file = Path(config["cgig_prompt_template_dir"]) / "constraint_gen_checker_prompt.txt"
@@ -122,34 +120,55 @@ if __name__ == '__main__':
 
   for problem_id in problem_solution_input_pairs:
     print(f"Processing {problem_id}")
-    input_pair_solution_map = get_best_input_pairs(problem_id, problem_solution_input_pairs[problem_id], top_k=5)
-    if not input_pair_solution_map:
-      print(f"[Warning] No input pair found for {problem_id}")
-      continue
+    problem_dir = problem_root_dir / problem_id
+    solution_input_pairs = problem_solution_input_pairs[problem_id]
+    num_solution_with_cov = 0
+    for solution_id in solution_input_pairs:
+      if num_solution_with_cov >= top_k:
+        break
+      best_input_pair_id = list(solution_input_pairs[solution_id])[0] # best input pair for this solution
+      slow_input_id, fast_input_id = best_input_pair_id.split("@")
+      solution_file = problem_dir / "solutions" / "cpp" / f"{solution_id}.cpp"
 
-    for input_pair_id in input_pair_solution_map:
-      slow_input_id, fast_input_id = input_pair_id.split("@")
-      solution_ids = input_pair_solution_map[input_pair_id]
-      solution_id = solution_ids[0]
+      # collect coverage data if not exists
+      for input_id in [slow_input_id, fast_input_id]:
+        input_file = problem_dir / "input" / input_id
+        cov_data_dir = cov_data_root_dir / "alphacode" / problem_id / "cpp" / solution_id / input_id[:-3]
+        cov_data_dir.mkdir(parents=True, exist_ok=True)
+        src_with_cov_file = cov_data_dir / f"{solution_id}.cov"
+        cov_report_file = cov_data_dir / "coverage.xml"
+        if not src_with_cov_file.exists() or not cov_report_file.exists():
+          collect_coverage_hit_count((solution_file, input_file, Language.CPP, src_with_cov_file, cov_report_file))
+        else:
+          print(f"Skip: {src_with_cov_file} and {cov_report_file} already exists")
 
-      product_cov_file = get_product_cov(
-        problem_id,
-        solution_id,
-        slow_input_id,
-        fast_input_id,
-        language=Language.CPP,
-        info_line_end=True
-      )
+      try:
+        product_cov_file = get_product_cov(
+          problem_id,
+          solution_id,
+          slow_input_id,
+          fast_input_id,
+          language=Language.CPP,
+          info_line_end=True
+        )
+        num_solution_with_cov += 1
+      except FileNotFoundError as e:
+        print(f"[Warning] {e}")
+        print(f"[Warning] some cov files are missing when generating product cov for {problem_id}-{solution_id}")
+        continue
+
       assert product_cov_file, f"product cov file not found for {problem_id}'s solutions"
 
       result_dir = extracted_constraints_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}"
       result_dir.mkdir(parents=True, exist_ok=True)
       
-      combined_responses_file = result_dir / "gpt_responses.txt"
-      c_checker_file = result_dir / "invariant_checker.c"
+      combined_responses_file = result_dir / "gpt_response.txt"
+      conversation_file = result_dir / "conversations.txt"
+      cpp_checker_file = result_dir / "transformed_program.cpp"
 
-      if not combined_responses_file.exists() or not c_checker_file.exists():
+      if not combined_responses_file.exists() or not cpp_checker_file.exists():
         msg_list = []
+        msg_list.append({"role": "system", "content": f"You are a helpful assistant good at coding."})
 
         invariants_prompt = compile_invariants_prompt(
           invariants_template_file,
@@ -171,8 +190,7 @@ if __name__ == '__main__':
         checker_prompt = compile_checker_prompt(
           checker_template_file,
           problem_root_dir / problem_id / "problem_statement.txt",
-          problem_root_dir / problem_id / "solutions" / "cpp" / f"{solution_id}.cpp",
-          invariants_txt=invariants_response.strip()
+          problem_root_dir / problem_id / "solutions" / "cpp" / f"{solution_id}.cpp"
         )
         msg_list.append({"role": "user", "content": checker_prompt})
 
@@ -187,10 +205,20 @@ if __name__ == '__main__':
           f.write(checker_response + "\n")
 
         if "```cpp" in checker_response:
-          c_code = checker_response.split("```cpp")[-1].split("```")[0].strip()
+          cpp_code = checker_response.split("```cpp")[-1].split("```")[0].strip()
         else:
-          c_code = checker_response.strip()
+          cpp_code = checker_response.strip()
 
-        c_checker_file.write_text(c_code)
+        # write the conversation to a file
+        with open(conversation_file, "w", encoding="utf-8") as f:
+          for msg in msg_list:
+            f.write(f"{msg['role']}: {msg['content']}\n\n")
+
+        cpp_checker_file.write_text(cpp_code)
         print(f"[Info] Done generating invariants & checker for {problem_id}-{solution_id}; see {combined_responses_file}")
 
+    if num_solution_with_cov < top_k:
+      print(f"[Warning] Only {num_solution_with_cov} solutions have product_cov for {problem_id}")
+
+if __name__ == "__main__":
+  Fire(main)

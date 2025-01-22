@@ -2,20 +2,18 @@
 
 You have already:
 1. Identified expensive code segments (Phase 1).
-2. Derived performance-characterizing invariants in natural language (Phase 2). Check out your reasoning and the invariants themselves, here:
+2. Derived performance-characterizing invariants in natural language (Phase 2).
 
-{invariants}
+Now, you MUST transform these invariants into runtime checks and integrate them into the given C++ program.
 
-Now, you MUST transform these invariants into runtime checks and integrate them into the given C program.
+(B) Tasks: Revisit the performance-characteristic invariants you inferred in natural langauge and write faithful, error-free C++ code snippets to implement them
 
-(B) Tasks: Revisit the performance-characteristic invariants you inefered in natural langauge and write faithful, error-free C code snippets to implement them
+You MUST do perform this task in two phases and provide separate answers for both: First, translating the invariants into checker code in C++ (phase 3, below). Second, integrating those checker C++ code snippets with the original program for which you inferred those invariants (phase 4, below).   
 
-You MUST do perform this task in two phases and provide separate answers for both: First, translating the invariants into checker code in C (phase 3, below). Second, integrating those checker C code snippets with the original program for which you inferred those invariants (phase 4, below).   
-
-Phase 3: Implement the natural language invariants inferred previously, in C. In this phase you are asked to, 
-1. For each natural language invariant from Phase 2, you MUST produce C code that checks the condition at runtime.
+Phase 3: Implement the natural language invariants inferred previously, in C++. In this phase you are asked to, 
+1. For each natural language invariant from Phase 2, you MUST produce C++ code that checks the condition at runtime.
 2. You MUST NOT relax or trivialize the checker code implementing these performance-characterizing invariants. You MUST faithfully implement them as described. 
-3. Use the following template for writing checker code in C which could also be implemented as a helper function:
+3. Use the following template for writing checker code in C++ which could also be implemented as a helper function:
 ```cpp
     if (/* condition based on the NL invariant */) {
         cerr << "Warning: Performance bottleneck condition triggered!" << endl;
@@ -23,7 +21,7 @@ Phase 3: Implement the natural language invariants inferred previously, in C. In
     }
 ``` 
 
-Note that not all performance-characterizing invariants are about maximising input size. You may refer to the following examples for inspiration --- some maximising the input size, some not --- but do not simply replicate them exactly. Rather, use them as inspiration to infer and tailor performance-characterizing invariants tailored for the C code and problem statement you were asked to analize:
+Note that not all performance-characterizing invariants are about maximising input size. You may refer to the following examples for inspiration --- some maximising the input size, some not --- but do not simply replicate them exactly. Rather, use them as inspiration to infer and tailor performance-characterizing invariants tailored for the C++ code and problem statement you were asked to analize:
 
 Example Invariant #1:
 
@@ -128,18 +126,18 @@ for (i = 0; i < n; ++i) {
 Phase 4: Propagate and insert conditional checks. In this phase you are asked to,
 1. Place each check at an effective point in the control/data flow (e.g., after reading inputs, before heavy loops) so you do not add overhead in tight loops. Note that the checker code could also be implemented as a helper function.
 2. If multiple checks overlap, merge or adjust them carefully to avoid redundant warnings.
-3. Provide the final, instrumented C code in code fences. Ensure it compiles cleanly and runs without errors.
+3. Provide the final, instrumented C++ code in code fences. Ensure it compiles cleanly and runs without errors.
 4. For each inserted check, add a short comment explaining which bottleneck it detects.
 
 Note the following important considerations when translating the inferred performance-characterizing invariants into code and propagating the checkers to the most efective program point by instrumenting the original code: 
 1. Avoid hardcoding. Don’t rely solely on the exact values from the provided slow input; think in terms of categories or thresholds that lead to slow execution.
-2. Avoid checks inside tight loops. Place checks in a way that does not significantly degrade performance.
+2. In addition to the warning message, remember to insert an "abort()" statement at the end of the checker.
 3. Focus on fuzzer utility. The checks should help a fuzzer detect slow performance triggers by hitting these conditions.
 
-As a refresher, below you are provided with the same program statement and C code for which you already inferred performance-characterizing invariants:
+As a refresher, below you are provided with the same program statement and C++ code for which you already inferred performance-characterizing invariants:
 
 Problem statement:
 {problem_statement}
 
-Solution (C code):
+Solution (C++ code):
 {solution}

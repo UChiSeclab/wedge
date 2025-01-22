@@ -150,3 +150,7 @@ for (i = 0; i < n; ++i) {
 (G.2) Fast Input
 
 {fast_input}
+
+(H) Hit Count Information of Slow Input and Fast Input (Aggregated):
+
+{product_cov}
