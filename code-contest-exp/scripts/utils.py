@@ -34,6 +34,8 @@ def get_experiment_result(problem_id: str, experiment_name: str) -> Dict:
         result = json.load(file)
     return result
 
+def problem_to_id(problem: Dict) -> str:
+    return problem["name"].split(".")[0]
 
 def record_failing_problem(problem_id: str, experiment_name: str, reason: str, try_cnt: int = 10):
     """Record the failing problem in the failing_problems.json"""
