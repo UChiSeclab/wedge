@@ -17,7 +17,7 @@ def main(
     experiment_name: str = config["experiment_name"],
     problem_root_dir: str = config["problem_root_dir"],
     mode: Literal["full", "input_pairs"] = "input_pairs",
-    top_k: int = 5,
+    top_k: int = 10,
 ):
     problem_root_dir = Path(problem_root_dir)
 
@@ -79,6 +79,11 @@ def main(
                         cov_args.append((solution_file, input_file, Language.CPP, src_with_cov_file, cov_report_file))
                     else:
                         print(f"Skip: {src_with_cov_file} and {cov_report_file} already exists")
+
+                num_solution_with_cov += 1
+
+            if num_solution_with_cov < top_k:
+                print(f"Warning: {problem_id} has less than {top_k} solutions with coverage data.")
 
     max_workers = max(1, int(0.5 * os.cpu_count()))
     with Pool(processes=max_workers) as pool:

@@ -105,7 +105,7 @@ def compile_checker_prompt(
 
 
 def main(
-  top_k: int = 5
+  top_k: int = 10
 ):
   problem_root_dir = Path(config["problem_root_dir"])
   input_pairs_dir = Path(config["input_pairs_dir"])
