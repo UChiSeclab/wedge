@@ -2,7 +2,9 @@
 
 mkdir -p log/feedback_collect
 
-cd /zp_vegeta/scratch_sb/juny/research/llm4perf/code-contest-exp
+# go to the root directory of the project
+work_dir=$(git rev-parse --show-toplevel)/code-contest-exp
+cd $work_dir
 
 python scripts/feedback_collect.py --experiment_name feedback_diff_solution --solution_language cpp > log/feedback_collect/feedback_diff_solution.log 2>&1
 
