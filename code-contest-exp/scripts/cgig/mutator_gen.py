@@ -6,14 +6,16 @@ import random
 import os
 from fire import Fire
 import subprocess
+import shutil
 
 from config import config
-from cgig.cgig_utils import problem_has_extracted_constraint, parse_constraints_content
+from cgig.cgig_utils import problem_has_extracted_constraint, parse_constraints_content, get_problem_solution_input_pairs, parse_constraints_content_from_response
 from gpt_caller import request_conversation, cut_string
 from cgig.fuzz import fuzz_one
 from selector.select_solution import select_solutions
-from utils import filter_problems, get_cf_problems
+from utils import filter_problems, get_cf_problems, problem_to_id
 from common import Language
+from cgig.constraint_gen import get_product_cov
 
 random.seed(0)
 
@@ -21,7 +23,7 @@ REFELECT_MSG = '''
 The mutator script you provided is incorrect as the fuzzer ran into an error in the fuzzing process. Please reflect and try again.
 '''
 
-def write_fuzz_dirvers(
+def write_raw_fuzz_dirvers(
     mutator_gen_root_dir: Path,
     problem_id: str,
     problem: Dict,
@@ -37,6 +39,28 @@ def write_fuzz_dirvers(
         fuzz_driver_file = fuzz_driver_dir / f"{solution_id}.cpp"
         with open(fuzz_driver_file, "w") as f:
             f.write(fast_solutions[i])
+        fuzz_driver_files.append(fuzz_driver_file)
+
+    return fuzz_driver_files
+
+def write_instrumented_fuzz_drivers(
+    mutator_gen_root_dir: Path,
+    problem_id: str,
+    problem: Dict,
+    constraint_file_list: List[Path],
+    num_drivers: int = 5
+) -> List[Path]:
+    fuzz_driver_dir = mutator_gen_root_dir / problem_id / "fuzz_driver"
+    fuzz_driver_dir.mkdir(parents=True, exist_ok=True)
+    if len(constraint_file_list) < num_drivers:
+        print(f"[Warning] only {len(constraint_file_list)} constraints found for {problem_id}")
+    fuzz_driver_files = []
+    for constraint_file in constraint_file_list:
+        # constraint_file: solution_id/slow_input_id_fast_input_id/gpt_response.txt
+        solution_id = constraint_file.parent.parent.name
+        transformed_program_file = constraint_file.parent / "transformed_program.cpp"
+        fuzz_driver_file = fuzz_driver_dir / f"{solution_id}.cpp"
+        shutil.copy(transformed_program_file, fuzz_driver_file)
         fuzz_driver_files.append(fuzz_driver_file)
 
     return fuzz_driver_files
@@ -67,12 +91,14 @@ def compile_mutator_gen_prompt(
     mutator_example_file: Path,
     reference_input_file_list: List[Path], # currently we use the selected seed inputs
     generator_file: Optional[Path] = None,
+    product_cov_file: Optional[Path] = None,
     constraints_content: Optional[str] = None,
 ):
     prompt_template = prompt_template_file.read_text()
     problem_statement = problem_statement_file.read_text()
     mutator_example = mutator_example_file.read_text()
     input_generator_code = generator_file.read_text() if generator_file else ""
+    product_cov_content = product_cov_file.read_text() if product_cov_file else ""
     reference_input_list = [input_file.read_text() for input_file in reference_input_file_list]
     reference_input_list_str = ""
     for i in range(len(reference_input_list)):
@@ -83,6 +109,7 @@ def compile_mutator_gen_prompt(
         mutator_example=mutator_example,
         reference_inputs=reference_input_list_str,
         input_generator_code=input_generator_code,
+        product_cov_content=product_cov_content,
         constraints_content=constraints_content,
     )
 
@@ -231,9 +258,11 @@ def generate_mutator(mutator_gen_root_dir: Path, problem_id: str, initial_prompt
 
 def main(
     problem_root_dir: str = config["problem_root_dir"],
-    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "custom_mutator"] = "custom_mutator",
+    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator"] = "custom_mutator",
     problem_with_extracted_constraint_only: bool = False,
-    mutator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "direct"
+    mutator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "direct",
+    top_k_constraints: int = 1,
+    num_drivers: int = 1,
 ):
     problem_root_dir = Path(problem_root_dir)
     filtered_problems = filter_problems(
@@ -251,6 +280,11 @@ def main(
         prompt_template_file = Path(config["cgig_prompt_template_dir"]) / "mutator_with_constraint_multi_gen_plain.txt"
         mutator_gen_root_dir = Path(config["mutator_with_constraint_multi_dir"])
         assert problem_with_extracted_constraint_only, "mutator_with_constraint_multi requires problem_with_extracted_constraint_only"
+    elif mutator_type == "mutator_with_constraint_per_solution":
+        prompt_template_file = Path(config["cgig_prompt_template_dir"]) / "mutator_with_constraint_per_solution_gen_plain.txt"
+        mutator_gen_root_dir = Path(config["mutator_with_constraint_per_solution_dir"])
+        assert problem_with_extracted_constraint_only, "mutator_with_constraint_per_solution requires problem_with_extracted_constraint_only"
+        assert top_k_constraints == num_drivers, "num_drivers should be the same with top_k_constraints for mutator_with_constraint"
     elif mutator_type == "custom_mutator":
         prompt_template_file = Path(config["cgig_prompt_template_dir"]) / "mutator_gen_plain.txt"
         mutator_gen_root_dir = Path(config["custom_mutators_dir"])
@@ -259,55 +293,129 @@ def main(
 
     mutator_example_file = Path(config["cgig_prompt_template_dir"]) / "example_mutator.py"
 
-    for problem in filtered_problems:
-        problem_id = problem["name"].split(".")[0]
-        constraints_content = None
-        if problem_with_extracted_constraint_only:
-            if not problem_has_extracted_constraint(problem_id):
+    if mutator_type == "mutator_with_constraint_per_solution":
+        problem_solution_input_pairs = get_problem_solution_input_pairs()
+        for problem_id in problem_solution_input_pairs:
+            if problem_with_extracted_constraint_only:
+                if not problem_has_extracted_constraint(problem_id):
+                    continue
+            solution_input_pairs = problem_solution_input_pairs[problem_id]
+            problem_statement_file = problem_root_dir / problem_id / "problem_statement.txt"
+            ori_input_dir = problem_root_dir / problem_id / "input"
+            seed_input_dir = mutator_gen_root_dir / problem_id / "seed_inputs"
+            seed_input_files = select_seed_inputs(ori_input_dir, seed_input_dir)
+            if len(solution_input_pairs) == 0:
+                print(f"[INFO] No solution input pairs found for {problem_id}, skip")
                 continue
-            constraints_content = parse_constraints_content(problem_id, mutator_type)
-        problem_statement_file = problem_root_dir / problem_id / "problem_statement.txt"
-        ori_input_dir = problem_root_dir / problem_id / "input"
-        seed_input_dir = mutator_gen_root_dir / problem_id / "seed_inputs"
-        seed_input_files = select_seed_inputs(ori_input_dir, seed_input_dir)
-        generator_file = problem_root_dir / problem_id / "plain_problem" / "gen.py"
-        if not generator_file.exists():
-            generator_file = None
-        initial_prompt = compile_mutator_gen_prompt(
-            prompt_template_file,
-            problem_statement_file,
-            mutator_example_file,
-            seed_input_files,
-            generator_file = generator_file,
-            constraints_content = constraints_content,
-        )
+            num_solution_with_constraint = 0
+            for solution_id in solution_input_pairs:
+                if num_solution_with_constraint >= top_k_constraints:
+                    break
+                for input_pair_id in solution_input_pairs[solution_id]:
+                    slow_input_id, fast_input_id = input_pair_id.split("@")
+                    constraint_gen_dir = Path(config["constraints_dir"]) / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}"
+                    if not constraint_gen_dir.exists():
+                        print(f"[INFO] No constraint gen dir found for {problem_id}/{solution_id}/{slow_input_id[:-3]}_{fast_input_id[:-3]}")
+                        continue
+                    constraint_file = constraint_gen_dir / "gpt_response.txt"
+                    if not constraint_file.exists():
+                        raise FileNotFoundError(f"No constraint file found for {problem_id}/{solution_id}/{slow_input_id[:-3]}_{fast_input_id[:-3]}")
+                    constraints_content = parse_constraints_content_from_response(constraint_file, include_code=False)
+                    product_cov_file = get_product_cov_file(problem_id, solution_id, slow_input_id, fast_input_id, info_line_end=True)
+                    if not product_cov_file:
+                        print(f"[Warning] product cov file not found for {problem_id}'s solutions")
+                        continue
 
-        fuzz_driver_file_list = write_fuzz_dirvers(mutator_gen_root_dir, problem_id, problem, solution_driver_selection_type="instrumented_multi_solution", num_drivers=5) # 5 drivers for retrying
-        mutator_gen_mode_dir = mutator_gen_root_dir / problem_id / mutator_mode
+                    initial_prompt = compile_mutator_gen_prompt(
+                        prompt_template_file,
+                        problem_statement_file,
+                        mutator_example_file,
+                        seed_input_files,
+                        generator_file = None,
+                        product_cov_file = product_cov_file,
+                        constraints_content = constraints_content,
+                    )
 
-        if mutator_gen_mode_dir.exists():
-            continue
+                    fuzz_driver_file_list = write_instrumented_fuzz_drivers(mutator_gen_root_dir, problem_id, problem, constraint_file, num_drivers=num_drivers)
+                    mutator_gen_mode_dir = mutator_gen_root_dir / problem_id / mutator_mode
 
-        for fuzz_driver_file in fuzz_driver_file_list:
-            try:
-                result = generate_mutator(mutator_gen_root_dir, problem_id, initial_prompt, mutator_mode, mutator_type, fuzz_driver_file)
-            except subprocess.TimeoutExpired:
-                print(f"Timeout for {problem_id} with {fuzz_driver_file}")
-                shutil.rmtree(mutator_gen_mode_dir, ignore_errors=True)
+                    if mutator_gen_mode_dir.exists():
+                        continue
+
+                    for fuzz_driver_file in fuzz_driver_file_list:
+                        try:
+                            result = generate_mutator(mutator_gen_root_dir, problem_id, initial_prompt, mutator_mode, mutator_type, fuzz_driver_file)
+                        except subprocess.TimeoutExpired:
+                            print(f"Timeout for {problem_id} with {fuzz_driver_file}")
+                            shutil.rmtree(mutator_gen_mode_dir, ignore_errors=True)
+                            continue
+                        if result.returncode == 0:
+                            status_file = mutator_gen_mode_dir / "MUTATOR_CHECK_PASS"
+                            status_file.touch()
+                            break
+                        elif result.returncode == -11:
+                            # AFL++ failed with segfault, retry with a different solution
+                            print(f"Failed with segfault for {problem_id} with {fuzz_driver_file}")
+                            # clear mutator_gen_mode_dir
+                            shutil.rmtree(mutator_gen_mode_dir, ignore_errors=True)
+                        else:
+                            print(f"Failed to generate mutator script for {problem_id} with {fuzz_driver_file}")
+                            print(f"error message: {result.stderr.decode()}")
+                            break
+
+                    num_solution_with_constraint += 1
+                    break # only generate mutator for one solution input pair (only one input pair for a solution/constraint)
+            break
+    else:
+        for problem in filtered_problems:
+            problem_id = problem["name"].split(".")[0]
+            constraints_content = None
+            if problem_with_extracted_constraint_only:
+                if not problem_has_extracted_constraint(problem_id):
+                    continue
+                constraints_content = parse_constraints_content(problem_id, mutator_type)
+            problem_statement_file = problem_root_dir / problem_id / "problem_statement.txt"
+            ori_input_dir = problem_root_dir / problem_id / "input"
+            seed_input_dir = mutator_gen_root_dir / problem_id / "seed_inputs"
+            seed_input_files = select_seed_inputs(ori_input_dir, seed_input_dir)
+            generator_file = problem_root_dir / problem_id / "plain_problem" / "gen.py"
+            if not generator_file.exists():
+                generator_file = None
+            initial_prompt = compile_mutator_gen_prompt(
+                prompt_template_file,
+                problem_statement_file,
+                mutator_example_file,
+                seed_input_files,
+                generator_file = generator_file,
+                constraints_content = constraints_content,
+            )
+
+            fuzz_driver_file_list = write_raw_fuzz_dirvers(mutator_gen_root_dir, problem_id, problem, solution_driver_selection_type="instrumented_multi_solution", num_drivers=5) # 5 drivers for retrying
+            mutator_gen_mode_dir = mutator_gen_root_dir / problem_id / mutator_mode
+
+            if mutator_gen_mode_dir.exists():
                 continue
-            if result.returncode == 0:
-                status_file = mutator_gen_mode_dir / "MUTATOR_CHECK_PASS"
-                status_file.touch()
-                break
-            elif result.returncode == -11:
-                # AFL++ failed with segfault, retry with a different solution
-                print(f"Failed with segfault for {problem_id} with {fuzz_driver_file}")
-                # clear mutator_gen_mode_dir
-                shutil.rmtree(mutator_gen_mode_dir, ignore_errors=True)
-            else:
-                print(f"Failed to generate mutator script for {problem_id} with {fuzz_driver_file}")
-                print(f"error message: {result.stderr.decode()}")
-                break
+
+            for fuzz_driver_file in fuzz_driver_file_list:
+                try:
+                    result = generate_mutator(mutator_gen_root_dir, problem_id, initial_prompt, mutator_mode, mutator_type, fuzz_driver_file)
+                except subprocess.TimeoutExpired:
+                    print(f"Timeout for {problem_id} with {fuzz_driver_file}")
+                    shutil.rmtree(mutator_gen_mode_dir, ignore_errors=True)
+                    continue
+                if result.returncode == 0:
+                    status_file = mutator_gen_mode_dir / "MUTATOR_CHECK_PASS"
+                    status_file.touch()
+                    break
+                elif result.returncode == -11:
+                    # AFL++ failed with segfault, retry with a different solution
+                    print(f"Failed with segfault for {problem_id} with {fuzz_driver_file}")
+                    # clear mutator_gen_mode_dir
+                    shutil.rmtree(mutator_gen_mode_dir, ignore_errors=True)
+                else:
+                    print(f"Failed to generate mutator script for {problem_id} with {fuzz_driver_file}")
+                    print(f"error message: {result.stderr.decode()}")
+                    break
 
 if __name__ == "__main__":
     Fire(main)

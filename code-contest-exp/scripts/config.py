@@ -33,6 +33,7 @@ config = {
     "mutator_with_generator_dir": "./constraint_guided_input_gen/mutator_with_generator",
     "mutator_with_constraint_dir": "./constraint_guided_input_gen/mutator_with_constraint",
     "mutator_with_constraint_multi_dir": "./constraint_guided_input_gen/mutator_with_constraint_multi",
+    "mutator_with_constraint_per_solution_dir": "./constraint_guided_input_gen/mutator_with_constraint_per_solution",
     "corpus_raw_gen_dir": "./constraint_guided_input_gen/corpus_raw_gen",
     "corpus_instrument_gen_dir": "./constraint_guided_input_gen/corpus_instrument_gen",
     "input_classify_dir": "./constraint_guided_input_gen/input_classify",

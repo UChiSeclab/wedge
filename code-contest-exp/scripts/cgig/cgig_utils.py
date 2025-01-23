@@ -136,17 +136,39 @@ def get_problem_solution_input_pairs() -> Dict[str, Dict[str, List[Tuple[str, st
     input_pairs_file = Path(config["input_pairs_dir"]) / "content_similar_problem_solution_input_pairs_sorted.json"
     return json.loads(input_pairs_file.read_text())
 
-def parse_constraints_content(problem_id: str, mutator_type: Literal["mutator_with_constraint", "mutator_with_constraint_multi"], include_code: bool = True) -> str:
+@DeprecationWarning
+def parse_constraints_content(problem_id: str, mutator_type: Literal["mutator_with_constraint", "mutator_with_constraint_multi"], top_k_constraints: int = 1, include_code: bool = True) -> str:
     # parse the constraints content from one or multiple GPT responses
-    constraint_files = list((Path(config["constraints_dir"]) / problem_id).glob("**/gpt_response.txt"))
-    assert len(constraint_files) > 0, f"No constraint files found for {problem_id}"
+    extracted_constraints_dir = Path(config["constraints_dir"])
+    solution_input_pairs = get_problem_solution_input_pairs()[problem_id]
+    constraint_files = []
+    for solution_id in solution_input_pairs:
+        if len(constraint_files) >= top_k_constraints:
+            break
+        best_input_pair_id = list(solution_input_pairs[solution_id])[0] # best input pair for this solution
+        slow_input_id, fast_input_id = best_input_pair_id.split("@")
+        constraint_gen_dir = extracted_constraints_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}"
+        if not constraint_gen_dir.exists():
+            print(f"[INFO] No constraint gen dir found for {problem_id}/{solution_id}/{slow_input_id[:-3]}_{fast_input_id[:-3]}")
+            continue
+        constraint_file = constraint_gen_dir / "gpt_response.txt"
+        if not constraint_file.exists():
+            raise FileNotFoundError(f"No constraint file found for {problem_id}/{solution_id}/{slow_input_id[:-3]}_{fast_input_id[:-3]}")
+        constraint_files.append(constraint_file)
+
+    if len(constraint_files) == 0:
+        raise FileNotFoundError(f"No constraint files found for {problem_id}")
+
+    if len(constraint_files) < top_k_constraints:
+        print(f"[Warning] Only {len(constraint_files)} constraint files found for {problem_id}")
+
     if mutator_type == "mutator_with_constraint":
+        assert top_k_constraints == 1, "top_k_constraints should be 1 for mutator_with_constraint"
         assert len(constraint_files) == 1, f"Multiple constraint files found for {problem_id}"
         return parse_constraints_content_from_response(constraint_files[0], include_code)
     else:
+        assert top_k_constraints > 1, "top_k_constraints should be greater than 1 for mutator_with_constraint_multi"
         constraints = []
-        constraint_files.sort(key=lambda x: x.parent.name)
-
         for i in range(1, len(constraint_files) + 1):
             constraint_file = constraint_files[i - 1]
             constraints.append(f"** Constraint {i} **")
