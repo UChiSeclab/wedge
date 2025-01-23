@@ -1,6 +1,0 @@
-- Problem Name: 1538_C. Number of Pairs
-- Conversation Link: https://chatgpt.com/share/13420073-455b-4c3d-8864-4c2c66fad79b
-    - provide the problem statement (with input constraint) + source code
-- Test Generator: gen.py
-- Result: invalidate 5 out of 39 mislabeled solutions in "incorrect solution"
-    - 1 of the solutions is TLE solution, gave the correct output after a longer time (more than 10 secs)

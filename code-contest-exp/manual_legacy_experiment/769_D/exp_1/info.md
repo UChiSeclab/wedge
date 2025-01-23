@@ -1,7 +1,0 @@
-- Problem Name: 769_D. k-Interesting Pairs Of Integers
-- Conversation Link: https://chatgpt.com/share/eb63ec45-4e65-4002-a08a-2b0edd4bd607
-    - provide the problem statement (with input constraint) + source code
-- Test Generator: gen.py
-- Result: invalidate 29 out of 38 solutions in "incorrect solution"
-    - `test_03.in` is the test that trigger TLE
-    - `test_05.in` is not a valid test (deleted for testing)

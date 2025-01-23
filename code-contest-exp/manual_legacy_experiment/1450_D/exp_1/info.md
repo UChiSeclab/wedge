@@ -1,6 +1,0 @@
-- Problem Name: 1450_D. Rating Compression
-- Conversation Link: https://chatgpt.com/share/0482a2a9-2e75-4de6-aab3-29bddb9a2f8a
-    - provide the problem statement (with input constraint) + source code
-- Test Generator: gen.py
-- Result: invalidate 5 out of 23 mislabeled solutions in "incorrect solution"
-    - Those 5 solutions are all TLE solutions, all of them gave the correct output after a longer time (more than 10 secs)
