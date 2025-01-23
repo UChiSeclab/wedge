@@ -123,11 +123,11 @@ def parse_constraints_content_from_response(gpt_response_file: Path, include_cod
         return response
     lines = response.split("\n")
     for i in range(len(lines)):
-        line = lines[i].strip().lower()
+        line = lines[i].strip()
         if "=== Checker Response ===" in line:
                 break
 
-    assert i < len(lines) - 1, "No constraints found"
+    assert i < len(lines) - 1, f"No constraints found in {gpt_response_file}"
 
     return "\n".join(lines[:i])
 
@@ -135,6 +135,26 @@ def get_problem_solution_input_pairs() -> Dict[str, Dict[str, List[Tuple[str, st
     # get the problem-solution-input pairs mapping
     input_pairs_file = Path(config["input_pairs_dir"]) / "content_similar_problem_solution_input_pairs_sorted.json"
     return json.loads(input_pairs_file.read_text())
+
+def get_solution_and_input_pair_list_with_constraint(problem_id: str, top_k: int) -> Tuple[str, Tuple[str, str]]:
+    # get the solution and input pair list where the constraints are extracted
+    problem_solution_input_pairs = get_problem_solution_input_pairs()
+    solution_input_pairs = problem_solution_input_pairs[problem_id]
+    solution_and_input_pair_list = []
+    for solution_id in solution_input_pairs:
+        if len(solution_and_input_pair_list) >= top_k:
+            break
+        for input_pair_id in solution_input_pairs[solution_id]:
+            slow_input_id, fast_input_id = input_pair_id.split("@")
+            constraint_gen_dir = Path(config["constraints_dir"]) / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}"
+            if (constraint_gen_dir / "gpt_response.txt").exists():
+                solution_and_input_pair_list.append((solution_id, (slow_input_id, fast_input_id)))
+                break
+
+    if len(solution_and_input_pair_list) < top_k:
+        print(f"Warning: only {len(solution_and_input_pair_list)} solution-input pairs found for {problem_id}")
+
+    return solution_and_input_pair_list
 
 @DeprecationWarning
 def parse_constraints_content(problem_id: str, mutator_type: Literal["mutator_with_constraint", "mutator_with_constraint_multi"], top_k_constraints: int = 1, include_code: bool = True) -> str:
