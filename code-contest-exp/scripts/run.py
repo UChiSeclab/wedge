@@ -375,6 +375,7 @@ def main(
         "raw_fuzz_mutator_with_generator",
         "corpus_instrument_fuzz_mutator_with_constraint",
         "corpus_instrument_fuzz_mutator_with_constraint_multi",
+        "corpus_instrument_fuzz_mutator_with_constraint_per_solution",
         "corpus_raw_fuzz_mutator_with_constraint",
         "corpus_raw_fuzz_mutator_with_constraint_multi",
     ]:
@@ -385,6 +386,7 @@ def main(
         "constraint_guided_one",
         "corpus_instrument_fuzz_mutator_with_constraint",
         "corpus_instrument_fuzz_mutator_with_constraint_multi",
+        "corpus_instrument_fuzz_mutator_with_constraint_per_solution",
         "corpus_raw_fuzz_mutator_with_constraint",
         "corpus_raw_fuzz_mutator_with_constraint_multi",
     ]:
