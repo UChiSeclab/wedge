@@ -16,7 +16,7 @@ config = {
     "experiment_name": "alphacode",  # set it to 'alphacode' to run it on alphacode tests
     "manual_prompt": False,
     "prompt_language": Language.JAVA,
-    "repeat_test": 1,
+    "repeat_test": 5,
     "num_tests": 20,
     "specified_problem": problem_lists[0],
     "specified_problem_bak": None,
