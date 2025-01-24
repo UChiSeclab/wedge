@@ -20,8 +20,6 @@ the outputs, e.g., fuzzing related strategies.
 
 def process_problem(problem: Dict, strategy: str):
     problem_id = problem["name"].split(".")[0]
-    if problem_id == "480_C":
-        return
     print(f"Processing problem: {problem_id}")
     problem_dir = Path(config["problem_root_dir"]) / problem_id
     input_dir = problem_dir / strategy / "input"
@@ -29,7 +27,9 @@ def process_problem(problem: Dict, strategy: str):
     solution_dir = problem_dir / "solutions" / str(Language.JAVA) # only use Java solutions for now
     num_ori_inputs = len(list(input_dir.glob("*.in")))
     if not input_dir.exists() or num_ori_inputs == 0:
-        raise ValueError(f"No inputs found for problem {problem_id}")
+        # raise ValueError(f"No inputs found for problem {problem_id}")
+        print(f"[Warning] No inputs found for problem {problem_id}")
+        return
 
     if output_dir.exists() and \
         len(list(output_dir.glob("*.out"))) == num_ori_inputs:
