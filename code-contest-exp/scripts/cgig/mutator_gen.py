@@ -1,7 +1,9 @@
 from pathlib import Path
 import shutil
 from typing import Dict, List, Literal, Tuple, Optional
-import json
+from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import datetime
 import random
 import os
 from fire import Fire
@@ -59,6 +61,7 @@ def select_seed_inputs(ori_input_dir: Path, seed_input_dir: Path, fuzz_driver_mo
         # exclude generated tests
         input_files = [input_file for input_file in input_files if "generated" not in input_file.stem]
     elif fuzz_driver_mode == "instrument_fuzz":
+        assert instrumented_program_file is not None, "instrumented_program_file is required for instrument_fuzz"
         res_dict = run_classifier(input_files, instrumented_program_file)
         if res_dict == {"error": "Compile Error"}:
             raise ValueError(f"Compile Error for {instrumented_program_file}")
@@ -262,8 +265,72 @@ def copy_and_remove_abort(instrumented_program_file: Path, fuzz_driver_file: Pat
                 continue
             f.write(line)
 
+def process_problem(problem_id: str, solution_input_pairs: List[Tuple[str, Tuple[str, str]]], top_k_constraints: int, mutator_gen_root_dir: Path, prompt_template_file: Path, mutator_example_file: Path, fuzz_driver_mode: str, mutator_mode: str, mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator"]):
+    print(f"Date: {datetime.datetime.now()} Processing {problem_id}")
+    problem_root_dir = Path(config["problem_root_dir"])
+    problem_statement_file = problem_root_dir / problem_id / "problem_statement.txt"
+    ori_input_dir = problem_root_dir / problem_id / "input"
+    if len(solution_input_pairs) == 0:
+        print(f"[INFO] No solution input pairs found for {problem_id}, skip")
+        return
+    solution_and_input_pair_list = get_solution_and_input_pair_list_with_constraint(problem_id, top_k_constraints)
+    for (solution_id, input_pair) in solution_and_input_pair_list:
+        slow_input_id, fast_input_id = input_pair
+        constraint_file = Path(config["constraints_dir"]) / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "gpt_response.txt"
+        instrumented_program_file = Path(config["constraints_dir"]) / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "transformed_program.cpp"
+        ori_solution_file = Path(config["problem_root_dir"]) / problem_id / "solutions" / "cpp" / f"{solution_id}.cpp"
+        product_cov_file = get_product_cov(problem_id, solution_id, slow_input_id, fast_input_id, info_line_end=True)
+        constraints_content = parse_constraints_content_from_response(constraint_file)
+
+        mutator_dir = mutator_gen_root_dir / problem_id / solution_id
+        mutator_gen_mode_dir = mutator_dir / mutator_mode
+        seed_input_dir = mutator_dir / "seed_inputs"
+        try:
+            seed_input_files = select_seed_inputs(ori_input_dir, seed_input_dir, fuzz_driver_mode, instrumented_program_file=instrumented_program_file)
+        except ValueError as e: # compile error or no pass inputs
+            print(f"[Warning] {e} for {instrumented_program_file}, skip")
+            continue
+
+        initial_prompt = compile_mutator_gen_prompt(
+            prompt_template_file,
+            problem_statement_file,
+            mutator_example_file,
+            seed_input_files,
+            generator_file = None,
+            product_cov_file = product_cov_file,
+            constraints_content = constraints_content,
+        )
+
+        fuzz_driver_dir = mutator_dir / "fuzz_driver"
+        fuzz_driver_file = fuzz_driver_dir / f"{solution_id}.cpp"
+        fuzz_driver_dir.mkdir(parents=True, exist_ok=True)
+        if fuzz_driver_mode == "raw_fuzz":
+            shutil.copy(ori_solution_file, fuzz_driver_file)
+        elif fuzz_driver_mode == "instrument_fuzz":
+            copy_and_remove_abort(instrumented_program_file, fuzz_driver_file)
+        if mutator_gen_mode_dir.exists():
+            continue
+
+        try:
+            result = generate_mutator(mutator_dir, seed_input_dir, problem_id, initial_prompt, mutator_mode, mutator_type, fuzz_driver_file, max_try=5)
+        except subprocess.TimeoutExpired:
+            print(f"Timeout for {problem_id} with {fuzz_driver_file}")
+            shutil.rmtree(mutator_gen_mode_dir, ignore_errors=True)
+            continue
+        if result.returncode == 0:
+            status_file = mutator_gen_mode_dir / "MUTATOR_CHECK_PASS"
+            status_file.touch()
+        elif result.returncode == -11:
+            # AFL++ failed with segfault, retry with a different solution
+            print(f"Failed with segfault for {problem_id} with {fuzz_driver_file}")
+            # clear mutator_gen_mode_dir
+            shutil.rmtree(mutator_gen_mode_dir, ignore_errors=True)
+        else:
+            print(f"Failed to generate mutator script for {problem_id} with {fuzz_driver_file}")
+            print(f"error message: {result.stderr.decode()}")
+            break
+
 def main(
-    problem_root_dir: str = config["problem_root_dir"],
     fuzz_driver_mode: Literal["raw_fuzz", "instrument_fuzz"] = "raw_fuzz",
     mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator"] = "custom_mutator",
     problem_with_extracted_constraint_only: bool = False,
@@ -272,7 +339,7 @@ def main(
     num_fuzz_drivers: int = 1,
     mutator_per_solution: bool = True, # one mutator per solution or one mutator per problem
 ):
-    problem_root_dir = Path(problem_root_dir)
+    problem_root_dir = Path(config["problem_root_dir"])
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
@@ -305,72 +372,27 @@ def main(
     if mutator_type == "mutator_with_constraint_per_solution":
         # one mutator per solution
         problem_solution_input_pairs = get_problem_solution_input_pairs()
-        for problem_id in problem_solution_input_pairs:
-            if problem_with_extracted_constraint_only:
-                if not problem_has_extracted_constraint(problem_id):
+        tasks = []
+        with ProcessPoolExecutor(max_workers = int(0.5 * os.cpu_count())) as executor:
+            for problem_id in problem_solution_input_pairs:
+                if problem_with_extracted_constraint_only:
+                    if not problem_has_extracted_constraint(problem_id):
+                        continue
+                solution_input_pairs = problem_solution_input_pairs[problem_id]
+                problem_statement_file = problem_root_dir / problem_id / "problem_statement.txt"
+                ori_input_dir = problem_root_dir / problem_id / "input"
+                if len(solution_input_pairs) == 0:
+                    print(f"[INFO] No solution input pairs found for {problem_id}, skip")
                     continue
-            solution_input_pairs = problem_solution_input_pairs[problem_id]
-            problem_statement_file = problem_root_dir / problem_id / "problem_statement.txt"
-            ori_input_dir = problem_root_dir / problem_id / "input"
-            if len(solution_input_pairs) == 0:
-                print(f"[INFO] No solution input pairs found for {problem_id}, skip")
-                continue
-            solution_and_input_pair_list = get_solution_and_input_pair_list_with_constraint(problem_id, top_k_constraints)
-            for (solution_id, input_pair) in solution_and_input_pair_list:
-                slow_input_id, fast_input_id = input_pair
-                constraint_file = Path(config["constraints_dir"]) / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "gpt_response.txt"
-                instrumented_program_file = Path(config["constraints_dir"]) / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "transformed_program.cpp"
-                ori_solution_file = Path(config["problem_root_dir"]) / problem_id / "solutions" / "cpp" / f"{solution_id}.cpp"
-                product_cov_file = get_product_cov(problem_id, solution_id, slow_input_id, fast_input_id, info_line_end=True)
-                constraints_content = parse_constraints_content_from_response(constraint_file)
+                task = executor.submit(process_problem, problem_id, solution_input_pairs, top_k_constraints, mutator_gen_root_dir, prompt_template_file, mutator_example_file, fuzz_driver_mode, mutator_mode, mutator_type)
+                tasks.append((problem_id, task))
 
-                mutator_dir = mutator_gen_root_dir / problem_id / solution_id
-                mutator_gen_mode_dir = mutator_dir / mutator_mode
-                seed_input_dir = mutator_dir / "seed_inputs"
+            for problem_id, task in tqdm(tasks):
                 try:
-                    seed_input_files = select_seed_inputs(ori_input_dir, seed_input_dir, fuzz_driver_mode, instrumented_program_file=instrumented_program_file)
-                except ValueError as e: # compile error or no pass inputs
-                    print(f"[Warning] {e} for {instrumented_program_file}, skip")
-                    continue
+                    task.result()
+                except Exception as e:
+                    print(f"Failed to generate mutator script for {problem_id}: {e}")
 
-                initial_prompt = compile_mutator_gen_prompt(
-                    prompt_template_file,
-                    problem_statement_file,
-                    mutator_example_file,
-                    seed_input_files,
-                    generator_file = None,
-                    product_cov_file = product_cov_file,
-                    constraints_content = constraints_content,
-                )
-
-                fuzz_driver_dir = mutator_dir / "fuzz_driver"
-                fuzz_driver_file = fuzz_driver_dir / f"{solution_id}.cpp"
-                fuzz_driver_dir.mkdir(parents=True, exist_ok=True)
-                if fuzz_driver_mode == "raw_fuzz":
-                    shutil.copy(ori_solution_file, fuzz_driver_file)
-                elif fuzz_driver_mode == "instrument_fuzz":
-                    copy_and_remove_abort(instrumented_program_file, fuzz_driver_file)
-                if mutator_gen_mode_dir.exists():
-                    continue
-
-                try:
-                    result = generate_mutator(mutator_dir, seed_input_dir, problem_id, initial_prompt, mutator_mode, mutator_type, fuzz_driver_file, max_try=5)
-                except subprocess.TimeoutExpired:
-                    print(f"Timeout for {problem_id} with {fuzz_driver_file}")
-                    shutil.rmtree(mutator_gen_mode_dir, ignore_errors=True)
-                    continue
-                if result.returncode == 0:
-                    status_file = mutator_gen_mode_dir / "MUTATOR_CHECK_PASS"
-                    status_file.touch()
-                elif result.returncode == -11:
-                    # AFL++ failed with segfault, retry with a different solution
-                    print(f"Failed with segfault for {problem_id} with {fuzz_driver_file}")
-                    # clear mutator_gen_mode_dir
-                    shutil.rmtree(mutator_gen_mode_dir, ignore_errors=True)
-                else:
-                    print(f"Failed to generate mutator script for {problem_id} with {fuzz_driver_file}")
-                    print(f"error message: {result.stderr.decode()}")
-                    break
     else:
         # one mutator per problem
         for problem in filtered_problems:
@@ -388,11 +410,7 @@ def main(
             mutator_dir = mutator_gen_root_dir / problem_id
             mutator_gen_mode_dir = mutator_dir / mutator_mode
             seed_input_dir = mutator_dir / "seed_inputs"
-            try:
-                seed_input_files = select_seed_inputs(ori_input_dir, seed_input_dir, fuzz_driver_mode)
-            except ValueError as e: # compile error or no pass inputs
-                print(f"[Warning] {e} for {instrumented_program_file}, skip")
-                continue
+            seed_input_files = select_seed_inputs(ori_input_dir, seed_input_dir, fuzz_driver_mode)
             fuzz_driver_dir = mutator_dir / "fuzz_driver"
             fuzz_driver_file_list = write_raw_fuzz_dirvers(fuzz_driver_dir, problem_id, problem, solution_driver_selection_type="instrumented_multi_solution", num_fuzz_drivers=5) # 5 drivers for retrying
 
