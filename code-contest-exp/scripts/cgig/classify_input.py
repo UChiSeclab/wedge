@@ -73,6 +73,8 @@ def run_classifier(input_file_list: List[Path], instrumented_program: Path) -> D
                         stdin=f,
                         timeout=config["max_time_limit"],
                         check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
                     )
                 except subprocess.TimeoutExpired:
                     print(f"Timeout for {input_file}")
