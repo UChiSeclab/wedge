@@ -74,7 +74,9 @@ def compile_invariants_prompt(
   solution = solution_file.read_text()
   slow_input = slow_input_file.read_text()
   fast_input = fast_input_file.read_text()
-  product_cov = product_cov_file.read_text()
+  product_cov = product_cov_file.read_text() if product_cov_file else ""
+  if not product_cov:
+    template_text = template_text.split("(G) The Slow & Fast Inputs")[0]
 
   invariants_prompt = (
     template_text
@@ -106,7 +108,8 @@ def compile_checker_prompt(
 
 
 def main(
-  top_k: int = 10
+  top_k: int = 10,
+  exclude_product_cov: bool = False,
 ):
   problem_root_dir = Path(config["problem_root_dir"])
   extracted_constraints_dir = Path(config["constraints_dir"])
@@ -141,22 +144,25 @@ def main(
         else:
           print(f"Skip: {src_with_cov_file} and {cov_report_file} already exists")
 
-      try:
-        product_cov_file = get_product_cov(
-          problem_id,
-          solution_id,
-          slow_input_id,
-          fast_input_id,
-          language=Language.CPP,
-          info_line_end=True
-        )
-        num_solution_with_cov += 1
-      except FileNotFoundError as e:
-        print(f"[Warning] {e}")
-        print(f"[Warning] some cov files are missing when generating product cov for {problem_id}-{solution_id}")
-        continue
+      if exclude_product_cov:
+        product_cov_file = None
+      else:
+        try:
+          product_cov_file = get_product_cov(
+            problem_id,
+            solution_id,
+            slow_input_id,
+            fast_input_id,
+            language=Language.CPP,
+            info_line_end=True
+          )
+          num_solution_with_cov += 1
+        except FileNotFoundError as e:
+          print(f"[Warning] {e}")
+          print(f"[Warning] some cov files are missing when generating product cov for {problem_id}-{solution_id}")
+          continue
 
-      assert product_cov_file, f"product cov file not found for {problem_id}'s solutions"
+        assert product_cov_file, f"product cov file not found for {problem_id}'s solutions"
 
       result_dir = extracted_constraints_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}"
       result_dir.mkdir(parents=True, exist_ok=True)
