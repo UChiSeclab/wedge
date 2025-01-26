@@ -76,6 +76,7 @@ def run_classifier(input_file_list: List[Path], instrumented_program: Path) -> D
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                     )
+                    res_dict[input_file_name]["status"] = "Pass"
                 except subprocess.TimeoutExpired:
                     print(f"Timeout for {input_file}")
                     res_dict[input_file_name]["status"] = "Timeout"
@@ -90,7 +91,9 @@ def run_classifier(input_file_list: List[Path], instrumented_program: Path) -> D
                     res_dict[input_file_name]["status"] = "Unknown"
                     res_dict[input_file_name]["error_message"] = str(e)
                     continue
-                res_dict[input_file_name]["status"] = "Pass"
+                finally:
+                    # clear shared memory
+                    os.system("ipcs -m | awk '$6==0 {print $2}' | xargs -r -n 1 ipcrm -m")
 
     return res_dict
 
