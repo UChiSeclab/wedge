@@ -7,6 +7,7 @@ from typing import Dict, List, Literal
 from pathlib import Path
 import json
 import datetime
+from filelock import FileLock
 
 from config import abandoned_list, config
 from common import Language
@@ -41,22 +42,28 @@ def record_failing_problem(problem_id: str, experiment_name: str, reason: str, t
     """Record the failing problem in the failing_problems.json"""
     failing_problems = {}
     failing_problems_path = Path(config["gen_tests_failing_problem_record"])
-    if failing_problems_path.exists():
-        with open(failing_problems_path, "r") as file:
-            failing_problems = json.load(file)
-    failing_problems[problem_id] = failing_problems.get(problem_id, {})
+    lock_path = failing_problems_path.with_suffix(".lock")
+    lock = FileLock(lock_path, timeout=10)
+    try:
+        with lock:
+            if failing_problems_path.exists():
+                with open(failing_problems_path, "r") as file:
+                    failing_problems = json.load(file)
+            failing_problems[problem_id] = failing_problems.get(problem_id, {})
 
-    # Skip if the experiment_name is already in the record
-    if experiment_name in failing_problems[problem_id]:
-        return
+            # Skip if the experiment_name is already in the record
+            if experiment_name in failing_problems[problem_id]:
+                return
 
-    failing_problems[problem_id][experiment_name] = {
-        "reason": reason,
-        "try_cnt": try_cnt,
-        "timestamp": str(datetime.datetime.now())
-    }
-    with open(failing_problems_path, "w") as file:
-        json.dump(failing_problems, file, indent=4)
+            failing_problems[problem_id][experiment_name] = {
+                "reason": reason,
+                "try_cnt": try_cnt,
+                "timestamp": str(datetime.datetime.now())
+            }
+            with open(failing_problems_path, "w") as file:
+                json.dump(failing_problems, file, indent=4)
+    except TimeoutError:
+        print(f"Failed to acquire the lock on {lock_path} within the timeout period.")
 
 
 def problem_test_gen_failed(problem_id: str, experiment_name: str):

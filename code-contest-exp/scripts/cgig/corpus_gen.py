@@ -49,7 +49,7 @@ def main(
     else:
         raise ValueError(f"Invalid mutator_type: {mutator_type}")
 
-    mutator_gen_root_dir = mutator_gen_root_dir / fuzz_driver_mode
+    mutator_gen_root_dir = mutator_gen_root_dir / "instrument_fuzz"
 
     tasks = []
     with ProcessPoolExecutor(max_workers = int(0.5 * os.cpu_count())) as executor:
@@ -69,7 +69,10 @@ def main(
                     if not (mutator_gen_mode_dir / "MUTATOR_CHECK_PASS").exists():
                         print(f"[Warning] {mutator_gen_mode_dir} does not have a good mutator. Skipping...")
                         continue
-                    fuzz_driver_file = mutator_dir / "fuzz_driver" / f"{solution_id}.cpp"
+                    if fuzz_driver_mode == "instrument_fuzz":
+                        fuzz_driver_file = mutator_dir / "fuzz_driver" / f"{solution_id}.cpp"
+                    else:
+                        fuzz_driver_file = Path(config["problem_root_dir"]) / problem_id / "solutions" / "cpp" / f"{solution_id}.cpp"
                     program_dir = corpus_dir / solution_id
                     custom_mutator_dir = (find_mutator_file(mutator_gen_mode_dir)).parent.absolute()
 
