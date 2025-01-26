@@ -67,9 +67,9 @@ def select_seed_inputs(ori_input_dir: Path, seed_input_dir: Path, fuzz_driver_mo
             raise ValueError(f"Compile Error for {instrumented_program_file}")
         # filter out the inputs that are not pass
         input_files = [input_file for input_file in input_files if res_dict[input_file.name]["status"] == "Pass"]
-        if len(input_files) == 0:
-            print(f"[Warning] No pass inputs found for {instrumented_program_file}")
-            raise ValueError(f"No pass inputs found for {instrumented_program_file}")
+        if len(input_files) < num_seeds:
+            # fallback
+            input_files = [input_file for input_file in input_files if "generated" not in input_file.stem]
 
     input_files = sorted(input_files, key=lambda x: x.name)
 
@@ -287,7 +287,7 @@ def process_problem(problem_id: str, solution_input_pairs: List[Tuple[str, Tuple
         seed_input_dir = mutator_dir / "seed_inputs"
         try:
             seed_input_files = select_seed_inputs(ori_input_dir, seed_input_dir, fuzz_driver_mode, instrumented_program_file=instrumented_program_file)
-        except ValueError as e: # compile error or no pass inputs
+        except ValueError as e: # compile error
             print(f"[Warning] {e} for {instrumented_program_file}, skip")
             continue
 
@@ -328,7 +328,6 @@ def process_problem(problem_id: str, solution_input_pairs: List[Tuple[str, Tuple
         else:
             print(f"Failed to generate mutator script for {problem_id} with {fuzz_driver_file}")
             print(f"error message: {result.stderr.decode()}")
-            break
 
 def main(
     fuzz_driver_mode: Literal["raw_fuzz", "instrument_fuzz"] = "raw_fuzz",

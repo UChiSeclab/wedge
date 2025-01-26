@@ -206,7 +206,7 @@ if __name__ == '__main__':
     input_pairs_dir.mkdir(parents=True, exist_ok=True)
 
     with Pool() as pool:
-        results = list(tqdm(pool.imap(process_problem, filtered_problems), total=0.25*os.cpu_count()))
+        results = list(tqdm(pool.imap(process_problem, filtered_problems), total=0.5*os.cpu_count()))
 
     content_similar_problem_solution_input_pairs = {}
     coverage_similar_problem_solution_input_pairs = {}
