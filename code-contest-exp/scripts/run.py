@@ -430,6 +430,11 @@ def main(
         if result_path.exists():
             print(f"[INFO] {result_path} exists, skipping.")
             continue
+        if solution_set_type == "three_groups":
+            full_result_path = Path(config["result_root_dir"]) / experiment_name / f"{problem_id}.json"
+            if full_result_path.exists():
+                print(f"[INFO] {full_result_path} exists, skipping.")
+                continue
         solution_dir = problem_dir / "solutions"
         input_dir = experiment_dir / "input"
 
