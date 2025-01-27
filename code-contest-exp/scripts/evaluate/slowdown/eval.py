@@ -1,30 +1,32 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from pathlib import Path
-from typing import Dict, List, Literal
+from typing import Dict, List, Literal, Any
+from multiprocessing import Pool, Manager
+import os
 
-from utils import get_cf_problems, filter_problems, get_instruction_cnt, mean, get_alphacode_result, get_experiment_result
+from utils import get_cf_problems, filter_problems, get_instruction_cnt, mean, get_alphacode_result, get_experiment_result, problem_to_id
 from selector.select_solution import select_evaluate_subset_solutions_lang_set_type
 from common import Language
 
 """
-1. plot a histogram where x is problem ids (problem-language) and show the per-problem average instruction count of solutions (fast-5, slow-5, constraint-src-5) over inputs produced by different strategies, log scale
-2. plot a histogram where x is problem ids (problem-language) and show the per-problem average slow down percentage of solutions (fast-5, slow-5, constraint-src-5) over inputs produced by different strategies compared with alphacode tests
+1. plot a histogram where x is problem ids (problem-language) and show the per-problem average instruction count of solutions (multi_fast, multi_slow, constraint_src) over inputs produced by different strategies, log scale
+2. plot a histogram where x is problem ids (problem-language) and show the per-problem average slow down percentage of solutions (multi_fast, multi_slow, constraint_src) over inputs produced by different strategies compared with alphacode tests
 3. plot pie-chart to show how many problems (problem-language) each strategy can achieve the the performance (max instruction count, average instruction count) of each group (problem-solution group)
 
 data structure:
 problem_stats = {
     problem_id-lang: {
         strategy: {
-            "fast-5": {
+            "multi_fast": {
                 "instruction_count": [float],
                 "slowdown": [float],
             },
-            "slow-5": {
+            "multi_slow": {
                 "instruction_count": [float],
                 "slowdown": [float],
             },
-            "constraint-src-5": {
+            "constraint_src": {
                 "instruction_count": [float],
                 "slowdown": [float],
             },
@@ -38,12 +40,13 @@ def get_solution_instruction_cnt_list_over_given_inputs(
     solution_id: str,
     input_ids: List[str]
 ) -> List[float]:
-    """Get the instruction count of the solution on the input"""
+    """Get the instruction count of the solution on the given inputs"""
+    print("debug", solution_id)
     instruction_cnt_dict = experiment_result[solution_id]["instruction_cnt_dict"]
     instruction_cnt_list = []
     for input_id in input_ids:
         # instruction count of the solution on the input
-        instruction_cnt_list += mean(instruction_cnt_dict[input_id])
+        instruction_cnt_list.append(mean(instruction_cnt_dict[input_id]))
 
     return instruction_cnt_list
 
@@ -130,29 +133,33 @@ def clean_experiment_result(experiment_result: Dict) -> Dict:
 
     return cleaned_experiment_result
 
-def calculate_problem_stats(problem_lang_stats: Dict[str, Dict[str, Dict[str, List[float]]]], problem_id_lang: str, strategies: List[str]) -> Dict:
+def calculate_problem_stats(problem_lang_stats: Dict[str, Dict[str, Dict[str, List[float]]]], problem_id_lang: str, strategies: List[str], problem: Dict[str, Any]) -> Dict:
     # avg denotes the average instruction count among the up to 5 solutions that the 5 slowest inputs can slow down (avg over solutions)
     # max denotes the largest instruction count among the up to 5 solutions that the 5 slowest inputs can slow down (max over solutions)
     problem_id, lang = problem_id_lang.split("-")
     assert problem_lang_stats is not None, f"Problem {problem_id} not found in problem_stats"
     alphacode_result = get_alphacode_result(problem_id)
     alphacode_result = clean_experiment_result(alphacode_result)
-    alphacode_slow_inputs = get_top_k_slow_inputs(alphacode_result, lang, top_k=5)
+    alphacode_slow_inputs = get_top_k_slow_inputs(alphacode_result, Language.str_to_lang(lang), top_k=5)
     for strategy in strategies:
         strategy_result = get_experiment_result(problem_id, strategy)
         strategy_result = clean_experiment_result(strategy_result)
-        strategy_slow_inputs = get_top_k_slow_inputs(strategy_result, lang, top_k=5)
+        strategy_slow_inputs = get_top_k_slow_inputs(strategy_result, Language.str_to_lang(lang), top_k=5)
         for solution_selection_type in ["multi_slow", "multi_fast", "constraint_src"]:
-            if solution_selection_type == "constraint_src" and lang != Language.CPP:
+            print("debug", problem_id, lang, strategy, solution_selection_type)
+            if solution_selection_type == "constraint_src" and Language.str_to_lang(lang) != Language.CPP:
                 # remove constraint_src entry for non-CPP languages if exists
                 if problem_lang_stats[strategy].get("constraint_src") is not None:
                     del problem_lang_stats[strategy]["constraint_src"]
                 continue
 
             subset_solution_ids = select_evaluate_subset_solutions_lang_set_type(
-                alphacode_result, lang, solution_selection_type, top_k=5
-            ) # slow_5, fast_5 or constraint-src-5 solutions
+                problem, Language.str_to_lang(lang), solution_selection_type, top_k=5
+            ) # slow_5, fast_5 or constraint_src solutions
             for solution_id in subset_solution_ids:
+                if solution_id not in strategy_result:
+                    print(f"[Warning] Solution {solution_id} of problem {problem_id} not found in strategy {strategy}")
+                    continue
                 solution_instruction_cnt = get_solution_avg_or_max_instruction_cnt_over_given_inputs(
                     strategy_result, solution_id, strategy_slow_inputs, "avg"
                 )
@@ -171,80 +178,84 @@ def calculate_problem_stats(problem_lang_stats: Dict[str, Dict[str, Dict[str, Li
 def plot_instruction_count_histogram(problem_stats: Dict):
     """
     Plots a histogram where x is problem ids (problem-language) and shows the per-problem average 
-    instruction count of solutions (fast-5, slow-5, constraint-src-5) over inputs produced by 
+    instruction count of solutions (multi_fast, multi_slow, constraint_src) over inputs produced by 
     different strategies, in log scale.
     """
-    problem_ids = list(problem_stats.keys())
+    problem_id_langs = list(problem_stats.keys())
     strategies = next(iter(problem_stats.values())).keys()
     
     for strategy in strategies:
         avg_instruction_counts = {
-            "fast-5": [],
-            "slow-5": [],
-            "constraint-src-5": []
+            "multi_fast": [],
+            "multi_slow": [],
+            "constraint_src": []
         }
-        for problem_id in problem_ids:
+        for problem_id_lang in problem_id_langs:
             for group in avg_instruction_counts.keys():
+                if group == "constraint_src" and Language.str_to_lang(problem_id_lang.split("-")[1]) != Language.CPP:
+                    continue
                 avg_instruction_counts[group].append(
-                    np.mean(problem_stats[problem_id][strategy][group]["instruction_count"])
+                    np.mean(problem_stats[problem_id_lang][strategy][group]["instruction_count"])
                 )
         
-        x = np.arange(len(problem_ids))
+        x = np.arange(len(problem_id_langs))
         width = 0.25
         
         fig, ax = plt.subplots()
-        ax.bar(x - width, avg_instruction_counts["fast-5"], width, label="fast-5")
-        ax.bar(x, avg_instruction_counts["slow-5"], width, label="slow-5")
-        ax.bar(x + width, avg_instruction_counts["constraint-src-5"], width, label="constraint-src-5")
+        ax.bar(x - width, avg_instruction_counts["multi_fast"], width, label="multi_fast")
+        ax.bar(x, avg_instruction_counts["multi_slow"], width, label="multi_slow")
+        ax.bar(x + width, avg_instruction_counts["constraint_src"], width, label="constraint_src")
 
         ax.set_yscale("log")
         ax.set_xlabel("Problem IDs (problem-language)")
         ax.set_ylabel("Average Instruction Count (log scale)")
         ax.set_title(f"Instruction Count per Problem ({strategy})")
         ax.set_xticks(x)
-        ax.set_xticklabels(problem_ids, rotation=90)
+        ax.set_xticklabels(problem_id_langs, rotation=90)
         ax.legend()
         plt.tight_layout()
-        plt.show()
+        plt.savefig(f"{strategy}_instruction_count_histogram.png")
 
 
 def plot_slowdown_histogram(problem_stats: Dict):
     """
     Plots a histogram where x is problem ids (problem-language) and shows the per-problem average 
-    slowdown percentage of solutions (fast-5, slow-5, constraint-src-5) over inputs produced by 
+    slowdown percentage of solutions (multi_fast, multi_slow, constraint_src) over inputs produced by 
     different strategies compared with AlphaCode tests.
     """
-    problem_ids = list(problem_stats.keys())
+    problem_id_langs = list(problem_stats.keys())
     strategies = next(iter(problem_stats.values())).keys()
     
     for strategy in strategies:
         avg_slowdowns = {
-            "fast-5": [],
-            "slow-5": [],
-            "constraint-src-5": []
+            "multi_fast": [],
+            "multi_slow": [],
+            "constraint_src": []
         }
-        for problem_id in problem_ids:
+        for problem_id_lang in problem_id_langs:
             for group in avg_slowdowns.keys():
+                if group == "constraint_src" and Language.str_to_lang(problem_id_lang.split("-")[1]) != Language.CPP:
+                    continue
                 avg_slowdowns[group].append(
-                    np.mean(problem_stats[problem_id][strategy][group]["slowdown"])
+                    np.mean(problem_stats[problem_id_lang][strategy][group]["slowdown"])
                 )
         
-        x = np.arange(len(problem_ids))
+        x = np.arange(len(problem_id_langs))
         width = 0.25
 
         fig, ax = plt.subplots()
-        ax.bar(x - width, avg_slowdowns["fast-5"], width, label="fast-5")
-        ax.bar(x, avg_slowdowns["slow-5"], width, label="slow-5")
-        ax.bar(x + width, avg_slowdowns["constraint-src-5"], width, label="constraint-src-5")
+        ax.bar(x - width, avg_slowdowns["multi_fast"], width, label="multi_fast")
+        ax.bar(x, avg_slowdowns["multi_slow"], width, label="multi_slow")
+        ax.bar(x + width, avg_slowdowns["constraint_src"], width, label="constraint_src")
 
         ax.set_xlabel("Problem IDs (problem-language)")
         ax.set_ylabel("Average Slowdown Percentage")
         ax.set_title(f"Slowdown Percentage per Problem ({strategy})")
         ax.set_xticks(x)
-        ax.set_xticklabels(problem_ids, rotation=90)
+        ax.set_xticklabels(problem_id_langs, rotation=90)
         ax.legend()
         plt.tight_layout()
-        plt.show()
+        plt.savefig(f"{strategy}_slowdown_histogram.png")
 
 
 def plot_strategy_performance_pie_chart(problem_stats: Dict, performance_type: Literal["max", "avg"]):
@@ -253,23 +264,70 @@ def plot_strategy_performance_pie_chart(problem_stats: Dict, performance_type: L
     the performance (max instruction count, average instruction count) of each group 
     (problem-solution group).
     """
-    problem_ids = list(problem_stats.keys())
+    problem_id_langs = list(problem_stats.keys())
     strategies = next(iter(problem_stats.values())).keys()
-    groups = ["fast-5", "slow-5", "constraint-src-5"]
+    groups = ["multi_fast", "multi_slow", "constraint_src"]
     
     for group in groups:
         strategy_counts = {strategy: 0 for strategy in strategies}
         
-        for problem_id in problem_ids:
+        for problem_id_lang in problem_id_langs:
             max_or_avg_counts = {
-                strategy: np.mean(problem_stats[problem_id][strategy][group]["instruction_count"]) if performance_type == "avg" 
-                else max(problem_stats[problem_id][strategy][group]["instruction_count"])
+                strategy: np.mean(problem_stats[problem_id_lang][strategy][group]["instruction_count"]) if performance_type == "avg" 
+                else max(problem_stats[problem_id_lang][strategy][group]["instruction_count"])
                 for strategy in strategies
             }
             best_strategy = max(max_or_avg_counts, key=max_or_avg_counts.get)
             strategy_counts[best_strategy] += 1
-        
+
         fig, ax = plt.subplots()
         ax.pie(strategy_counts.values(), labels=strategy_counts.keys(), autopct='%1.1f%%', startangle=140)
         ax.set_title(f"Strategy Performance ({group}, {performance_type} Instruction Count)")
-        plt.show()
+        plt.savefig(f"{group}_{performance_type}_strategy_performance_pie_chart.png")
+
+def process_problem_lang(args):
+    """
+    A helper function to process a single (problem, lang) pair.
+    The arguments are unpacked from a tuple to allow compatibility with multiprocessing.
+    """
+    problem, lang, strategies, problem_stats = args
+    problem_id_lang = problem_to_id(problem) + f"-{lang}"
+    problem_lang_stats = problem_stats.get(problem_id_lang)
+    problem_lang_stats = calculate_problem_stats(problem_lang_stats, problem_id_lang, strategies, problem)
+    return problem_id_lang, problem_lang_stats
+
+def parallel_problem_stats(problems, strategies):
+    """
+    Distribute the work of calculating problem stats across multiple processes.
+    """
+    # Initialize problem stats in a shared manager dict
+    with Manager() as manager:
+        problem_stats = manager.dict(init_problem_stats(problems, strategies))  # Shared dict for multiprocessing
+        langs = [Language.CPP, Language.PYTHON, Language.JAVA]
+
+        # Create a list of all (problem, lang) combinations
+        tasks = [(problem, lang, strategies, problem_stats) for problem in problems for lang in langs]
+
+        # Use a Pool to distribute tasks across processes
+        with Pool(processes=max(1, int(0.5 * os.cpu_count()))) as pool:
+            results = pool.map(process_problem_lang, tasks)
+
+        # Update problem_stats with the results
+        for problem_id_lang, problem_lang_stats in results:
+            problem_stats[problem_id_lang] = problem_lang_stats
+
+        # Convert the managed dict back to a regular dict before returning
+        return dict(problem_stats)
+
+if __name__ == '__main__':
+    # problem_id_list = ['1067_B', '1096_F', '1165_F1', '1184_C1', '1204_E', '1213_D1', '1216_E2', '1225_D', '1230_C', '1286_A', '131_E', '1322_B', '1328_B', '1332_E', '1446_C', '1447_E', '16_B', '288_B', '289_D', '301_B', '351_E', '479_E', '520_B', '546_C', '63_B', '706_D', '758_A', '773_B', '787_A', '808_E', '846_B', '894_B', '903_A', '911_C', '932_E', '937_B', '938_B', '999_F']
+    problem_id_list = ['1067_B', '1096_F', '1165_F1']
+    strategies = ["alphacode", "evalperf_random_solution", "evalperf_slow_solution", "plain_problem", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
+    problems = filter_problems(get_cf_problems(use_specified_problem=True))
+    problems = [problem for problem in problems if problem_to_id(problem) in problem_id_list]
+
+    problem_stats = parallel_problem_stats(problems, strategies)
+
+    plot_instruction_count_histogram(problem_stats)
+    plot_slowdown_histogram(problem_stats)
+    plot_strategy_performance_pie_chart(problem_stats, "max")
