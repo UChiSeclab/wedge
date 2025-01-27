@@ -1,16 +1,16 @@
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Literal
 from pathlib import Path
-import json
 
 from utils import get_alphacode_result, mean
 from common import Language
 from config import config
-from cgig.cgig_utils import get_best_input_pair, get_problem_solution_input_pairs
+from cgig.cgig_utils import get_best_input_pair, get_problem_solution_input_pairs, get_solution_and_input_pair_list_with_constraint
 
 def get_solutions_in_language(
     problem: Dict, sol_language: Language
 ) -> Tuple[List[int], List[str]]:
     """Selects all solutions for a given language. Note that only correct solutions are considered."""
+    # TODO: python and python3 should be merged here
     solutions = [
         (idx, solution)
         for idx, (solution, language) in enumerate(
@@ -215,3 +215,60 @@ def find_slow_fast_solution_cov_file(
     ][0]
 
     return slow_solution_cov_file, fast_solution_cov_file
+
+def select_evaluate_subset_solutions_lang_set_type(
+    problem: Dict, language: Language, solution_selection_type: Literal["multi_slow", "multi_fast", "constraint_src"], top_k: int = 5
+) -> List[str]: # List of solution ids
+    # select the slowest 5 solutions, fastest 5 solutions,\
+    # and <= 5 solutions that are used in constraint generation
+    problem_id = problem["name"].split(".")[0]
+    alphacode_result = get_alphacode_result(problem_id)
+    solution_idxs, raw_solutions = get_solutions_in_language(problem, language)
+    filtered_solution_idxs = __filter_solution_idx(
+        problem, problem_id, str(language), alphacode_result, solution_idxs
+    )
+    solution_ids = [f"solutions_{idx:04}" for idx in filtered_solution_idxs]
+
+    for solution_id in solution_ids:
+        if len(alphacode_result[solution_id]["average_instruction_cnt"]) == 0:
+            print(f"[Warning] problem {problem_id} solution {solution_id} has no instruction count info")
+
+    if solution_selection_type == "multi_slow":
+        solution_ids.sort(
+            key=lambda solution_id: mean(alphacode_result[solution_id]["average_instruction_cnt"]), reverse=True
+        )
+        selected_solution_ids = solution_ids[:top_k]
+    elif solution_selection_type == "multi_fast":
+        solution_ids.sort(
+            key=lambda solution_id: mean(alphacode_result[solution_id]["average_instruction_cnt"])
+        )
+        selected_solution_ids = solution_ids[:top_k]
+    elif solution_selection_type == "constraint_src":
+        assert language == Language.CPP, f"language: {language}"
+        solution_and_input_pair_list = get_solution_and_input_pair_list_with_constraint(problem_id, top_k)
+        if len(solution_and_input_pair_list) == 0:
+            raise ValueError(f"No solution with constraint info found for {problem_id}")
+        if len(solution_and_input_pair_list) < top_k:
+            print(f"[Warning] only {len(solution_and_input_pair_list)} solutions found for {problem_id}")
+        selected_solution_ids = [solution_id for solution_id, _ in solution_and_input_pair_list]
+    else:
+        raise ValueError(f"Unknown solution selection type: {solution_selection_type}")
+
+    return selected_solution_ids
+
+def select_evaluate_subset_all(
+    problem: Dict, top_k: int = 5
+) -> List[str]: # List of solution ids
+    # select the slowest 5 solutions, fastest 5 solutions (for python, java, cpp),\
+    # and <= 5 solutions that are used in constraint generation (for cpp only)
+    selected_solution_ids = []
+    for language in [Language.PYTHON, Language.JAVA, Language.CPP]:
+        if language == Language.CPP:
+            selected_solution_ids.extend(select_evaluate_subset_solutions_lang_set_type(problem, language, "constraint_src", top_k))
+        selected_solution_ids.extend(select_evaluate_subset_solutions_lang_set_type(problem, language, "multi_slow", top_k))
+        selected_solution_ids.extend(select_evaluate_subset_solutions_lang_set_type(problem, language, "multi_fast", top_k))
+
+    # remove duplicates
+    selected_solution_ids = list(set(selected_solution_ids))
+
+    return selected_solution_ids

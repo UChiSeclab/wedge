@@ -10,14 +10,14 @@ import time
 from fire import Fire
 from tqdm import tqdm
 import tempdir
-from typing import List, Dict
+from typing import List, Dict, Literal
 import sys
 
 from common import Language
 from config import config
 from utils import get_cf_problems, filter_problems, problem_test_gen_failed
 from cgig.cgig_utils import problem_has_extracted_constraint
-
+from selector.select_solution import select_evaluate_subset_all
 
 def parse_instruction_count(perf_stat_file: Path) -> int:
     if not (perf_stat_file.is_file() \
@@ -32,6 +32,17 @@ def parse_instruction_count(perf_stat_file: Path) -> int:
             break
 
     return instruction_cnt
+
+def parse_instruction_count_with_retry(perf_stat_file: Path, retry: int = 5) -> int:
+    for i in range(retry):
+        try:
+            instruction_cnt = parse_instruction_count(perf_stat_file)
+            return instruction_cnt
+        except FileNotFoundError as e:
+            print(f"attempt {i} failed to parse instruction count result {perf_stat_file} {e}")
+            time.sleep(1)
+
+    raise FileNotFoundError(f"failed to parse instruction count result {perf_stat_file}")
 
 def compile_solution(tmp_dir: Path, solution_code: str, language: Language):
     """Compiles solution based on language."""
@@ -237,14 +248,10 @@ def run_solution(
                             check=False,
                         )
                         runtime = time.perf_counter() - start_time
-                        try:
-                            if record_perf:
-                                instruction_cnt = parse_instruction_count(perf_stat_output_path)
-                            else:
-                                instruction_cnt = 0
-                        except FileNotFoundError as e:
-                            print(f"debug 235: fail to parse instruction count result {solution_path} {input_test} {perf_stat_output_path} {e}")
-                            raise e
+                        if record_perf:
+                            instruction_cnt = parse_instruction_count_with_retry(perf_stat_output_path)
+                        else:
+                            instruction_cnt = 0
                         if run_process.returncode == 124:
                             raise subprocess.TimeoutExpired(str(command), config["max_time_limit"], output="internal timeout")
                         if run_process.stdout:
@@ -286,7 +293,7 @@ def run_solution(
                         runtime = config["max_time_limit"]
                         try:
                             if record_perf:
-                                instruction_cnt = parse_instruction_count(perf_stat_output_path)
+                                instruction_cnt = parse_instruction_count_with_retry(perf_stat_output_path)
                             else:
                                 instruction_cnt = 0
                         except FileNotFoundError as e:
@@ -353,14 +360,19 @@ def input_sanitization(input_dir: Path, output_dir: Path):
 def main(
     experiment_name: str = config["experiment_name"],
     problem_root_dir: str = config["problem_root_dir"],
-    result_root_dir: str = config["result_root_dir"],
     include_public_private_tests_only: bool = False,
     record_perf: bool = True, # record the perf in "run" but not for "gen"
     problem_with_extracted_constraint_only: bool = False,
+    solution_set_type: Literal["full", "three_groups"] = "full",
 ):
     """Runs all solutions in the folder."""
     problem_root_dir = Path(problem_root_dir)
-    result_root_dir = Path(result_root_dir)
+    if solution_set_type == "three_groups":
+        result_root_dir = Path(config["result_three_groups_root_dir"])
+    elif solution_set_type == "full":
+        result_root_dir = Path(config["result_root_dir"])
+    else:
+        raise ValueError(f"Invalid solution_set_type: {solution_set_type}")
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"]),
         filter_with_inconsistency_threshold=experiment_name != "alphacode",
@@ -437,9 +449,14 @@ def main(
         # input_sanitization(input_dir, output_dir) # note: was not enabled when running corpus
         test_args = []
         sol_type = "solutions"
-        for solution_idx, _ in enumerate(problem[sol_type]["solution"]):
-            # TODO: we ensured the selected problems have consistency > 95%.
-            # Are we going to discard inconsistent solutions here? Currently not
+        if solution_set_type == "three_groups":
+            solution_ids = select_evaluate_subset_all(problem, top_k=5)
+            solution_idxs = [int(solution_id.split("_")[-1]) for solution_id in solution_ids]
+        elif solution_set_type == "full":
+            solution_idxs = range(len(problem[sol_type]["language"]))
+        else:
+            raise ValueError(f"Invalid solution_set_type: {solution_set_type}")
+        for solution_idx in solution_idxs:
             language = Language(problem[sol_type]["language"][solution_idx])
             solution_file_name = f"{sol_type}_{solution_idx:04}.{language.to_suffix()}"
             solution_path = solution_dir / language.name.lower() / solution_file_name

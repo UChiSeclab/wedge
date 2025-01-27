@@ -11,6 +11,7 @@ config = {
     "root_dir": Path(__file__).parent.parent.parent.absolute().as_posix(),
     "problem_root_dir": "./problems",
     "result_root_dir": "./results",
+    "result_three_groups_root_dir": "./results_three_groups",
     "prompt_template_root_dir": "./prompt_templates",
     "max_time_limit": 60,
     "experiment_name": "alphacode",  # set it to 'alphacode' to run it on alphacode tests

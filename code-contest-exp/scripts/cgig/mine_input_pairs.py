@@ -1,12 +1,11 @@
 import json
 import os, sys
 from pathlib import Path
-from typing import List, Tuple, Dict, Literal
+from typing import List, Tuple, Dict
 from multiprocessing import Pool
 from tqdm import tqdm
 from config import config
 from common import Language
-from selector.select_solution import select_solutions
 from utils import get_alphacode_result, filter_problems, get_cf_problems, get_run_time, get_instruction_cnt
 # from cpp.coverage.scripts.cov_xml_parser import parse_cobertura_coverage_report as parse_cpp_cobertura_coverage_report
 
