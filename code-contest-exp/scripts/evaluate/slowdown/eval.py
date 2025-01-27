@@ -177,104 +177,123 @@ def calculate_problem_stats(problem_lang_stats: Dict[str, Dict[str, Dict[str, Li
 ### Plotting functions ###
 def plot_instruction_count_histogram(problem_stats: Dict):
     """
-    Plots a histogram where x is problem ids (problem-language) and shows the per-problem average 
-    instruction count of solutions (multi_fast, multi_slow, constraint_src) over inputs produced by 
-    different strategies, in log scale.
+    Plots a histogram where x is problem ids (problem-language), and compares 
+    per-problem average instruction count of solutions across strategies, for each group (multi_fast, multi_slow, constraint_src).
+    Bars for different strategies are grouped together for the same problem_id-lang.
     """
     problem_id_langs = list(problem_stats.keys())
-    strategies = next(iter(problem_stats.values())).keys()
-    
-    for strategy in strategies:
-        avg_instruction_counts = {
-            "multi_fast": [],
-            "multi_slow": [],
-            "constraint_src": []
-        }
-        for problem_id_lang in problem_id_langs:
-            for group in avg_instruction_counts.keys():
-                if group == "constraint_src" and Language.str_to_lang(problem_id_lang.split("-")[1]) != Language.CPP:
-                    continue
-                avg_instruction_counts[group].append(
-                    np.mean(problem_stats[problem_id_lang][strategy][group]["instruction_count"])
-                )
-        
-        x = np.arange(len(problem_id_langs))
-        width = 0.25
-        
-        fig, ax = plt.subplots()
-        ax.bar(x - width, avg_instruction_counts["multi_fast"], width, label="multi_fast")
-        ax.bar(x, avg_instruction_counts["multi_slow"], width, label="multi_slow")
-        ax.bar(x + width, avg_instruction_counts["constraint_src"], width, label="constraint_src")
+    strategies = list(next(iter(problem_stats.values())).keys())
+    groups = ["multi_fast", "multi_slow", "constraint_src"]
 
+    for group in groups:
+        fig, ax = plt.subplots()
+        width = 0.15  # Width of each bar
+
+        # Aggregate data for the current group
+        strategy_avg_instruction_counts = {strategy: [] for strategy in strategies}
+        valid_problem_id_langs = []
+
+        for problem_id_lang in problem_id_langs:
+            if group == "constraint_src" and Language.str_to_lang(problem_id_lang.split("-")[1]) != Language.CPP:
+                continue  # Skip non-CPP languages for constraint_src
+            valid_problem_id_langs.append(problem_id_lang)
+            for strategy in strategies:
+                counts = problem_stats[problem_id_lang][strategy][group]["instruction_count"]
+                strategy_avg_instruction_counts[strategy].append(np.mean(counts) if counts else 0)
+
+        # Plot bars for each problem, grouped by strategies
+        x = np.arange(len(valid_problem_id_langs))  # Positions for problem_id-lang
+        for i, strategy in enumerate(strategies):
+            ax.bar(
+                x + i * width - (len(strategies) / 2 - 0.5) * width,  # Center groups for each problem_id-lang
+                strategy_avg_instruction_counts[strategy],
+                width,
+                label=strategy
+            )
+
+        # Finalize the plot
         ax.set_yscale("log")
         ax.set_xlabel("Problem IDs (problem-language)")
         ax.set_ylabel("Average Instruction Count (log scale)")
-        ax.set_title(f"Instruction Count per Problem ({strategy})")
+        ax.set_title(f"Instruction Count Comparison ({group})")
         ax.set_xticks(x)
-        ax.set_xticklabels(problem_id_langs, rotation=90)
-        ax.legend()
-        plt.tight_layout()
-        plt.savefig(f"{strategy}_instruction_count_histogram.png")
+        ax.set_xticklabels(valid_problem_id_langs, rotation=45, ha="right")
+        ax.legend(title="Strategies")
+        # set the figure size to be larger
+        fig.set_size_inches(18.5, 10.5)
+        plt.savefig(f"{group}_instruction_count_comparison_grouped.png")
+        plt.close()
+
 
 
 def plot_slowdown_histogram(problem_stats: Dict):
     """
-    Plots a histogram where x is problem ids (problem-language) and shows the per-problem average 
-    slowdown percentage of solutions (multi_fast, multi_slow, constraint_src) over inputs produced by 
-    different strategies compared with AlphaCode tests.
+    Plots a histogram where x is problem ids (problem-language), and compares 
+    per-problem average slowdown percentage of solutions across strategies, for each group (multi_fast, multi_slow, constraint_src).
+    Bars for different strategies are grouped together for the same problem_id-lang.
     """
     problem_id_langs = list(problem_stats.keys())
-    strategies = next(iter(problem_stats.values())).keys()
-    
-    for strategy in strategies:
-        avg_slowdowns = {
-            "multi_fast": [],
-            "multi_slow": [],
-            "constraint_src": []
-        }
-        for problem_id_lang in problem_id_langs:
-            for group in avg_slowdowns.keys():
-                if group == "constraint_src" and Language.str_to_lang(problem_id_lang.split("-")[1]) != Language.CPP:
-                    continue
-                avg_slowdowns[group].append(
-                    np.mean(problem_stats[problem_id_lang][strategy][group]["slowdown"])
-                )
-        
-        x = np.arange(len(problem_id_langs))
-        width = 0.25
+    strategies = list(next(iter(problem_stats.values())).keys())
+    groups = ["multi_fast", "multi_slow", "constraint_src"]
 
+    for group in groups:
         fig, ax = plt.subplots()
-        ax.bar(x - width, avg_slowdowns["multi_fast"], width, label="multi_fast")
-        ax.bar(x, avg_slowdowns["multi_slow"], width, label="multi_slow")
-        ax.bar(x + width, avg_slowdowns["constraint_src"], width, label="constraint_src")
+        width = 0.15  # Width of each bar
 
+        # Aggregate data for the current group
+        strategy_avg_slowdowns = {strategy: [] for strategy in strategies}
+        valid_problem_id_langs = []
+
+        for problem_id_lang in problem_id_langs:
+            if group == "constraint_src" and Language.str_to_lang(problem_id_lang.split("-")[1]) != Language.CPP:
+                continue  # Skip non-CPP languages for constraint_src
+            valid_problem_id_langs.append(problem_id_lang)
+            for strategy in strategies:
+                slowdowns = problem_stats[problem_id_lang][strategy][group]["slowdown"]
+                strategy_avg_slowdowns[strategy].append(np.mean(slowdowns) if slowdowns else 0)
+
+        # Plot bars for each problem, grouped by strategies
+        x = np.arange(len(valid_problem_id_langs))  # Positions for problem_id-lang
+        for i, strategy in enumerate(strategies):
+            ax.bar(
+                x + i * width - (len(strategies) / 2 - 0.5) * width,  # Center groups for each problem_id-lang
+                strategy_avg_slowdowns[strategy],
+                width,
+                label=strategy
+            )
+
+        # Finalize the plot
         ax.set_xlabel("Problem IDs (problem-language)")
         ax.set_ylabel("Average Slowdown Percentage")
-        ax.set_title(f"Slowdown Percentage per Problem ({strategy})")
+        ax.set_title(f"Slowdown Percentage Comparison ({group})")
         ax.set_xticks(x)
-        ax.set_xticklabels(problem_id_langs, rotation=90)
-        ax.legend()
-        plt.tight_layout()
-        plt.savefig(f"{strategy}_slowdown_histogram.png")
+        ax.set_xticklabels(valid_problem_id_langs, rotation=45, ha="right")
+        ax.legend(title="Strategies")
+        fig.set_size_inches(18.5, 10.5)
+        plt.savefig(f"{group}_slowdown_comparison_grouped.png")
+        plt.close()
+
+
 
 
 def plot_strategy_performance_pie_chart(problem_stats: Dict, performance_type: Literal["max", "avg"]):
     """
-    Plots a pie chart to show how many problems (problem-language) each strategy can achieve 
-    the performance (max instruction count, average instruction count) of each group 
-    (problem-solution group).
+    Plots a pie chart to show how often each strategy achieves the best performance (max/avg instruction count)
+    within each group (multi_fast, multi_slow, constraint_src).
     """
     problem_id_langs = list(problem_stats.keys())
     strategies = next(iter(problem_stats.values())).keys()
     groups = ["multi_fast", "multi_slow", "constraint_src"]
-    
+
     for group in groups:
         strategy_counts = {strategy: 0 for strategy in strategies}
-        
+
         for problem_id_lang in problem_id_langs:
+            if group == "constraint_src" and Language.str_to_lang(problem_id_lang.split("-")[1]) != Language.CPP:
+                continue
             max_or_avg_counts = {
                 strategy: np.mean(problem_stats[problem_id_lang][strategy][group]["instruction_count"]) if performance_type == "avg" 
-                else max(problem_stats[problem_id_lang][strategy][group]["instruction_count"])
+                else max(problem_stats[problem_id_lang][strategy][group]["instruction_count"], default=0)
                 for strategy in strategies
             }
             best_strategy = max(max_or_avg_counts, key=max_or_avg_counts.get)
@@ -283,7 +302,10 @@ def plot_strategy_performance_pie_chart(problem_stats: Dict, performance_type: L
         fig, ax = plt.subplots()
         ax.pie(strategy_counts.values(), labels=strategy_counts.keys(), autopct='%1.1f%%', startangle=140)
         ax.set_title(f"Strategy Performance ({group}, {performance_type} Instruction Count)")
+        plt.tight_layout()
         plt.savefig(f"{group}_{performance_type}_strategy_performance_pie_chart.png")
+        plt.close()
+
 
 def process_problem_lang(args):
     """
@@ -320,8 +342,8 @@ def parallel_problem_stats(problems, strategies):
         return dict(problem_stats)
 
 if __name__ == '__main__':
-    # problem_id_list = ['1067_B', '1096_F', '1165_F1', '1184_C1', '1204_E', '1213_D1', '1216_E2', '1225_D', '1230_C', '1286_A', '131_E', '1322_B', '1328_B', '1332_E', '1446_C', '1447_E', '16_B', '288_B', '289_D', '301_B', '351_E', '479_E', '520_B', '546_C', '63_B', '706_D', '758_A', '773_B', '787_A', '808_E', '846_B', '894_B', '903_A', '911_C', '932_E', '937_B', '938_B', '999_F']
-    problem_id_list = ['1067_B', '1096_F', '1165_F1']
+    problem_id_list = ['1067_B', '1096_F', '1165_F1', '1184_C1', '1204_E', '1213_D1', '1216_E2', '1225_D', '1230_C', '1286_A', '131_E', '1322_B', '1328_B', '1332_E', '1446_C', '1447_E', '16_B', '288_B', '289_D', '301_B', '351_E', '479_E', '520_B', '546_C', '63_B', '706_D', '758_A', '773_B', '787_A', '808_E', '846_B', '894_B', '903_A', '911_C', '932_E', '937_B', '938_B', '999_F']
+    problem_id_list = problem_id_list
     strategies = ["alphacode", "evalperf_random_solution", "evalperf_slow_solution", "plain_problem", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
     problems = filter_problems(get_cf_problems(use_specified_problem=True))
     problems = [problem for problem in problems if problem_to_id(problem) in problem_id_list]
