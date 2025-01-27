@@ -47,9 +47,9 @@ def __filter_solution_idx(
         if f"{problem_id}_{language}_{solution_idx:04}" in black_listed_solution_ids:
             print(f"{problem_id}_{language}_{solution_idx:04} is blacklisted")
             continue
-        # if __solution_too_long(problem, solution_idx):
-        #     print(f"solutions_{solution_idx:04} is too long")
-        #     continue
+        if __solution_too_long(problem, solution_idx):
+            print(f"solutions_{solution_idx:04} is too long")
+            continue
         if result[f"solutions_{solution_idx:04}"]["time_dict"] == {}:
             print(f"[WARNING] problem {problem_id} solutions_{solution_idx:04} has empty time_dict")
             continue
