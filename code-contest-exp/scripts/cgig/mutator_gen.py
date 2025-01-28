@@ -368,7 +368,7 @@ def main(
     mutator_example_file = Path(config["cgig_prompt_template_dir"]) / "example_mutator.py"
     mutator_gen_root_dir = mutator_gen_root_dir / fuzz_driver_mode
 
-    if mutator_type == "mutator_with_constraint_per_solution":
+    if mutator_type in ["mutator_with_constraint_per_solution", "custom_mutator"]:
         # one mutator per solution
         problem_solution_input_pairs = get_problem_solution_input_pairs()
         tasks = []

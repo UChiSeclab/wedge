@@ -260,7 +260,8 @@ def run_solution(
                                 if write_output:
                                     # write output for the first in gen_tests.py
                                     with open(output_path, "w", encoding="utf-8") as file:
-                                        file.write(program_output)
+                                        if len(program_output) < 1000000:
+                                            file.write(program_output)
                                 else:
                                     # don't write output for the later runs when 
                                     # collecting the execution statistics in run.py
