@@ -9,7 +9,7 @@ from common import Language
 from utils import get_alphacode_result, filter_problems, get_cf_problems, get_run_time, get_instruction_cnt
 # from cpp.coverage.scripts.cov_xml_parser import parse_cobertura_coverage_report as parse_cpp_cobertura_coverage_report
 
-# TIME_THRESHOLD = 0.1 # we might no longer need this in gem5
+TIME_THRESHOLD = 0.1 # we might no longer need this in gem5
 INSTRUCTION_CNT_THRESHOLD = 10000
 # DIFF_RATIO_THRESHOLD = 0.2
 
@@ -46,6 +46,7 @@ def extract_slow_fast_inputs(alphacode_result: Dict, language: Language, mode: s
             continue
         if mode == "run_time":
             time_dict = solution_data["time_dict"]
+            raise NotImplementedError("run_time mode is no longer supported")
         elif mode == "instruction_cnt":
             time_dict = solution_data["instruction_cnt_dict"]
         else:

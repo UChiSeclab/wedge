@@ -28,11 +28,12 @@ def problem_not_size_sensitive(problem_id: str, input_size_threshold: int = 50) 
     return max_input_size <= input_size_threshold
 
 if __name__ == '__main__':
-    filtered_problems = filter_problems(
-        get_cf_problems(use_specified_problem=config["use_specified_problem"]),
-        filter_with_inconsistency_threshold=True
-    )
-    problem_ids = [problem["name"].split(".")[0] for problem in filtered_problems]
+    # filtered_problems = filter_problems(
+    #     get_cf_problems(use_specified_problem=config["use_specified_problem"]),
+    #     filter_with_inconsistency_threshold=True
+    # )
+    # problem_ids = [problem["name"].split(".")[0] for problem in filtered_problems]
+    problem_ids = ['1041_F', '1057_C', '1061_B', '1061_C', '1064_A', '1096_F', '1097_C', '1102_C', '1114_C', '111_B', '1141_A', '1201_C', '1203_D1', '1204_E', '1210_A', '1213_D1', '1216_E2', '1225_D', '1230_C', '1242_B', '1243_D', '1261_B1', '128_D', '131_E', '1322_B', '1340_B', '1340_C', '1355_E', '1359_E', '1397_B', '1408_D', '1428_E', '1433_F', '143_D', '1446_C', '16_B', '181_B', '191_B', '199_B', '237_C', '278_B', '2_A', '301_B', '321_B', '349_B', '351_E', '366_C', '44_B', '479_E', '484_B', '525_C', '529_E', '546_C', '554_C', '559_C', '574_D', '577_A', '583_D', '603_C', '63_B', '662_D', '663_B', '676_E', '687_C', '69_B', '713_C', '731_F', '758_A', '768_C', '768_E', '773_B', '774_J', '791_B', '803_F', '846_B', '863_B', '889_B', '898_E', '911_C', '926_B', '937_B', '993_A', '993_B', '996_B', '999_E', '999_F'] # >= 50 inputs
     valid_problem_ids = problem_ids.copy()
 
     problem_size_dict = {"alphacode": {}, "plain_problem": {}}
