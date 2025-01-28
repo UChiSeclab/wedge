@@ -49,7 +49,11 @@ def main(
     else:
         raise ValueError(f"Invalid mutator_type: {mutator_type}")
 
-    mutator_gen_root_dir = mutator_gen_root_dir / "instrument_fuzz"
+    if mutator_type == "mutator_with_constraint_per_solution":
+        mutator_gen_root_dir = mutator_gen_root_dir / "instrument_fuzz"
+    elif mutator_type == "custom_mutator":
+        mutator_gen_root_dir = mutator_gen_root_dir / "raw_fuzz"
+    corpus_gen_dir = corpus_gen_dir / mutator_type
 
     tasks = []
     with ProcessPoolExecutor(max_workers = int(0.5 * os.cpu_count())) as executor:

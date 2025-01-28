@@ -83,6 +83,8 @@ def main(
         corpus_gen_dir = Path(config["corpus_raw_gen_dir"])
     else:
         raise ValueError(f"Invalid fuzz driver mode: {fuzz_driver_mode}")
+    
+    corpus_gen_dir = corpus_gen_dir / mutator_type
 
     filtered_problem_ids = [problem_to_id(problem) for problem in filtered_problems]
     if mutator_type in ["mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution"]:
