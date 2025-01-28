@@ -26,12 +26,21 @@ def squeeze_time_dict(
     return result
 
 
-def get_alphacode_result(problem_id: str) -> Dict:
-    return get_experiment_result(problem_id, "alphacode")
+def get_alphacode_result(problem_id: str, sanitize: bool = False) -> Dict:
+    if not sanitize:
+        return get_experiment_result(problem_id, "alphacode")
+    else:
+        return get_experiment_result(problem_id, "alphacode_sanitized")
 
 def get_experiment_result(problem_id: str, experiment_name: str) -> Dict:
     experiment_result_dir = Path(config["result_root_dir"]) / experiment_name
-    with open(experiment_result_dir / f"{problem_id}.json", "r", encoding="utf-8") as file:
+    result_path = experiment_result_dir / f"{problem_id}.json"
+    if not result_path.exists():
+        assert experiment_name != "alphacode", f"cannot use subset result for alphacode"
+        print(f"trying to use results_three_groups for {problem_id} {experiment_name}")
+        result_path = Path(config["result_three_groups_root_dir"]) / experiment_name / f"{problem_id}.json"
+    assert result_path.exists(), f"Result file for problem {problem_id} {experiment_name} does not exist."
+    with open(result_path, "r", encoding="utf-8") as file:
         result = json.load(file)
     return result
 
