@@ -14,16 +14,14 @@ from cgig.cgig_utils import problem_has_extracted_constraint, parse_constraints_
 from gpt_caller import request_conversation, cut_string
 from cgig.fuzz import fuzz_one
 from selector.select_solution import select_solutions
-from utils import filter_problems, get_cf_problems, problem_to_id
+from utils import filter_problems, get_cf_problems
 from common import Language
 from cgig.constraint_gen import get_product_cov
-from cgig.classify_input import run_classifier
 
 """
 supported settings:
 - n constraints => n mutators on n instrumented solutions (main approach) (mutator_with_constraint_per_solution + instrument_fuzz)
 - n constraints => n mutators on n raw solutions (mutator_with_constraint_per_solution + raw_fuzz)
-- a problem-specific mutator on n instrumented solutions (custom_mutator + instrument_fuzz)
 - a problem-specific mutator on n raw solutions (custom_mutator + raw_fuzz)
 - AFL++ default mutator on n raw solutions
 """
@@ -54,23 +52,10 @@ def write_raw_fuzz_dirvers(
 
     return fuzz_driver_files
 
-def select_seed_inputs(ori_input_dir: Path, seed_input_dir: Path, fuzz_driver_mode: str, instrumented_program_file: Path = None, num_seeds: int = 5) -> List[Path]:
+def select_seed_inputs(ori_input_dir: Path, seed_input_dir: Path, num_seeds: int = 5) -> List[Path]:
     # currently we use the same input files as seed inputs and reference inputs in the prompt
     input_files = list(ori_input_dir.glob("*.in"))
-    if fuzz_driver_mode == "raw_fuzz":
-        # exclude generated tests
-        input_files = [input_file for input_file in input_files if "generated" not in input_file.stem]
-    elif fuzz_driver_mode == "instrument_fuzz":
-        assert instrumented_program_file is not None, "instrumented_program_file is required for instrument_fuzz"
-        res_dict = run_classifier(input_files, instrumented_program_file)
-        if res_dict == {"error": "Compile Error"}:
-            raise ValueError(f"Compile Error for {instrumented_program_file}")
-        # filter out the inputs that are not pass
-        input_files = [input_file for input_file in input_files if res_dict[input_file.name]["status"] == "Pass"]
-        if len(input_files) < num_seeds:
-            # fallback
-            input_files = [input_file for input_file in input_files if "generated" not in input_file.stem]
-
+    input_files = [input_file for input_file in input_files if "generated_" not in input_file.name]
     input_files = sorted(input_files, key=lambda x: x.name)
 
     # dump input files
@@ -187,7 +172,7 @@ def prompt_and_dump_results(
         custom_mutator_dir=mutator_gen_try_cnt_dir,
     )
 
-def generate_mutator(mutator_dir: Path, seed_input_dir: Path, problem_id: str, initial_prompt: str, mode: str, mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator", ""], fuzz_driver_file: Path, max_try: int = 5) -> subprocess.CompletedProcess:
+def generate_mutator(mutator_dir: Path, seed_input_dir: Path, problem_id: str, initial_prompt: str, mode: str, mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator", ""], fuzz_driver_file: Path, max_try: int = 10) -> subprocess.CompletedProcess:
     mutator_dir.mkdir(parents=True, exist_ok=True)
 
     conversation = [{"role": "system", "content": "You are a helpful assistant good at coding."}]
@@ -248,6 +233,9 @@ def generate_mutator(mutator_dir: Path, seed_input_dir: Path, problem_id: str, i
                 break
             else:
                 error_msg = result.stderr.decode()
+                print(f"return code: {result.returncode}")
+                if result.returncode == -11:
+                    error_msg = "AFL++ failed with segfault"
                 if i == max_try - 1:
                     print(f"[Warning] [{mode}] failed to generate mutator script for {problem_id} in try {i}")
                     print(f"error message: {error_msg}")
@@ -273,6 +261,7 @@ def process_problem(problem_id: str, solution_input_pairs: List[Tuple[str, Tuple
     if len(solution_input_pairs) == 0:
         print(f"[INFO] No solution input pairs found for {problem_id}, skip")
         return
+    assert top_k_constraints <= 10, "top_k_constraints should be less than or equal to 10"
     solution_and_input_pair_list = get_solution_and_input_pair_list_with_constraint(problem_id, top_k_constraints)
     for (solution_id, input_pair) in solution_and_input_pair_list:
         slow_input_id, fast_input_id = input_pair
@@ -286,7 +275,7 @@ def process_problem(problem_id: str, solution_input_pairs: List[Tuple[str, Tuple
         mutator_gen_mode_dir = mutator_dir / mutator_mode
         seed_input_dir = mutator_dir / "seed_inputs"
         try:
-            seed_input_files = select_seed_inputs(ori_input_dir, seed_input_dir, fuzz_driver_mode, instrumented_program_file=instrumented_program_file)
+            seed_input_files = select_seed_inputs(ori_input_dir, seed_input_dir)
         except ValueError as e: # compile error
             print(f"[Warning] {e} for {instrumented_program_file}, skip")
             continue
@@ -312,19 +301,16 @@ def process_problem(problem_id: str, solution_input_pairs: List[Tuple[str, Tuple
             continue
 
         try:
-            result = generate_mutator(mutator_dir, seed_input_dir, problem_id, initial_prompt, mutator_mode, mutator_type, fuzz_driver_file, max_try=5)
+            result = generate_mutator(mutator_dir, seed_input_dir, problem_id, initial_prompt, mutator_mode, mutator_type, fuzz_driver_file, max_try=10)
         except subprocess.TimeoutExpired:
             print(f"Timeout for {problem_id} with {fuzz_driver_file}")
-            shutil.rmtree(mutator_gen_mode_dir, ignore_errors=True)
             continue
         if result.returncode == 0:
             status_file = mutator_gen_mode_dir / "MUTATOR_CHECK_PASS"
             status_file.touch()
         elif result.returncode == -11:
-            # AFL++ failed with segfault, retry with a different solution
+            # AFL++ failed with segfault, indicating this mutator makes the solution crash
             print(f"Failed with segfault for {problem_id} with {fuzz_driver_file}")
-            # clear mutator_gen_mode_dir
-            shutil.rmtree(mutator_gen_mode_dir, ignore_errors=True)
         else:
             print(f"Failed to generate mutator script for {problem_id} with {fuzz_driver_file}")
             print(f"error message: {result.stderr.decode()}")
@@ -409,7 +395,7 @@ def main(
             mutator_dir = mutator_gen_root_dir / problem_id
             mutator_gen_mode_dir = mutator_dir / mutator_mode
             seed_input_dir = mutator_dir / "seed_inputs"
-            seed_input_files = select_seed_inputs(ori_input_dir, seed_input_dir, fuzz_driver_mode)
+            seed_input_files = select_seed_inputs(ori_input_dir, seed_input_dir)
             fuzz_driver_dir = mutator_dir / "fuzz_driver"
             fuzz_driver_file_list = write_raw_fuzz_dirvers(fuzz_driver_dir, problem_id, problem, solution_driver_selection_type="instrumented_multi_solution", num_fuzz_drivers=5) # 5 drivers for retrying
 
@@ -429,7 +415,7 @@ def main(
 
             for fuzz_driver_file in fuzz_driver_file_list:
                 try:
-                    result = generate_mutator(mutator_dir, seed_input_dir, problem_id, initial_prompt, mutator_mode, mutator_type, fuzz_driver_file, max_try=5)
+                    result = generate_mutator(mutator_dir, seed_input_dir, problem_id, initial_prompt, mutator_mode, mutator_type, fuzz_driver_file, max_try=10)
                 except subprocess.TimeoutExpired:
                     print(f"Timeout for {problem_id} with {fuzz_driver_file}")
                     shutil.rmtree(mutator_gen_mode_dir, ignore_errors=True)
