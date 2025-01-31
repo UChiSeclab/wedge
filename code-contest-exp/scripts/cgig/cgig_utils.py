@@ -48,7 +48,7 @@ def get_best_input_pair_by_freq(solution_input_pairs: Dict[str, List[Tuple[str, 
     return best_input_pair, input_pair_freq[best_input_pair] # not sorted
 
 @DeprecationWarning
-def get_best_input_pair(problem_id:str, solution_input_pairs: Dict[str, List[Tuple[str, str]]]) -> Tuple[Tuple[str, str], List[str]]:
+def get_best_input_pair_deprecated(problem_id:str, solution_input_pairs: Dict[str, List[Tuple[str, str]]]) -> Tuple[Tuple[str, str], List[str]]:
     # get the input pair with the highest similarity and get the solution where the input pair is used and the run time ratio is the highest
     # assume the list of input pairs has been sorted by similarity
     if len(solution_input_pairs) == 0:

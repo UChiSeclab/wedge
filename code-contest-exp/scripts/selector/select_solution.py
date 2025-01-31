@@ -4,7 +4,7 @@ from pathlib import Path
 from utils import get_alphacode_result, mean
 from common import Language
 from config import config
-from cgig.cgig_utils import get_best_input_pair, get_problem_solution_input_pairs, get_solution_and_input_pair_list_with_constraint
+from cgig.cgig_utils import get_problem_solution_input_pairs, get_solution_and_input_pair_list_with_constraint
 
 def get_solutions_in_language(
     problem: Dict, sol_language: Language
@@ -148,15 +148,12 @@ def select_solutions(
         selected_solution_idxs = [selected_solution_idx]
 
     elif solution_selection_type == "instrumented_first_solution":
+        # TODO: we might want to include reasoning process in the prompt, so this might be abandon
         if len(filtered_solution_idxs) < 1:
             return None, None
-        problem_solution_input_pairs = get_problem_solution_input_pairs()
-        best_input_pair, solution_ids = get_best_input_pair(problem_id, problem_solution_input_pairs[problem_id])
-        if not best_input_pair:
-            raise ValueError(f"No input pair found for {problem_id}")
-        slow_input_id, fast_input_id = best_input_pair
-        # solution_id = select_first_solution(solution_ids)
-        solution_id = solution_ids[0] # sorted
+        assert top_k == 1, f"top_k: {top_k}"
+        solution_id, input_pair = get_solution_and_input_pair_list_with_constraint(problem_id, top_k=1)[0]
+        slow_input_id, fast_input_id = input_pair
 
         instrumented_solution_file = Path(config["constraints_dir"]) / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "transformed_program.cpp"
         if not instrumented_solution_file.exists():
@@ -165,23 +162,18 @@ def select_solutions(
         selected_solution_idxs = [int(solution_id.split("_")[1])]
 
     elif solution_selection_type == "instrumented_multi_solution":
+        # TODO: we might want to include reasoning process in the prompt, so this might be abandon
         if len(filtered_solution_idxs) < 1:
             return None, None
-        problem_solution_input_pairs = get_problem_solution_input_pairs()
-        solution_input_pairs = problem_solution_input_pairs[problem_id]
-        selected_solution_ids = []
+        solution_and_input_pair_list = get_solution_and_input_pair_list_with_constraint(problem_id, top_k)
+        selected_solution_idxs = [int(solution_id.split("_")[1]) for solution_id, _ in solution_and_input_pair_list]
         selected_solutions = []
-        for solution_id in list(solution_input_pairs.keys())[:top_k]:
-            best_input_pair_id = list(solution_input_pairs[solution_id])[0] # best input pair for this solution
-            slow_input_id, fast_input_id = best_input_pair_id.split("@")
-            instrumented_program_file = Path(config["constraints_dir"]) / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "transformed_program.cpp"
-            if not instrumented_program_file.exists():
-                raise ValueError(f"File {instrumented_program_file} does not exist")
-            selected_solutions.append(instrumented_program_file.read_text())
-            selected_solution_idxs.append(int(solution_id.split("_")[1]))
-
-        if len(selected_solutions) < top_k:
-            print(f"Warning: only {len(selected_solutions)} solutions found for {problem_id}")
+        for solution_id, input_pair in solution_and_input_pair_list:
+            slow_input_id, fast_input_id = input_pair
+            instrumented_solution_file = Path(config["constraints_dir"]) / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "transformed_program.cpp"
+            if not instrumented_solution_file.exists():
+                raise ValueError(f"File {instrumented_solution_file} does not exist")
+            selected_solutions.append(instrumented_solution_file.read_text())
 
     elif solution_selection_type == "no_solution":
         return [], []
