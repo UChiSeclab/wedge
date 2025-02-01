@@ -177,6 +177,8 @@ def generate_mutator(mutator_dir: Path, seed_input_dir: Path, problem_id: str, i
 
     conversation = [{"role": "system", "content": "You are a helpful assistant good at coding."}]
 
+    queue_dir = mutator_dir / "fuzz_driver" / f"{mutator_dir.name}_{mutator_type}_output" / "default" / "queue"
+
     if mode == "direct":
         result = prompt_and_dump_results(
             mutator_dir,
@@ -189,7 +191,7 @@ def generate_mutator(mutator_dir: Path, seed_input_dir: Path, problem_id: str, i
             mode=mode,
             mutator_type=mutator_type,
         )
-        if result.returncode != 0:
+        if result.returncode != 0 or not new_inputs_generated(seed_input_dir, queue_dir):
             print(f"[Warning] [{mode}] failed to generate mutator script for {problem_id} in try 0")
             return result
     elif mode in ["resample", "self_reflect"]:
@@ -205,7 +207,7 @@ def generate_mutator(mutator_dir: Path, seed_input_dir: Path, problem_id: str, i
                 mode=mode,
                 mutator_type=mutator_type,
             )
-            if result.returncode == 0:
+            if result.returncode == 0 and new_inputs_generated(seed_input_dir, queue_dir):
                 break
             else:
                 if i == max_try - 1:
@@ -230,7 +232,10 @@ def generate_mutator(mutator_dir: Path, seed_input_dir: Path, problem_id: str, i
                 feedback_msg=feedback_msg,
             )
             if result.returncode == 0:
-                break
+                if new_inputs_generated(seed_input_dir, queue_dir):
+                    break
+                else:
+                    error_msg = "AFL++ failed to generate new inputs"
             else:
                 error_msg = result.stderr.decode()
                 print(f"return code: {result.returncode}")
@@ -242,6 +247,11 @@ def generate_mutator(mutator_dir: Path, seed_input_dir: Path, problem_id: str, i
                     return result
 
     return result
+
+def new_inputs_generated(seed_input_dir: Path, queue_dir: Path) -> bool:
+    seed_input_files = os.listdir(seed_input_dir)
+    queue_files = os.listdir(queue_dir)
+    return len(queue_files) > len(seed_input_files)
 
 def copy_and_remove_abort(instrumented_program_file: Path, fuzz_driver_file: Path):
     shutil.copy(instrumented_program_file, fuzz_driver_file)

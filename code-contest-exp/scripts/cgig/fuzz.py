@@ -7,7 +7,7 @@ from typing import Literal
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from config import config
-from cgig.cgig_utils import find_mutator_file, get_best_input_pair, get_problem_solution_input_pairs
+from cgig.cgig_utils import find_mutator_file, get_solution_and_input_pair_list_with_constraint, get_problem_solution_input_pairs
 from fire import Fire
 
 def eprint(*args, **kwargs):
@@ -92,10 +92,10 @@ def fuzz_one(program_dir: Path, program_file: Path, seed_input_dir: Path, timeou
         timeout=timeout, use_custom_mutator=use_custom_mutator, \
             mutator_type=mutator_type, \
                 custom_mutator_dir=custom_mutator_dir)
-    eprint("debug stderr of program_dir", program_dir)
-    eprint(fuzz_result.stderr.decode())
     if fuzz_result.returncode != 0:
         eprint(f"AFL++ failed for {program_dir}")
+        eprint("debug stderr of program_dir", program_dir)
+        eprint(fuzz_result.stderr.decode())
 
     return fuzz_result
 
@@ -133,13 +133,9 @@ def main(
     tasks = []
     with ProcessPoolExecutor(max_workers=int(0.5 * os.cpu_count())) as executor:
         for problem_id in problem_solution_input_pairs:
-            best_input_pair, solution_ids = get_best_input_pair(problem_id, problem_solution_input_pairs[problem_id])
-            if not best_input_pair:
-                print(f"[Warning] No input pair found for {problem_id}")
-                continue
-            slow_input_id, fast_input_id = best_input_pair
-            # solution_id = select_first_solution(solution_ids)
-            solution_id = solution_ids[0]
+            solution_and_input_pair_list = get_solution_and_input_pair_list_with_constraint(problem_id, top_k=1)
+            solution_id, input_pair = solution_and_input_pair_list[0]
+            slow_input_id, fast_input_id = input_pair
             program_dir = fuzz_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}"
             if strategy == "instrument_fuzz":
                 program_file = extracted_constraints_dir / problem_id / solution_id / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}" / "transformed_program.cpp"
