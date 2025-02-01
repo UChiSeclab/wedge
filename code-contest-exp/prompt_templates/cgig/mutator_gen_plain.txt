@@ -20,4 +20,4 @@ Please note that:
 1. You should ensure the mutated inputs follow the input constraints as much as possible. Note that 10000(10^5) is usually written as 105, 100000(10^6) is usually written as 106, etc.
 2. Generating a new input from scratch in each iteration is not suggested. Instead, please try to mutate the seed input in each iteration.
 3. You should try to implement multiple mutation operations that can be randomly selected. You can implement mutation operations that could potentially explore corner cases of the program (e.g., upper/lower bound).
-4. Please make sure to use `bytearray(str)` to transform string to bytearray, instead of `str.encode()` as we need mutable objects the latter will produce immutable objects.
+4. Please make sure to use `bytearray(str, 'utf-8')` to transform string to bytearray, instead of `str.encode()` as we need mutable objects the latter will produce immutable objects.
