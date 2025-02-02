@@ -423,9 +423,9 @@ def create_test_generator_with_retry(
                     if not (experiment_input_dir / f"{f.stem}.in").exists():
                         print(f"[Warning] removing output file without input file: {f}")
                         f.unlink()
-                if len(os.listdir(experiment_output_dir)) < len(os.listdir(experiment_input_dir)) / 2:
-                    print(f"[Warning] too manys inputs are invalid as so few output is generated for {problem_id} from all solutions, try count: {try_cnt}, outputs: {len(os.listdir(experiment_output_dir))}, inputs: {len(os.listdir(experiment_input_dir))}")
-                    [f.unlink() for f in experiment_output_dir.iterdir()]
+                # if len(os.listdir(experiment_output_dir)) < len(os.listdir(experiment_input_dir)) / 2:
+                #     print(f"[Warning] too manys inputs are invalid as so few output is generated for {problem_id} from all solutions, try count: {try_cnt}, outputs: {len(os.listdir(experiment_output_dir))}, inputs: {len(os.listdir(experiment_input_dir))}")
+                #     [f.unlink() for f in experiment_output_dir.iterdir()]
                 else:
                     # remove input files that do not have corresponding output files
                     for f in experiment_input_dir.iterdir():
