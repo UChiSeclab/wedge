@@ -319,6 +319,7 @@ def process_problem(problem_id: str, solution_input_pairs: List[Tuple[str, Tuple
         except SolutionCompilationError as e:
             # compilation error
             print(f"Failed to generate mutator script for {problem_id} with {fuzz_driver_file}: {e}")
+            continue
 
         if result.returncode == 0:
             status_file = mutator_gen_mode_dir / "MUTATOR_CHECK_PASS"
