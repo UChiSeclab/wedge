@@ -18,6 +18,7 @@ from selector.select_input import (
     select_slow_fast_input_for_multi_solution,
 )
 from input_validator_run import find_validator_files
+from cgig.cgig_utils import parse_constraints_content_from_response, get_product_cov
 
 API_KEY = "sk-proj-agKWhu46RVJSx5PbRea7T3BlbkFJB3jZFl9KGevQ0QC9vatB"
 
@@ -106,8 +107,10 @@ def write_test_generator(
     elif fill_solution_type == "slow_fast_solution":
         prompt = prompt.replace("<fast_solution>", selected_solution_codes[0])
         prompt = prompt.replace("<slow_solution>", selected_solution_codes[1])
-    elif fill_solution_type == "one_solution" or fill_solution_type == "instrumented_first_solution":
+    elif fill_solution_type == "one_solution":
         prompt = prompt.replace("<one_solution>", selected_solution_codes[0])
+    elif fill_solution_type == "no_solution":
+        pass
 
 
     # === fill input(s) ===
@@ -186,6 +189,17 @@ def write_test_generator(
         prompt = fill_multi_slow_solutions_feedback(
             prompt, fast_input_cov_files, slow_input_cov_files
         )
+    elif fill_feedback_type == "feedback_constraint":
+        solution_id = selected_solution_ids[0]
+        constraint_file = list((Path(config["constraints_dir"]) / str(problem_id) / solution_id).rglob("gpt_response.txt"))[0]
+        input_pair_id_elements = constraint_file.parent.name.split("_")
+        slow_input_id = "_".join(input_pair_id_elements[:3]) + ".in"
+        fast_input_id = "_".join(input_pair_id_elements[3:]) + ".in"
+        print(f"slow_input_id: {slow_input_id}, fast_input_id: {fast_input_id}")
+        constraints_content = parse_constraints_content_from_response(constraint_file)
+        prompt = prompt.replace("<constraints_content>", constraints_content)
+        product_cov_file = get_product_cov(problem_id, solution_id, slow_input_id, fast_input_id, info_line_end=True)
+        prompt = prompt.replace("<product_cov_content>", product_cov_file.read_text())
 
     if insert_contract_val_mode is not None:
         assert insert_contract_val_mode in ["direct", "resample", "self_reflect", "self_reflect_feedback"]

@@ -62,14 +62,14 @@ class PromptTemplate:
         ]:
             return "random"
         elif experiment_name in [
-            "constraint_guided_one",
-        ]:
-            return "instrumented_first_solution"
-        elif experiment_name in [
             "plain_problem", # no input, no solution
             "plain_problem_contract",
         ]:
             return "no_solution"
+        elif experiment_name in [
+            "constraint_guided_one",
+        ]:
+            return "constraint_src"
         else:
             raise ValueError(f"Unknown experiment name: {experiment_name}")
 
@@ -98,12 +98,9 @@ class PromptTemplate:
         ]:
             return "one_solution"
         elif self.experiment_name in [
-            "constraint_guided_one",
-        ]:
-            return "instrumented_first_solution"
-        elif self.experiment_name in [
             "plain_problem",
             "plain_problem_contract",
+            "constraint_guided_one",
         ]:
             return "no_solution"
         else:
@@ -133,12 +130,15 @@ class PromptTemplate:
             "random_solution",
             "evalperf_slow_solution",
             "evalperf_random_solution",
-            "constraint_guided_one",
             "plain_problem_contract",
             "evalperf_slow_solution_contract",
             "evalperf_random_solution_contract",
         ]:
             return "no_input"
+        elif self.experiment_name in [
+            "constraint_guided_one",
+        ]:
+            return "reference_inputs"
         else:
             raise ValueError(f"Unknown experiment name: {self.experiment_name}")
 
@@ -153,7 +153,6 @@ class PromptTemplate:
             "diff_solution_one_input",
             "evalperf_slow_solution",
             "evalperf_random_solution",
-            "constraint_guided_one",
             "plain_problem_contract",
             "evalperf_slow_solution_contract",
             "evalperf_random_solution_contract",
@@ -172,6 +171,10 @@ class PromptTemplate:
             "feedback_multi_solution_diff_input",
         ]:
             return "slow_fast_input_multi_solution"
+        elif self.experiment_name in [
+            "constraint_guided_one",
+        ]:
+            return "feedback_constraint"
         else:
             raise ValueError(f"Unknown experiment name: {self.experiment_name}")
 

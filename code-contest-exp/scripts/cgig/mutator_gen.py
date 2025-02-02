@@ -10,13 +10,13 @@ from fire import Fire
 import subprocess
 
 from config import config
-from cgig.cgig_utils import problem_has_extracted_constraint, parse_constraints_content, get_problem_solution_input_pairs, parse_constraints_content_from_response, get_solution_and_input_pair_list_with_constraint
+from cgig.cgig_utils import SolutionCompilationError, problem_has_extracted_constraint, parse_constraints_content, get_problem_solution_input_pairs, parse_constraints_content_from_response, get_solution_and_input_pair_list_with_constraint
 from gpt_caller import request_conversation, cut_string
 from cgig.fuzz import fuzz_one
 from selector.select_solution import select_solutions
 from utils import filter_problems, get_cf_problems
 from common import Language
-from cgig.constraint_gen import get_product_cov
+from cgig.cgig_utils import get_product_cov
 
 """
 supported settings:
@@ -239,6 +239,7 @@ def generate_mutator(mutator_dir: Path, seed_input_dir: Path, problem_id: str, i
             else:
                 error_msg = result.stderr.decode()
                 print(f"return code: {result.returncode}")
+                print(f"error message: {error_msg}")
                 if result.returncode == -11:
                     error_msg = "AFL++ failed with segfault"
                 if i == max_try - 1:
@@ -315,6 +316,10 @@ def process_problem(problem_id: str, solution_input_pairs: List[Tuple[str, Tuple
         except subprocess.TimeoutExpired:
             print(f"Timeout for {problem_id} with {fuzz_driver_file}")
             continue
+        except SolutionCompilationError as e:
+            # compilation error
+            print(f"Failed to generate mutator script for {problem_id} with {fuzz_driver_file}: {e}")
+
         if result.returncode == 0:
             status_file = mutator_gen_mode_dir / "MUTATOR_CHECK_PASS"
             status_file.touch()

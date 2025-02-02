@@ -4,6 +4,58 @@ import json
 
 from config import config
 from common import Language
+from cpp.coverage.scripts.cov_product_gen import main as dump_product_cov
+
+
+def get_product_cov(
+  problem_id: str,
+  solution_id: str,
+  slow_input_id: str,
+  fast_input_id: str,
+  language: Language = Language.CPP,
+  info_line_end: bool = False,
+) -> Path:
+  problem_dir = Path(config["problem_root_dir"]) / problem_id
+  solution_file = problem_dir / "solutions" / str(language) / f"{solution_id}.cpp"
+  slow_cobertura_xml_file = (
+    Path(config["cov_data_dir"])
+    / "alphacode"
+    / problem_id
+    / str(language)
+    / solution_id
+    / slow_input_id[:-3]
+    / "coverage.xml"
+  )
+  fast_cobertura_xml_file = (
+    Path(config["cov_data_dir"])
+    / "alphacode"
+    / problem_id
+    / str(language)
+    / solution_id
+    / fast_input_id[:-3]
+    / "coverage.xml"
+  )
+  info_location = "line_start" if not info_line_end else "line_end"
+
+  product_cov_file = (
+    Path(config["product_cov_data_dir"])
+    / problem_id
+    / str(language)
+    / solution_id
+    / info_location
+    / f"{slow_input_id[:-3]}_{fast_input_id[:-3]}.cov"
+  )
+  product_cov_file.parent.mkdir(parents=True, exist_ok=True)
+
+  if not product_cov_file.exists():
+    dump_product_cov(
+      str(solution_file),
+      str(slow_cobertura_xml_file),
+      str(fast_cobertura_xml_file),
+      str(product_cov_file),
+      info_line_end=info_line_end,
+    )
+  return product_cov_file
 
 def cov_file_exists(problem_id: str, solution_id: str, input_id: str, language: Language = Language.CPP) -> bool:
     # check if the coverage file exists
@@ -196,3 +248,9 @@ def parse_constraints_content(problem_id: str, mutator_type: Literal["mutator_wi
             constraints.append("")
 
         return "\n".join(constraints)
+
+class SolutionCompilationError(Exception):
+    """Exception raised for errors in the compilation process."""
+    def __init__(self, message, stderr=None):
+        super().__init__(message)
+        self.stderr = stderr  # Capture stderr from the compiler for more detailed error info

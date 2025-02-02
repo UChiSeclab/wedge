@@ -7,7 +7,7 @@ from typing import Literal
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from config import config
-from cgig.cgig_utils import find_mutator_file, get_solution_and_input_pair_list_with_constraint, get_problem_solution_input_pairs
+from cgig.cgig_utils import find_mutator_file, get_solution_and_input_pair_list_with_constraint, get_problem_solution_input_pairs,SolutionCompilationError
 from fire import Fire
 
 def eprint(*args, **kwargs):
@@ -86,7 +86,7 @@ def fuzz_one(program_dir: Path, program_file: Path, seed_input_dir: Path, timeou
     compile_result, bin_file = aflpp_compile(program_file, program_dir)
     if compile_result.returncode != 0:
         eprint(f"Compilation failed for {program_file}")
-        raise ValueError(f"Compilation failed for {program_file}: {compile_result.stderr.decode()}")
+        raise SolutionCompilationError(f"Compilation failed for {program_file}", compile_result.stderr)
 
     fuzz_result = run_aflpp(program_dir, bin_file, seed_input_dir, \
         timeout=timeout, use_custom_mutator=use_custom_mutator, \

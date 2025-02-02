@@ -1,4 +1,4 @@
-You are an experienced Python software engineer. Your task is to produce a test generator in the form of a Python program that, based on the input specifications in the problem statement, generates tests that make the performance-related conditions satisfied, e.g., "check_perf_condition_1(...)" etc. These conditions are considred highly relevant to the performance of the solutions, i.e., when the conditions are satisfied, the program will run significantly slower than when the conditions are not satisfied. You should generate as many tests that satisfy the conditions as possible so that the solutions will run slow, meanwhile ensure that the tests are diversified and different from each other as much as possible, to exhaust the solutions of the problem more.
+You are an experienced Python software engineer. Your task is to produce a test generator in the form of a Python program that, based on the input specifications in the problem statement, generates tests that make the performance-related conditions satisfied to make the program run slow, e.g., "check_perf_condition_1(...)" etc. These conditions are considred relevant to the performance of the solutions, i.e., when the conditions are satisfied, the program will run slower than when the conditions are not satisfied. You should generate as many tests that satisfy the conditions as possible so that the solutions will run slow, meanwhile ensure that the tests are diversified and different from each other as much as possible, to exhaust the solutions of the problem more.
 
 Problem Statement (surronded by leading and trailing "--------"):
 
@@ -8,9 +8,17 @@ Problem Statement (surronded by leading and trailing "--------"):
 
 -------- Problem ends
 
-The solution with performance-related condition checker(s) inserted:
+Here are the performance related conditions summarized by another LLM, e.g., `check_perf_condition_*(condition)`. These conditions are believed to be related to performance of the solution, i.e., when the conditions are satisfied, the solution will likely run slower than when they are not satisifed. Please learn from them so that the generated mutator can produce more inputs to satisfy the conditions so that the generated inputs can make the solution run slower.
 
-<one_solution>
+-------- Constraints summary begins
+
+<constraints_content>
+
+-------- Constraints summary ends
+
+As the context, here is the solution program (along with coverage and hit count information under slow/fast inputs) where the constraints are generated on:
+
+<product_cov_content>
 
 Based on the above information, you will work in phases:
 

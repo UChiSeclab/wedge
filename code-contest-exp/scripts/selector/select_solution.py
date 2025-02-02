@@ -4,7 +4,7 @@ from pathlib import Path
 from utils import get_alphacode_result, mean
 from common import Language
 from config import config
-from cgig.cgig_utils import get_problem_solution_input_pairs, get_solution_and_input_pair_list_with_constraint
+from cgig.cgig_utils import get_solution_and_input_pair_list_with_constraint
 
 def get_solutions_in_language(
     problem: Dict, sol_language: Language
@@ -160,6 +160,7 @@ def select_solutions(
             raise ValueError(f"File {instrumented_solution_file} does not exist")
         selected_solutions = [instrumented_solution_file.read_text()]
         selected_solution_idxs = [int(solution_id.split("_")[1])]
+        raise NotImplementedError("This is not used in the current experiments")
 
     elif solution_selection_type == "instrumented_multi_solution":
         # TODO: we might want to include reasoning process in the prompt, so this might be abandon
@@ -174,6 +175,20 @@ def select_solutions(
             if not instrumented_solution_file.exists():
                 raise ValueError(f"File {instrumented_solution_file} does not exist")
             selected_solutions.append(instrumented_solution_file.read_text())
+        raise NotImplementedError("This is not used in the current experiments")
+
+    elif solution_selection_type == "constraint_src":
+        # top_k is not used here, as we only need one solution
+        top_k = 1
+        # only work for cpp
+        solution_and_input_pair_list = get_solution_and_input_pair_list_with_constraint(problem_id, top_k)
+        if len(solution_and_input_pair_list) == 0:
+            raise ValueError(f"No solution with constraint info found for {problem_id}")
+        if len(solution_and_input_pair_list) < top_k:
+            print(f"[Warning] only {len(solution_and_input_pair_list)} solutions found for {problem_id}")
+        selected_solution_ids = [solution_id for solution_id, _ in solution_and_input_pair_list]
+        selected_solution_idxs = [int(solution_id.split("_")[1]) for solution_id in selected_solution_ids]
+        selected_solutions = [(Path(config["problem_root_dir"]) / problem_id / "solutions" / "cpp" / f"{solution_id}.cpp").read_text() for solution_id in selected_solution_ids]
 
     elif solution_selection_type == "no_solution":
         return [], []
