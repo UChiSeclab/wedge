@@ -365,6 +365,7 @@ def main(
     record_perf: bool = True, # record the perf in "run" but not for "gen"
     problem_with_extracted_constraint_only: bool = False,
     solution_set_type: Literal["full", "three_groups"] = "full",
+    only_include_langs: List[str] = None,
 ):
     """Runs all solutions in the folder."""
     problem_root_dir = Path(problem_root_dir)
@@ -462,6 +463,8 @@ def main(
             solution_idxs = range(len(problem[sol_type]["language"]))
         else:
             raise ValueError(f"Invalid solution_set_type: {solution_set_type}")
+        if only_include_langs:
+            solution_idxs = [idx for idx in solution_idxs if Language(problem[sol_type]["language"][idx]).name.lower() in only_include_langs]
         for solution_idx in solution_idxs:
             language = Language(problem[sol_type]["language"][solution_idx])
             solution_file_name = f"{sol_type}_{solution_idx:04}.{language.to_suffix()}"

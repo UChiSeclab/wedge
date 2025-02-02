@@ -449,6 +449,7 @@ def main(
     prompt_language: Literal["python", "cpp", "python3", "java"] = "java",
     prompt_template: str = "prompt_template.txt",
     top_k: int = None,
+    max_retry: int = None,
     check_input_validity: bool = True,
     validator_mode: Literal["direct", "resample", "self_reflect", "self_reflect_feedback"] = "self_reflect_feedback",
     check_consistency: bool = True,
@@ -509,6 +510,7 @@ def main(
             check_input_validity=check_input_validity,
             validator_mode=validator_mode,
             check_consistency=check_consistency,
+            max_retry=max_retry,
         ):
             print(f"[Error] Failed to generate enough valid tests for {problem_id}")
             record_failing_problem(problem_id, experiment_name, "Failed to generate enough valid tests")
