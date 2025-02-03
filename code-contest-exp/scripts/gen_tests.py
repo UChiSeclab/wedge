@@ -51,13 +51,13 @@ def early_stop_for_input_consistency(
             if len(outputs) == 0:
                 continue
             output_counter = collections.Counter(outputs)
-            majority_output_count = output_counter.most_common(1)[0][1]
-            non_majority_output_count = len(outputs) - majority_output_count
-            if non_majority_output_count + empty_output_count > 0.05 * len(correct_solution_file_names):
-                print(f"input_file_name: {input_file_name}, non_majority_output_count:\
-                    {non_majority_output_count}, majority_output_count: {majority_output_count}, \
-                    empty_output_count: {empty_output_count}, total: {len(outputs)},\
-                        non_majority ratio: {non_majority_output_count / len(outputs)}")
+            majority_output = output_counter.most_common(1)[0][0]
+            majority_output_count = 0
+            # use check_same_output to involve some tolerance
+            for output in outputs:
+                if check_same_output(majority_output.split(), output.split()):
+                    majority_output_count += 1
+            if majority_output_count < len(correct_solution_file_names) * 0.95:
                 invalid_input_file_names.append(input_file_name)
 
     while len(invalid_input_file_names) > 0 and any((input_dir / invalid_input_file_name).exists() for invalid_input_file_name in invalid_input_file_names):
@@ -232,6 +232,8 @@ def check_consistency_of_gen_tests_output(
             # write_output=True
             test_args.append(("consistency_check", correct_solution_file, Language.JAVA, experiment_input_dir, solution_output_dir, time_limit, True, correct_solution_file_names, Path(temp_output_dir)))
 
+        assert not early_stop, "early_stop is not longer supported for check_consistency_of_gen_tests_output"
+
         max_workers = max(1, int(0.5 * os.cpu_count()))
         with Pool(processes=max_workers) as pool:
             if early_stop:
@@ -377,7 +379,7 @@ def create_test_generator_with_retry(
                         solution_dir,
                         run_time_limit,
                         correct_solution_file_names,
-                        early_stop=True,
+                        early_stop=False,
                     )
 
                     if len(inconsistent_input_file_names) > 0:
