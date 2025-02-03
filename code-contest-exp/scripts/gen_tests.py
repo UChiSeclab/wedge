@@ -514,8 +514,8 @@ def main(
             check_consistency=check_consistency,
             max_retry=max_retry,
         ):
-            print(f"[Error] Failed to generate enough valid tests for {problem_id}")
-            record_failing_problem(problem_id, experiment_name, "Failed to generate enough valid tests")
+            print(f"[Error] Generated zero valid tests for {problem_id}")
+            record_failing_problem(problem_id, experiment_name, "Generated zero valid tests")
 
 if __name__ == "__main__":
     Fire(main)
