@@ -82,6 +82,12 @@ def problem_test_gen_failed(problem_id: str, experiment_name: str):
     data = json.load(open(gen_tests_failing_problem_record, "r"))
     return problem_id in data and experiment_name in data[problem_id]
 
+def get_problem_test_gen_fail_reason(problem_id: str, experiment_name: str) -> str:
+    gen_tests_failing_problem_record = config["gen_tests_failing_problem_record"]
+    if not os.path.exists(gen_tests_failing_problem_record):
+        return None
+    data = json.load(open(gen_tests_failing_problem_record, "r"))
+    return data[problem_id][experiment_name]["reason"]
 
 def problem_has_failed_test_gen(problem_id: str):
     gen_tests_failing_problem_record = config["gen_tests_failing_problem_record"]

@@ -15,7 +15,7 @@ import sys
 
 from common import Language
 from config import config
-from utils import get_cf_problems, filter_problems, problem_test_gen_failed
+from utils import get_cf_problems, filter_problems, problem_test_gen_failed, get_problem_test_gen_fail_reason
 from cgig.cgig_utils import problem_has_extracted_constraint
 from selector.select_solution import select_evaluate_subset_all
 
@@ -415,8 +415,8 @@ def main(
         if experiment_name == "alphacode":
             experiment_dir = problem_dir
         else:
-            if problem_test_gen_failed(problem_id, experiment_name):
-                print(f"[INFO] Test generation failed for {experiment_name} of {problem_id}, skipping.")
+            if problem_test_gen_failed(problem_id, experiment_name) and get_problem_test_gen_fail_reason(problem_id, experiment_name) == "No available validator":
+                print(f"[INFO] Test generation failed for {experiment_name} of {problem_id} due to no available validator, skipping.")
                 continue
             experiment_dir = problem_dir / experiment_name
             Path(result_root_dir / experiment_name).mkdir(exist_ok=True, parents=True)
