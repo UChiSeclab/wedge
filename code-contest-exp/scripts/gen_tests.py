@@ -441,7 +441,7 @@ def create_test_generator_with_retry(
 
     # return (len(os.listdir(experiment_input_dir)) >= config["num_tests"] / 2 and \
     #     (not run_tests or len(os.listdir(experiment_output_dir)) >= num_gen_tests / 2))
-    return True
+    return len(os.listdir(experiment_input_dir)) > 0
 
 def main(
     experiment_name: str = config["experiment_name"],

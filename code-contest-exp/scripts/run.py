@@ -441,7 +441,8 @@ def main(
         input_dir = experiment_dir / "input"
 
         if not input_dir.exists() or len(os.listdir(input_dir)) == 0:
-            raise FileNotFoundError(f"[ERROR]input_dir: {input_dir} does not exist or is empty.")
+            print(f"[WARNING]input_dir: {input_dir} does not exist or is empty.")
+            continue
 
         output_dir = experiment_dir / "output"
         assert output_dir.exists() and len(os.listdir(output_dir)) > 0, f"[ERROR] output_dir: {output_dir} does not exist or is empty."
