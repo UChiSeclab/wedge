@@ -93,10 +93,10 @@ def run_solution_one_input(solution_file: Path, input_file: Path, gt_output_file
 
     return script_profile_file, line_profiler_profile_file, mem_profiler_profile_file, instruction_cnt_profile_file, correctness
 
-def run_solution_multi_inputs(solution_file: Path, input_file_list: List[Path], gt_output_file_list: List[Path], solution_work_dir: Path, timeout: int = 10, early_stop: bool = True, include_instruction_cnt: bool = False) -> Tuple[Path, Path, Path, Path, bool]:
+def run_solution_multi_inputs(solution_file: Path, input_file_list: List[Path], gt_output_file_list: List[Path], solution_profile_dir: Path, timeout: int = 10, early_stop: bool = True, include_instruction_cnt: bool = False) -> Tuple[Path, Path, Path, Path, bool]:
     """run the solution with multiple inputs and collect correctness and performance statistics."""
 
-    decorated_solution_file = solution_work_dir / f"{solution_file.stem}_line_decorated.py"
+    decorated_solution_file = solution_profile_dir / f"{solution_file.stem}_line_decorated.py"
     add_line_profiler_decorator_to_python_file(solution_file, decorated_solution_file)
 
     script_profile_files = []
@@ -106,7 +106,7 @@ def run_solution_multi_inputs(solution_file: Path, input_file_list: List[Path], 
     correctness_list = []
 
     for input_file, gt_output_file in zip(input_file_list, gt_output_file_list):
-        work_dir = solution_work_dir / input_file.stem
+        work_dir = solution_profile_dir / input_file.stem
         script_profile_file, line_profiler_profile_file, mem_profiler_profile_file, instruction_cnt_profile_file, correctness = run_solution_one_input(solution_file, input_file, gt_output_file, work_dir, timeout, early_stop, include_instruction_cnt)
 
         if early_stop and not correctness:
@@ -121,9 +121,9 @@ def run_solution_multi_inputs(solution_file: Path, input_file_list: List[Path], 
 
     # merge the performance statistics
     merged_script_stats = merge_script_profiles(script_profile_files)
-    merged_line_profile_file = solution_work_dir / f"{solution_file.stem}_merge_line_profile.txt"
+    merged_line_profile_file = solution_profile_dir / f"{solution_file.stem}_merge_line_profile.txt"
     merge_line_profiles(line_profiler_profile_files, merged_line_profile_file)
-    merged_mem_profile_file = solution_work_dir / f"{solution_file.stem}_merge_mem_profile.txt"
+    merged_mem_profile_file = solution_profile_dir / f"{solution_file.stem}_merge_mem_profile.txt"
     merge_mem_profiles(mem_profiler_profile_files, merged_mem_profile_file)
     merged_instruction_cnt = merge_instruction_cnt_profiles(instruction_cnt_profile_files)
 
@@ -154,6 +154,7 @@ if __name__ == '__main__':
     # adhoc test case
     root_dir = config["root_dir"]
     solution_file = Path(f"{root_dir}/code-contest-exp/problems/8_B/solutions/python3/solutions_0004.py")
+    # the below two lines are buggy
     input_file_list = Path(f"{root_dir}/code-contest-exp/problems/8_B/time_contrast/input").glob("*.in")
     gt_output_file_list = Path(f"{root_dir}/code-contest-exp/problems/8_B/time_contrast/output").glob("*.out")
     # make sure all input files have corresponding output files, otherwise the input will be discarded

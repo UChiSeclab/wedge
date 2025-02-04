@@ -7,7 +7,7 @@ import openai
 
 from gpt_caller import API_KEY
 from config import config
-from utils import get_cf_problems, filter_problems, problem_test_gen_failed
+from utils import get_cf_problems, filter_problems, get_problem_test_gen_fail_reason, problem_test_gen_failed
 from selector.select_input import select_slowest_input_files
 from evaluate.usefulness.prompt_exp.prompt_utils import openai_prompt_one, hf_prompt_one
 from evaluate.usefulness.prompt_exp.code_correctness_perf import run_solution_multi_inputs, generate_overhead_report
@@ -62,11 +62,11 @@ def get_input_output_pairs(problem: Dict, strategy: str) -> List[Tuple[Path, Pat
 
     return input_output_pairs
 
-def edit_one_solution(backend, model, edit_tokenizer, client, checkpoint, task_description, test_case, ori_solution, overhead_prompt, response_file, prompt_file, new_solution_file, include_test_case=False, num_samples=1):
-    prompt = prompt_construction(task_description, test_case, ori_solution, overhead_prompt, include_test_case)
+def edit_one_solution(backend, model, edit_tokenizer, client, checkpoint, task_description, test_case, ori_solution_code, overhead_prompt, response_file, prompt_file, new_solution_file, include_test_case=False, num_samples=1):
+    prompt = prompt_construction(task_description, test_case, ori_solution_code, overhead_prompt, include_test_case)
     prompt_file.write_text(prompt)
     if backend == "hf":
-        responses = hf_prompt_one(prompt, model, tokenizer, num_samples=num_samples)
+        responses = hf_prompt_one(prompt, model, edit_tokenizer, num_samples=num_samples)
     elif backend == "openai":
         responses = openai_prompt_one(prompt, client, checkpoint, num_samples=num_samples)
     else:
@@ -95,34 +95,34 @@ def edit_solutions(problem: Dict, input_set: str, input_selection_type: str, sol
 
     ori_solution_dir = Path(config["effi_learner_dir"]) / "initial_code_generation" / problem_id / solution_model_name
     new_solution_dir = Path(config["effi_learner_dir"]) / "optimized_code_generation" / f"{input_set}_{input_selection_type}" / problem_id / solution_model_name
-    solution_profile_dir = Path(config["effi_learner_dir"]) / "initial_solution_profile" / f"{input_set}_{input_selection_type}" / problem_id / solution_model_name
+    ori_solution_profile_root_dir = Path(config["effi_learner_dir"]) / "initial_solution_profile" / f"{input_set}_{input_selection_type}" / problem_id / solution_model_name
     assert ori_solution_dir.exists(), f"Original solution directory {ori_solution_dir} does not exist"
     new_solution_dir.mkdir(exist_ok=True, parents=True)
-    solution_files = sorted(ori_solution_dir.glob("*_extracted.py"))
+    ori_solution_files = sorted(ori_solution_dir.glob("*_extracted.py"))
 
     test_case = test_case_construction(input_output_pairs)
     input_file_list = [input_file for input_file, _ in input_output_pairs]
     gt_output_file_list = [output_file for _, output_file in input_output_pairs]
 
-    for solution_file in solution_files:
-        ori_solution = solution_file.read_text()
-        new_solution_file = new_solution_dir / f"{solution_file.stem}_edited.py"
-        solution_work_dir = solution_profile_dir / solution_file.stem
-        solution_work_dir.mkdir(exist_ok=True, parents=True)
-        response_file = solution_work_dir / f"{solution_file.stem}_response.txt"
-        prompt_file = solution_work_dir / f"{solution_file.stem}_prompt.txt"
+    for ori_solution_file in ori_solution_files:
+        ori_solution_code = ori_solution_file.read_text()
+        new_solution_file = new_solution_dir / f"{ori_solution_file.stem}_edited.py"
+        ori_solution_profile_dir = ori_solution_profile_root_dir / ori_solution_file.stem
+        ori_solution_profile_dir.mkdir(exist_ok=True, parents=True)
+        response_file = ori_solution_profile_dir / f"{ori_solution_file.stem}_response.txt"
+        prompt_file = ori_solution_profile_dir / f"{ori_solution_file.stem}_prompt.txt"
         if response_file.exists() and response_file.stat().st_size > 0:
-            print(f"Editing solution {solution_file.absolute()} already exists. Skipping optimization.")
+            print(f"Editing solution {ori_solution_file.absolute()} already exists. Skipping optimization.")
             continue
-        merged_script_stats, merged_line_profile_file, merged_mem_profile_file, merged_instruction_cnt, correctness = run_solution_multi_inputs(solution_file, input_file_list, gt_output_file_list, solution_work_dir)
+        merged_script_stats, merged_line_profile_file, merged_mem_profile_file, merged_instruction_cnt, correctness = run_solution_multi_inputs(ori_solution_file, input_file_list, gt_output_file_list, ori_solution_profile_dir)
         if correctness:
             overhead_prompt = generate_overhead_report(merged_script_stats, merged_line_profile_file, merged_mem_profile_file, merged_instruction_cnt)
             prompt_file.write_text(overhead_prompt)
-            edit_one_solution(backend, edit_model, edit_tokenizer, client, checkpoint, task_description, test_case, ori_solution, overhead_prompt, response_file, prompt_file, new_solution_file)
+            edit_one_solution(backend, edit_model, edit_tokenizer, client, checkpoint, task_description, test_case, ori_solution_code, overhead_prompt, response_file, prompt_file, new_solution_file)
         else:
             overhead_prompt = "The code execution failed."
             prompt_file.write_text(overhead_prompt)
-            print(f"Solution {solution_file.stem} failed the correctness test. Skipping optimization.")
+            print(f"Solution {ori_solution_file.stem} failed the correctness test. Skipping optimization.")
 
 if __name__ == "__main__":
     args = argparse.ArgumentParser()
@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
     if backend == "hf":
         edit_model = AutoModelForCausalLM.from_pretrained(checkpoint,device_map = "auto",trust_remote_code=True,torch_dtype=torch.float16)
-        tokenizer = AutoTokenizer.from_pretrained(checkpoint,trust_remote_code=True)
+        edit_tokenizer = AutoTokenizer.from_pretrained(checkpoint,trust_remote_code=True)
         client = None
     elif backend == "openai":
         edit_model = None
@@ -162,7 +162,7 @@ if __name__ == "__main__":
 
     for problem in filtered_problems:
         problem_id = problem["name"].split(".")[0]
-        if problem_test_gen_failed(problem_id, input_set):
+        if problem_test_gen_failed(problem_id, input_set) and get_problem_test_gen_fail_reason(problem_id, input_set) in ["No available validator", "Generated zero valid tests"]:
             print(f"[INFO] Test generation failed for {input_set} of {problem_id}, skipping.")
             continue
         edit_solutions(problem, input_set, input_selection_type, end_name, backend, edit_model, edit_tokenizer, client, checkpoint, num_samples=num_samples)
