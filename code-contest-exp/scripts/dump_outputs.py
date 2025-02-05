@@ -3,19 +3,14 @@ from pathlib import Path
 import shutil
 import subprocess
 from fire import Fire
-from typing import Dict
+from typing import Dict, List
+from multiprocessing import Process, cpu_count
 
 from config import config
 from utils import get_alphacode_result, filter_problems, get_cf_problems
 from common import Language
 from gen_tests import record_gen_tests_output, check_consistency_of_gen_tests_output
 from cgig.cgig_utils import problem_has_extracted_constraint
-
-"""
-This script is used for strategies where the outputs are not available in test
-generation, so we rely on this script to conduct consistency check and produce
-the outputs, e.g., fuzzing related strategies.
-"""
 
 
 def process_problem(problem: Dict, strategy: str):
@@ -24,7 +19,7 @@ def process_problem(problem: Dict, strategy: str):
     problem_dir = Path(config["problem_root_dir"]) / problem_id
     input_dir = problem_dir / strategy / "input"
     output_dir = problem_dir / strategy / "output"
-    solution_dir = problem_dir / "solutions" / str(Language.JAVA) # only use Java solutions for now
+    solution_dir = problem_dir / "solutions" / str(Language.JAVA)  # only use Java solutions for now
     num_ori_inputs = len(list(input_dir.glob("*.in")))
     if not input_dir.exists() or num_ori_inputs == 0:
         # raise ValueError(f"No inputs found for problem {problem_id}")
@@ -57,28 +52,44 @@ def process_problem(problem: Dict, strategy: str):
 
     print(f"[INFO] number of inconsistent_input_file_names: {len(inconsistent_input_file_names)} out of {num_ori_inputs} will be removed")
 
-    if len(inconsistent_input_file_names) > 0:
-        # remove input files that lead to inconsistent output in different solutions
-        [Path(input_dir / inconsistent_input_file_name).unlink() for inconsistent_input_file_name in inconsistent_input_file_names if (input_dir / inconsistent_input_file_name).exists()]
+    if inconsistent_input_file_names:
+        for inconsistent_input_file_name in inconsistent_input_file_names:
+            file_path = input_dir / inconsistent_input_file_name
+            if file_path.exists():
+                file_path.unlink()
 
     for input_file_name, majority_output in solution_major_output_dict.items():
         with open(output_dir / f"{input_file_name[:-3]}.out", "w") as f:
             f.write(majority_output)
 
-def main(
-    strategy: str,
-    problem_with_extracted_constraint_only: bool = False,
-):
+def main(strategy: str, problem_with_extracted_constraint_only: bool = False):
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
     )
+
     if problem_with_extracted_constraint_only:
         filtered_problems = [
             problem for problem in filtered_problems
             if problem_has_extracted_constraint(problem["name"].split(".")[0])
         ]
+
+    max_processes = min(int(0.25 * cpu_count()), len(filtered_problems))  # Limit number of processes
+    processes = []
+
     for problem in filtered_problems:
-        process_problem(problem, strategy)
+        p = Process(target=process_problem, args=(problem, strategy))
+        p.start()
+        processes.append(p)
+
+        if len(processes) >= max_processes:
+            for p in processes:
+                p.join()  # Wait for all processes to finish before launching new ones
+            processes = []
+
+    # Ensure all remaining processes complete
+    for p in processes:
+        p.join()
+
 
 if __name__ == "__main__":
     Fire(main)
