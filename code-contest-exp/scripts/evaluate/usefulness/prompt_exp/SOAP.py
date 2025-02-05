@@ -45,8 +45,8 @@ def test_case_construction(input_output_pairs: List[Tuple[Path, Path]]) -> str:
         test_case += f"Input {i+1}:\n{input_file.read_text()}\nOutput {i+1}:\n{output_file.read_text()}\n\n"
     return test_case
 
-def get_input_output_pairs(problem: Dict, strategy: str) -> List[Tuple[Path, Path]]:
-    problem_dir = Path(config["problem_root_dir"]) / problem["name"].split(".")[0]
+def get_input_output_pairs(problem_id: str, strategy: str, input_selection_type: str) -> List[Tuple[Path, Path]]:
+    problem_dir = Path(config["problem_root_dir"]) / problem_id
     if strategy == "alphacode":
         input_dir = problem_dir / "input"
         output_dir = problem_dir / "output"
@@ -59,6 +59,14 @@ def get_input_output_pairs(problem: Dict, strategy: str) -> List[Tuple[Path, Pat
         output_file = output_dir / f"{input_file.stem}.out"
         if output_file.exists():
             input_output_pairs.append((input_file, output_file))
+
+    if input_selection_type == "slow_5":
+        slow_input_files = select_slowest_input_files(problem_id, strategy, top_k=5)
+        input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if input_file in slow_input_files]
+        if len(input_output_pairs) < 5:
+            print(f"[Warning] Only {len(input_output_pairs)} input-output pairs found for problem {problem_id}.")
+    else:
+        raise NotImplementedError(f"Input selection type {input_selection_type} not supported")
 
     return input_output_pairs
 
@@ -81,17 +89,9 @@ def edit_solutions(problem: Dict, input_set: str, input_selection_type: str, sol
     task_description = problem["description"]
     problem_id = problem["name"].split(".")[0]
     if input_set in ["alphacode", "plain_problem", "feedback_multi_solution_diff_input", "evalperf_slow_solution", "evalperf_random_solution", "feedback_diff_solution"]:
-        input_output_pairs = get_input_output_pairs(problem, input_set)
+        input_output_pairs = get_input_output_pairs(problem_id, input_set, input_selection_type)
     else:
         raise NotImplementedError(f"Input set type {input_set} not supported")
-
-    if input_selection_type == "slow_5":
-        slow_input_files = select_slowest_input_files(problem_id, input_set, top_k=5)
-        input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if input_file in slow_input_files]
-        if len(input_output_pairs) < 5:
-            print(f"[Warning] Only {len(input_output_pairs)} input-output pairs found for problem {problem_id}.")
-    else:
-        raise NotImplementedError(f"Input selection type {input_selection_type} not supported")
 
     ori_solution_dir = Path(config["effi_learner_dir"]) / "initial_code_generation" / problem_id / solution_model_name
     new_solution_dir = Path(config["effi_learner_dir"]) / "optimized_code_generation" / f"{input_set}_{input_selection_type}" / problem_id / solution_model_name

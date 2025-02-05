@@ -33,9 +33,14 @@ def mem_profiler_solution(solution_file: Path, input_file: Path, work_dir: Path,
     decorated_solution_file = work_dir / f"{solution_file.stem}_mem_decorated.py"
     add_mem_profiler_decorator_to_python_file(solution_file, decorated_solution_file)
     profile_file.unlink(missing_ok=True)
-    command = ["timeout", str(timeout)]
-    command.extend(["python", "-m", "memory_profiler", "-o", profile_file.name, decorated_solution_file.name])
-    subprocess.run(command, cwd=work_dir, stdin=input_file.open('r'))
+
+    command = ["python", "-m", "memory_profiler", "-o", profile_file.name, decorated_solution_file.name]
+    try:
+        # execute the solution and catch potential timeout errors
+        subprocess.run(command, cwd=work_dir, stdin=input_file.open('r'), timeout=timeout)
+    except subprocess.TimeoutExpired:
+        print(f"Timeout expired for {decorated_solution_file}")
+        profile_file.write_text("Timeout expired")
 
 def instruction_cnt_solution(solution_file: Path, input_file: Path, work_dir: Path, profile_file: Path, timeout: int = 10, record_perf: bool = False) -> Path:
     """run the solution and count the number of instructions."""
@@ -74,13 +79,20 @@ def run_solution_one_input(solution_file: Path, input_file: Path, gt_output_file
     script_profile_file = work_dir / f"{solution_file.stem}_script_profile.txt"
     line_profiler_profile_file = work_dir / f"{solution_file.stem}_line_decorated.lprof"
     mem_profiler_profile_file = work_dir / f"{solution_file.stem}_mem_decorated_mprof.txt"
-    
-    if all([script_profile_file.exists(), line_profiler_profile_file.exists(), mem_profiler_profile_file.exists()]) \
-        and (not include_instruction_cnt or instruction_cnt_profile_file.exists()):
+
+    assert early_stop, "non early stop is not supported yet"
+
+    if include_instruction_cnt:
+        if not instruction_cnt_profile_file.exists():
+            output_file = instruction_cnt_solution(work_dir_solution_file, input_file, work_dir, instruction_cnt_profile_file, timeout=timeout, record_perf=include_instruction_cnt)
+            correctness = check_output_correctness(output_file, gt_output_file)
+    if all([script_profile_file.exists(), line_profiler_profile_file.exists(), mem_profiler_profile_file.exists(), instruction_cnt_profile_file.exists()]):
         # skip the solution if all the performance statistics are already collected
         return script_profile_file, line_profiler_profile_file, mem_profiler_profile_file, instruction_cnt_profile_file, True
 
-    output_file = instruction_cnt_solution(work_dir_solution_file, input_file, work_dir, instruction_cnt_profile_file, timeout=timeout, record_perf=include_instruction_cnt)
+    output_file = work_dir / "output.txt"
+    if not output_file.exists():
+        output_file = instruction_cnt_solution(work_dir_solution_file, input_file, work_dir, instruction_cnt_profile_file, timeout=timeout, record_perf=include_instruction_cnt)
     correctness = check_output_correctness(output_file, gt_output_file)
     print("correctness", correctness)
     if early_stop:
