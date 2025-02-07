@@ -21,7 +21,7 @@ def profile_solutions(solution_profile_dir: Path, solution_files: List[Path], in
             include_instruction_cnt=include_instruction_cnt
         )
 
-        profile_stats[solution_file.stem.replace("_edited", "")] = {
+        profile_stats[solution_file.stem.replace("_edited", "").replace("_optimized", "")] = {
             "merged_script_stats": merged_script_stats,
             "merged_line_profile_file": merged_line_profile_file.as_posix() if merged_line_profile_file else "None",
             "merged_mem_profile_file": merged_mem_profile_file.as_posix() if merged_mem_profile_file else "None",

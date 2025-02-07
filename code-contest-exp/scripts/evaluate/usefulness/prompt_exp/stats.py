@@ -98,6 +98,8 @@ def get_correct_problem_solution_from_profile_stats(profile_stats_all_problems: 
     problem_solution_to_evaluate = {}
     for problem_id, profile_stats in profile_stats_all_problems.items():
         correct_solutions = [solution_file_id for solution_file_id, profile_stat in profile_stats.items() if profile_stat["correctness"] == "correct"]
+        # sort by solution index
+        correct_solutions = sorted(correct_solutions, key=lambda x: int(x.split("_")[-1]))
         problem_solution_to_evaluate[problem_id] = correct_solutions
 
     # remove problems with no correct solutions

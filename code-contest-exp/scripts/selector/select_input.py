@@ -143,3 +143,11 @@ def select_slowest_input_files(problem_id: str, strategy: str, top_k: int=5) -> 
     input_files = [input_dir / f"{input_name}" for input_name in top_k_slowest_inputs]
 
     return input_files
+
+def select_public_input_files(problem_id: str, top_k: int=5) -> List[Path]:
+    input_dir = Path(config["problem_root_dir"]) / problem_id / "input"
+    input_files = sorted(input_dir.glob("public_tests_*.in"))[:top_k]
+    if len(input_files) < top_k:
+        print(f"[Warning] Only {len(input_files)} public input files found for problem {problem_id}.")
+
+    return input_files

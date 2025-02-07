@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Dict, List
 import json
+from fire import Fire
 
 from config import config
 from evaluate.usefulness.prompt_exp.stats import get_correct_problem_solution_from_profile_stats
@@ -25,6 +26,9 @@ def calculate_improvement(problem_solution_dict: Dict, ori_profile_stats: Dict, 
                 "instruction_cnt_ratio": (ori_stats["merged_instruction_cnt"] - optimized_stats["merged_instruction_cnt"]) / ori_stats["merged_instruction_cnt"]
             }
 
+    # sort by problem_id
+    improvement_stats = dict(sorted(improvement_stats.items(), key=lambda x: x[0]))
+
     return improvement_stats
 
 def calculate_avg_improvement(improvement_stats: Dict) -> Dict:
@@ -38,23 +42,26 @@ def calculate_avg_improvement(improvement_stats: Dict) -> Dict:
         avg_improvement_stats[key] = sum(avg_improvement_stats[key]) / len(avg_improvement_stats[key])
     return avg_improvement_stats
 
-def main():
-    # Load the original profile stats
-    ori_profile_stats = json.load(open("ori_profile_stats.json", "r"))
+def main(
+    input_set: str,
+    input_selection_type: str,
+    model_name: str,
+):
+    ori_profile_stats_file = Path(config["effi_learner_dir"]) / f"ori_human_profile_stats_{input_set}_{input_selection_type}.json"
+    optimized_profile_stats_file = Path(config["effi_learner_dir"]) / f"optimized_human_profile_stats_{input_set}_{input_selection_type}_{model_name}.json"
+    improvement_stats_file = Path(config["effi_learner_dir"]) / f"improvement_stats_{input_set}_{input_selection_type}_{model_name}.json"
 
-    # Load the optimized profile stats
-    optimized_profile_stats = json.load(open("optimized_profile_stats.json", "r"))
+    ori_profile_stats = json.load(open(ori_profile_stats_file, "r"))
+    optimized_profile_stats = json.load(open(optimized_profile_stats_file, "r"))
 
     problem_solution_dict = get_correct_problem_solution_from_profile_stats(optimized_profile_stats)
     # Calculate the improvement stats
     improvement_stats = calculate_improvement(problem_solution_dict, ori_profile_stats, optimized_profile_stats)
 
     # dump the improvement stats
-    with open("improvement_stats.json", "w") as f:
+    with open(improvement_stats_file, "w") as f:
         json.dump(improvement_stats, f, indent=4)
 
-    # Calculate the average improvement stats
-    del improvement_stats["546_C#solution_17_extracted"]
     avg_improvement_stats = calculate_avg_improvement(improvement_stats)
 
     # Print the average improvement stats
@@ -71,4 +78,4 @@ def main():
         print(f"optimized solution path: {Path(config['effi_learner_dir']) / 'optimized_code_generation' / 'alphacode_slow_5' / problem_id / 'gpt-4o' / f'{solution_id}_edited.py'}")
 
 if __name__ == "__main__":
-    main()
+    Fire(main)

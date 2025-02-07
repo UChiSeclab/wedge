@@ -8,7 +8,7 @@ import openai
 from gpt_caller import API_KEY
 from config import config
 from utils import get_cf_problems, filter_problems, get_problem_test_gen_fail_reason, problem_test_gen_failed
-from selector.select_input import select_slowest_input_files
+from selector.select_input import select_slowest_input_files, select_public_input_files
 from evaluate.usefulness.prompt_exp.prompt_utils import openai_prompt_one, hf_prompt_one
 from evaluate.usefulness.prompt_exp.code_correctness_perf import run_solution_multi_inputs, generate_overhead_report
 
@@ -65,6 +65,10 @@ def get_input_output_pairs(problem_id: str, strategy: str, input_selection_type:
         input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if input_file in slow_input_files]
         if len(input_output_pairs) < 5:
             print(f"[Warning] Only {len(input_output_pairs)} input-output pairs found for problem {problem_id}.")
+    elif input_selection_type == "public_5":
+        assert strategy == "alphacode", f"Public input selection only supported for alphacode strategy, not {strategy}"
+        slow_input_files = select_public_input_files(problem_id, top_k=5)
+        input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if input_file in slow_input_files]
     else:
         raise NotImplementedError(f"Input selection type {input_selection_type} not supported")
 

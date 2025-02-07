@@ -8,7 +8,7 @@ import linecache
 from collections import defaultdict
 import subprocess
 
-from run import parse_instruction_count
+from run import parse_instruction_count_with_retry
 from evaluate.usefulness.prompt_exp.calculate_memory_usage import calculate_memory_usage, calculate_runtime, report_max_memory_usage
 
 def merge_line_profiles(profile_files: List[Path], output_file: Path):
@@ -156,7 +156,7 @@ def merge_mem_profiles(profile_files: List[Path], output_file: Path, precision: 
 def merge_instruction_cnt_profiles(profile_files: List[Path]) -> int:
     total_instructions = 0
     for file in profile_files:
-        total_instructions += parse_instruction_count(file)
+        total_instructions += parse_instruction_count_with_retry(file)
     return total_instructions
 
 def merge_script_profiles(profile_files: List[Path]) -> Dict[str, str]:

@@ -83,7 +83,7 @@ def run_solution_one_input(solution_file: Path, input_file: Path, gt_output_file
     assert early_stop, "non early stop is not supported yet"
 
     if include_instruction_cnt:
-        if not instruction_cnt_profile_file.exists():
+        if not instruction_cnt_profile_file.exists() or instruction_cnt_profile_file.stat().st_size == 0:
             output_file = instruction_cnt_solution(work_dir_solution_file, input_file, work_dir, instruction_cnt_profile_file, timeout=timeout, record_perf=include_instruction_cnt)
             correctness = check_output_correctness(output_file, gt_output_file)
     if all([script_profile_file.exists(), line_profiler_profile_file.exists(), mem_profiler_profile_file.exists(), instruction_cnt_profile_file.exists()]):
