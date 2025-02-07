@@ -46,17 +46,19 @@ def get_correctness_stats(problem_id: str, input_set: str, input_selection_type:
     """
     Get the statistics of the initial code generation
     """
+    raise NotImplementedError("This function is not used in the current context")
     solution_dir = solution_root_dir / problem_id / solution_model_name
-    solution_profile_par_dir = solution_profile_root_dir / f"{input_set}_{input_selection_type}" / problem_id / solution_model_name
+    # solution_profile_par_dir = solution_profile_root_dir / f"{input_set}_{input_selection_type}" / problem_id / solution_model_name
     assert solution_dir.exists(), f"Original solution directory {solution_dir} does not exist"
     solution_files = sorted(solution_dir.glob("*_extracted.py"))
 
     correctness_stats = {}
 
     for solution_file in solution_files:
-        solution_profile_dir = solution_profile_par_dir / solution_file.stem
-        solution_profile_dir.mkdir(exist_ok=True, parents=True)
-        prompt_file = solution_profile_dir / f"{solution_file.stem}_prompt.txt"
+        # solution_profile_dir = solution_profile_par_dir / solution_file.stem
+        # solution_profile_dir.mkdir(exist_ok=True, parents=True)
+        # prompt_file = solution_profile_dir / f"{solution_file.stem}_prompt.txt"
+        prompt_file = solution_dir / f"{solution_file.stem}_prompt.txt"
 
         if prompt_file.exists() and prompt_file.read_text() == "The code execution failed.":
             correctness = "incorrect"
@@ -166,7 +168,7 @@ if __name__ == "__main__":
 
     print(ori_profile_stats_all_problems)
     print(optimized_profile_stats_all_problems)
-    
+
     # correct solutions (optimized codegen) to evaluate
     correct_optimized_problem_solution = get_correct_problem_solution_from_profile_stats(optimized_profile_stats_all_problems)
     print(f"correct_optimized_problem_solution:")

@@ -96,6 +96,10 @@ def problem_has_failed_test_gen(problem_id: str):
     data = json.load(open(gen_tests_failing_problem_record, "r"))
     return problem_id in data
 
+def run_result_exists(problem_id: str, experiment_name: str):
+    result_path = Path(config["result_root_dir"]) / experiment_name / f"{problem_id}.json"
+    return result_path.exists()
+
 def mean(lst):
     return sum(lst) / len(lst)
 

@@ -4,7 +4,7 @@ from typing import Dict, List
 from fire import Fire
 
 from config import config
-from utils import get_cf_problems, filter_problems, problem_to_id
+from utils import get_cf_problems, filter_problems, problem_to_id, run_result_exists
 from evaluate.usefulness.prompt_exp.SOAP import get_input_output_pairs, test_case_construction
 from evaluate.usefulness.prompt_exp.profile_utils import profile_solutions
 from evaluate.usefulness.prompt_exp.code_correctness_perf import run_solution_multi_inputs
@@ -31,6 +31,9 @@ def main(
 
     for problem in filtered_problems:
         problem_id = problem_to_id(problem)
+        if not run_result_exists(problem_id, input_set):
+            print(f"[INFO] Run result does not exist for {input_set} of {problem_id}, skipping.")
+            continue
 
         ori_solution_dir = ORI_SOLUTIONS_DIR / problem_id
         ori_solution_files = sorted(ori_solution_dir.glob("*.py"))
@@ -40,7 +43,7 @@ def main(
         ori_solution_profile_dir = ORI_SOLUTION_PROFILE_DIR / f"{input_set}_{input_selection_type}" / problem_id
         optimized_solution_profile_dir = OPTIMIZED_SOLUTION_PROFILE_DIR / f"{input_set}_{input_selection_type}" / problem_id / model_name
 
-        if input_set in ["alphacode", "plain_problem", "evalperf_slow_solution", "evalperf_random_solution"]:
+        if input_set in ["alphacode", "plain_problem", "evalperf_slow_solution", "evalperf_random_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]:
             input_output_pairs = get_input_output_pairs(problem_id, input_set, input_selection_type)
         else:
             raise NotImplementedError(f"Input set type {input_set} not supported")
@@ -55,7 +58,7 @@ def main(
 
     print(ori_profile_stats_all_problems)
     print(optimized_profile_stats_all_problems)
-    
+
     # correct solutions (optimized codegen) to evaluate
     correct_optimized_problem_solution = get_correct_problem_solution_from_profile_stats(optimized_profile_stats_all_problems)
     print(f"correct_optimized_problem_solution:")

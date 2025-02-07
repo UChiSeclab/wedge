@@ -8,11 +8,9 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from gpt_caller import API_KEY
 from config import config
 from common import Language
-from utils import get_cf_problems, filter_problems, get_problem_test_gen_fail_reason, problem_test_gen_failed, problem_to_id
-from selector.select_input import select_slowest_input_files
+from utils import get_cf_problems, filter_problems, get_problem_test_gen_fail_reason, problem_test_gen_failed, problem_to_id, run_result_exists
 from selector.select_solution import select_evaluate_subset_solutions_lang_set_type
-from evaluate.usefulness.prompt_exp.SOAP import prompt_construction, test_case_construction, get_input_output_pairs, edit_one_solution
-from evaluate.usefulness.prompt_exp.prompt_utils import openai_prompt_one, hf_prompt_one
+from evaluate.usefulness.prompt_exp.SOAP import test_case_construction, get_input_output_pairs, edit_one_solution
 from evaluate.usefulness.prompt_exp.code_correctness_perf import run_solution_multi_inputs, generate_overhead_report
 
 
@@ -38,7 +36,7 @@ def dump_ori_solutions(problem_list: List[Dict]):
 def edit_human_solutions(problem: Dict, input_set: str, input_selection_type: str, model_name: str, backend, edit_model, edit_tokenizer, client, checkpoint, use_profile_info:bool=True, num_samples=20):
     task_description = problem["description"]
     problem_id = problem_to_id(problem)
-    if input_set in ["alphacode", "plain_problem", "evalperf_slow_solution", "evalperf_random_solution"]:
+    if input_set in ["alphacode", "plain_problem", "evalperf_slow_solution", "evalperf_random_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]:
         input_output_pairs = get_input_output_pairs(problem_id, input_set, input_selection_type)
     else:
         raise NotImplementedError(f"Input set type {input_set} not supported")
@@ -105,9 +103,12 @@ def main(
     dump_ori_solutions(filtered_problems)
 
     for problem in filtered_problems:
-        problem_id = problem["name"].split(".")[0]
+        problem_id = problem_to_id(problem)
         if problem_test_gen_failed(problem_id, input_set) and get_problem_test_gen_fail_reason(problem_id, input_set) in ["No available validator", "Generated zero valid tests"]:
             print(f"[INFO] Test generation failed for {input_set} of {problem_id}, skipping.")
+            continue
+        if not run_result_exists(problem_id, input_set):
+            print(f"[INFO] Run result does not exist for {input_set} of {problem_id}, skipping.")
             continue
         edit_human_solutions(problem, input_set, input_selection_type, end_name, backend, edit_model, edit_tokenizer, client, checkpoint, num_samples=1)
 
