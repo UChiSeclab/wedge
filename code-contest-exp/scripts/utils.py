@@ -242,3 +242,33 @@ def get_instruction_cnt(experiment_result: Dict, solution_id: str, input_id: str
     instruction_cnt_list = instruction_cnt_dict[input_id]
 
     return mean(instruction_cnt_list)
+
+def check_same_output(output_A: List[str], output_B: List[str]) -> bool:
+    if output_A == output_B:
+        return True
+    if len(output_A) != len(output_B):
+        return False
+    for idx, Ai in enumerate(output_A):
+        Bi = output_B[idx]
+
+        if Ai == Bi \
+            or (Ai.lower() == "yes" and Bi.lower() == "yes") \
+            or (Ai.lower() == "no" and Bi.lower() == "no"):
+            continue
+        try:
+            Ai_int = int(Ai)
+            Bi_int = int(Bi)
+            if Ai_int == Bi_int or abs(Ai_int - Bi_int) == pow(2, 32):
+                continue
+        except ValueError:
+            pass
+
+        try:
+            Ai_float = float(Ai)
+            Bi_float = float(Bi)
+            if abs(Ai_float - Bi_float) > 1e-5:
+                return False
+        except ValueError:
+            if Ai != Bi:
+                return False
+    return True

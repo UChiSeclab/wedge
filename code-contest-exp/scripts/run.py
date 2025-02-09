@@ -11,11 +11,10 @@ from fire import Fire
 from tqdm import tqdm
 import tempdir
 from typing import List, Dict, Literal
-import sys
 
 from common import Language
 from config import config
-from utils import get_cf_problems, filter_problems, problem_test_gen_failed, get_problem_test_gen_fail_reason
+from utils import get_cf_problems, filter_problems, problem_test_gen_failed, get_problem_test_gen_fail_reason, check_same_output
 from cgig.cgig_utils import problem_has_extracted_constraint
 from selector.select_solution import select_evaluate_subset_all
 
@@ -100,38 +99,6 @@ def compile_solution(tmp_dir: Path, solution_code: str, language: Language):
         return "solution.py"
 
     return "Judge Error"
-
-
-def check_same_output(output_A: List[str], output_B: List[str]) -> bool:
-    if output_A == output_B:
-        return True
-    if len(output_A) != len(output_B):
-        return False
-    for idx, Ai in enumerate(output_A):
-        Bi = output_B[idx]
-
-        if Ai == Bi \
-            or (Ai.lower() == "yes" and Bi.lower() == "yes") \
-            or (Ai.lower() == "no" and Bi.lower() == "no"):
-            continue
-        try:
-            Ai_int = int(Ai)
-            Bi_int = int(Bi)
-            if Ai_int == Bi_int or abs(Ai_int - Bi_int) == pow(2, 32):
-                continue
-        except ValueError:
-            pass
-
-        try:
-            Ai_float = float(Ai)
-            Bi_float = float(Bi)
-            if abs(Ai_float - Bi_float) > 1e-5:
-                return False
-        except ValueError:
-            if Ai != Bi:
-                return False
-    return True
-
 
 def run_solution(
     experiment_name: str,
@@ -340,24 +307,6 @@ def run_solution_wrapper(args):
     """Wrapper function to unpack arguments."""
     return run_solution(*args)
 
-
-def input_sanitization(input_dir: Path, output_dir: Path):
-    """Remove invalid input files that do not have corresponding output files."""
-    """This function looks redundant since we had same operation in gen_tests.py"""
-    invalid_input_files = []
-    for input_test in os.listdir(input_dir):
-        output_path = output_dir / f"{input_test[:-3]}.out"
-        if not os.path.isfile(output_path):
-            invalid_input_files.append(input_test)
-
-    for invalid_input_file in invalid_input_files:
-        print(
-            f"[WARNING] input file {invalid_input_file} does not have corresponding output file. The input likely runs into problems."
-        )
-        print(f"[WARNING] Removing invalid input file: {invalid_input_file}")
-        os.remove(input_dir / invalid_input_file)
-
-
 def main(
     experiment_name: str = config["experiment_name"],
     problem_root_dir: str = config["problem_root_dir"],
@@ -454,7 +403,6 @@ def main(
 
         print(problem["name"])
         print(f"# of tests: {len(os.listdir(input_dir))}")
-        # input_sanitization(input_dir, output_dir) # note: was not enabled when running corpus
         test_args = []
         sol_type = "solutions"
         if solution_set_type == "three_groups":

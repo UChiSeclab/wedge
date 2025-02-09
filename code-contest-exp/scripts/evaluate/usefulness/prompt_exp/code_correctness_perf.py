@@ -5,7 +5,7 @@ import multiprocessing
 import shutil
 
 from config import config
-from run import check_same_output
+from utils import check_same_output
 from evaluate.usefulness.prompt_exp.decorate import add_line_profiler_decorator_to_python_file, add_mem_profiler_decorator_to_python_file
 from evaluate.usefulness.prompt_exp.merge_stats import merge_instruction_cnt_profiles, merge_mem_profiles, merge_line_profiles, merge_script_profiles
 

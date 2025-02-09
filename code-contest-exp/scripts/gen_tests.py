@@ -13,10 +13,10 @@ import time
 from common import Language
 from config import config
 from utils import get_cf_problems, filter_problems, get_alphacode_result, \
-    record_failing_problem
+    record_failing_problem, check_same_output
 from cgig.cgig_utils import problem_has_extracted_constraint
 from gpt_caller import write_test_generator
-from run import run_solution, check_same_output
+from run import run_solution
 from selector.select_solution import select_solutions
 from prompt import PromptTemplate
 from evalperf_driver import sample_inputs
