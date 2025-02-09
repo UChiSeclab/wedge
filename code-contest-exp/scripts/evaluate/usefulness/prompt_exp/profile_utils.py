@@ -1,32 +1,88 @@
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Tuple
+import multiprocessing
 
 from evaluate.usefulness.prompt_exp.SOAP import run_solution_multi_inputs
+from selector.select_input import select_slowest_input_files, select_public_input_files
+from config import config
 
+def process_solution(q, args):
+    solution_file, solution_profile_dir, input_file_list, gt_output_file_list, timeout, early_stop, include_instruction_cnt = args
+
+    work_dir = solution_profile_dir / solution_file.stem
+    work_dir.mkdir(exist_ok=True, parents=True)
+
+    merged_script_stats, merged_line_profile_file, merged_mem_profile_file, merged_instruction_cnt, correctness = run_solution_multi_inputs(
+        solution_file,
+        input_file_list,
+        gt_output_file_list,
+        work_dir,
+        timeout=timeout,
+        early_stop=early_stop,
+        include_instruction_cnt=include_instruction_cnt
+    )
+
+    result = (solution_file.stem.replace("_edited", "").replace("_optimized", ""), {
+        "merged_script_stats": merged_script_stats,
+        "merged_line_profile_file": merged_line_profile_file.as_posix() if merged_line_profile_file else "None",
+        "merged_mem_profile_file": merged_mem_profile_file.as_posix() if merged_mem_profile_file else "None",
+        "merged_instruction_cnt": merged_instruction_cnt,
+        "correctness": "correct" if correctness else "incorrect"
+    })
+    q.put(result)  # Store result in queue
 
 def profile_solutions(solution_profile_dir: Path, solution_files: List[Path], input_file_list: List[Path], gt_output_file_list: List[Path], timeout: int = 10, early_stop: bool = True, include_instruction_cnt: bool = False) -> Dict:
-    """profile the edited solutions with multiple inputs and collect correctness and performance statistics."""
+    """Profile the edited solutions with multiple inputs and collect correctness and performance statistics using multiprocessing."""
     profile_stats = {}
 
-    for solution_file in solution_files:
-        work_dir = solution_profile_dir / solution_file.stem
-        work_dir.mkdir(exist_ok=True, parents=True)
-        merged_script_stats, merged_line_profile_file, merged_mem_profile_file, merged_instruction_cnt, correctness = run_solution_multi_inputs(
-            solution_file,
-            input_file_list,
-            gt_output_file_list,
-            work_dir,
-            timeout=timeout,
-            early_stop=early_stop,
-            include_instruction_cnt=include_instruction_cnt
-        )
+    args_list = [(solution_file, solution_profile_dir, input_file_list, gt_output_file_list, timeout, early_stop, include_instruction_cnt) for solution_file in solution_files]
 
-        profile_stats[solution_file.stem.replace("_edited", "").replace("_optimized", "")] = {
-            "merged_script_stats": merged_script_stats,
-            "merged_line_profile_file": merged_line_profile_file.as_posix() if merged_line_profile_file else "None",
-            "merged_mem_profile_file": merged_mem_profile_file.as_posix() if merged_mem_profile_file else "None",
-            "merged_instruction_cnt": merged_instruction_cnt,
-            "correctness": "correct" if correctness else "incorrect"
-        }
+    q = multiprocessing.Queue()
+    processes = []
+
+    for args in args_list:
+        p = multiprocessing.Process(target=process_solution, args=(q, args))
+        p.daemon = False  # Ensure process is non-daemonic
+        p.start()
+        processes.append(p)
+
+    results = [q.get() for _ in processes]
+
+    for p in processes:
+        p.join()
+
+    profile_stats = dict(results)
 
     return profile_stats
+
+def get_input_output_pairs(problem_id: str, strategy: str, input_selection_type: str) -> List[Tuple[Path, Path]]:
+    problem_dir = Path(config["problem_root_dir"]) / problem_id
+    if strategy == "alphacode":
+        input_dir = problem_dir / "input"
+        output_dir = problem_dir / "output"
+    else:
+        input_dir = problem_dir / strategy / "input"
+        output_dir = problem_dir / strategy / "output"
+    input_files = sorted(input_dir.glob("*.in"))
+    input_output_pairs = []
+    for input_file in input_files:
+        output_file = output_dir / f"{input_file.stem}.out"
+        if output_file.exists():
+            input_output_pairs.append((input_file, output_file))
+
+    if input_selection_type == "slow_5":
+        slow_input_files = select_slowest_input_files(problem_id, strategy, top_k=5)
+        input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if input_file in slow_input_files]
+        if len(input_output_pairs) < 5:
+            print(f"[Warning] Only {len(input_output_pairs)} input-output pairs found for problem {problem_id}.")
+    elif input_selection_type == "public_5":
+        assert strategy == "alphacode", f"Public input selection only supported for alphacode strategy, not {strategy}"
+        slow_input_files = select_public_input_files(problem_id, top_k=5)
+        input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if input_file in slow_input_files]
+    elif input_selection_type == "all":
+        # include public and private tests, exclude generated tests
+        input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if "generated" not in input_file.stem]
+    else:
+        raise NotImplementedError(f"Input selection type {input_selection_type} not supported")
+
+    return input_output_pairs

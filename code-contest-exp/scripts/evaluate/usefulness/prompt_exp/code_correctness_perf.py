@@ -1,6 +1,7 @@
 from typing import List, Dict, Tuple
 from pathlib import Path
 import subprocess
+import multiprocessing
 import shutil
 
 from config import config
@@ -25,7 +26,7 @@ def line_profiler_solution(solution_file: Path, input_file: Path, work_dir: Path
     decorated_solution_file = work_dir / f"{solution_file.stem}_line_decorated.py"
     add_line_profiler_decorator_to_python_file(solution_file, decorated_solution_file)
     command = ["timeout", str(timeout)]
-    command.extend(["kernprof", "-l", "-o", profile_file.name, decorated_solution_file.name])
+    command.extend(["kernprof", "-l", "-o", profile_file.absolute().as_posix(), decorated_solution_file.name])
     subprocess.run(command, cwd=work_dir, stdin=input_file.open('r'))
 
 def mem_profiler_solution(solution_file: Path, input_file: Path, work_dir: Path, profile_file: Path, timeout: int = 10):
@@ -34,7 +35,7 @@ def mem_profiler_solution(solution_file: Path, input_file: Path, work_dir: Path,
     add_mem_profiler_decorator_to_python_file(solution_file, decorated_solution_file)
     profile_file.unlink(missing_ok=True)
 
-    command = ["python", "-m", "memory_profiler", "-o", profile_file.name, decorated_solution_file.name]
+    command = ["python", "-m", "memory_profiler", "-o", profile_file.absolute().as_posix(), decorated_solution_file.name]
     try:
         # execute the solution and catch potential timeout errors
         subprocess.run(command, cwd=work_dir, stdin=input_file.open('r'), timeout=timeout)
@@ -46,7 +47,7 @@ def instruction_cnt_solution(solution_file: Path, input_file: Path, work_dir: Pa
     """run the solution and count the number of instructions."""
     command = ["timeout", str(timeout)]
     if record_perf:
-        command.extend(["perf", "stat", "-e", "instructions:u", "-x", "<PERF_SEP>", "-o", profile_file.name])
+        command.extend(["perf", "stat", "-e", "instructions:u", "-x", "<PERF_SEP>", "-o", profile_file.absolute().as_posix()])
     command.extend(["python", solution_file.name])
     output_file = work_dir / "output.txt"
     try:
@@ -105,31 +106,48 @@ def run_solution_one_input(solution_file: Path, input_file: Path, gt_output_file
 
     return script_profile_file, line_profiler_profile_file, mem_profiler_profile_file, instruction_cnt_profile_file, correctness
 
+def run_solution_one_input_parallel(q, args):
+    """Worker function that processes a single input and puts result in queue."""
+    result = run_solution_one_input(*args)
+    q.put(result)
+
 def run_solution_multi_inputs(solution_file: Path, input_file_list: List[Path], gt_output_file_list: List[Path], solution_profile_dir: Path, timeout: int = 10, early_stop: bool = True, include_instruction_cnt: bool = False) -> Tuple[Path, Path, Path, Path, bool]:
     """run the solution with multiple inputs and collect correctness and performance statistics."""
 
     decorated_solution_file = solution_profile_dir / f"{solution_file.stem}_line_decorated.py"
     add_line_profiler_decorator_to_python_file(solution_file, decorated_solution_file)
 
-    script_profile_files = []
-    line_profiler_profile_files = []
-    mem_profiler_profile_files = []
-    instruction_cnt_profile_files = []
-    correctness_list = []
+    args_list = [(solution_file, input_file, gt_output_file, solution_profile_dir / input_file.stem, timeout, early_stop, include_instruction_cnt) for input_file, gt_output_file in zip(input_file_list, gt_output_file_list)]
 
-    for input_file, gt_output_file in zip(input_file_list, gt_output_file_list):
-        work_dir = solution_profile_dir / input_file.stem
-        script_profile_file, line_profiler_profile_file, mem_profiler_profile_file, instruction_cnt_profile_file, correctness = run_solution_one_input(solution_file, input_file, gt_output_file, work_dir, timeout, early_stop, include_instruction_cnt)
+    max_workers = min(5, multiprocessing.cpu_count())  # Limit to 5 workers max
+    q = multiprocessing.Queue()
+    processes = []
+    results = []
 
-        if early_stop and not correctness:
-            return None, None, None, None, False        
+    for args in args_list:
+        if len(processes) >= max_workers:  # Limit concurrent processes
+            processes[0].join()
+            processes.pop(0)
 
-        script_profile_files.append(script_profile_file)
-        line_profiler_profile_files.append(line_profiler_profile_file)
-        mem_profiler_profile_files.append(mem_profiler_profile_file)
-        if include_instruction_cnt:
-            instruction_cnt_profile_files.append(instruction_cnt_profile_file)
-        correctness_list.append(correctness)
+        p = multiprocessing.Process(target=run_solution_one_input_parallel, args=(q, args))
+        p.daemon = False  # Explicitly set daemon to False
+        p.start()
+        processes.append(p)
+
+    # Collect results
+    for _ in range(len(processes)):
+        results.append(q.get())
+
+    for p in processes:
+        p.join()
+
+    if not results:  # Ensure no empty zip() error
+        return None, None, None, None, False
+
+    script_profile_files, line_profiler_profile_files, mem_profiler_profile_files, instruction_cnt_profile_files, correctness_list = zip(*results)
+
+    if early_stop and not all(correctness_list):
+        return None, None, None, None, False    
 
     # merge the performance statistics
     merged_script_stats = merge_script_profiles(script_profile_files)
@@ -137,7 +155,10 @@ def run_solution_multi_inputs(solution_file: Path, input_file_list: List[Path], 
     merge_line_profiles(line_profiler_profile_files, merged_line_profile_file)
     merged_mem_profile_file = solution_profile_dir / f"{solution_file.stem}_merge_mem_profile.txt"
     merge_mem_profiles(mem_profiler_profile_files, merged_mem_profile_file)
-    merged_instruction_cnt = merge_instruction_cnt_profiles(instruction_cnt_profile_files)
+    if include_instruction_cnt:
+        merged_instruction_cnt = merge_instruction_cnt_profiles(instruction_cnt_profile_files)
+    else:
+        merged_instruction_cnt = None
 
     # check the correctness
     correctness = all(correctness_list)
