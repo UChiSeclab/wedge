@@ -3,8 +3,7 @@ import json
 from typing import Dict, List
 
 from config import config
-from evaluate.usefulness.prompt_exp.SOAP import get_input_output_pairs
-from evaluate.usefulness.prompt_exp.profile_utils import profile_solutions
+from evaluate.usefulness.prompt_exp.profile_utils import profile_solutions, get_input_output_pairs
 
 def get_pass_k_raw_stats(all_problems_correctness_stats: Dict, k_list: List[int]) -> float:
     """
@@ -93,16 +92,20 @@ def get_problem_solution_to_evaluate(problem_id_list: List[str], all_problems_co
 
     return problem_solution_to_evaluate
 
-def get_correct_problem_solution_from_profile_stats(profile_stats_all_problems: Dict):
+def get_correct_problem_solution_from_profile_stats(ori_profile_stats_all_problems: Dict, optimized_profile_stats_all_problems: Dict):
     """
     Get the problem and correct solutions from profile stats
     """
     problem_solution_to_evaluate = {}
-    for problem_id, profile_stats in profile_stats_all_problems.items():
-        correct_solutions = [solution_file_id for solution_file_id, profile_stat in profile_stats.items() if profile_stat["correctness"] == "correct"]
+    for problem_id, profile_stats in optimized_profile_stats_all_problems.items():
+        if not problem_id in ori_profile_stats_all_problems:
+            continue
+        correct_optimized_solutions = [solution_file_id for solution_file_id, profile_stat in profile_stats.items() if profile_stat["correctness"] == "correct"]
         # sort by solution index
-        correct_solutions = sorted(correct_solutions, key=lambda x: int(x.split("_")[-1]))
-        problem_solution_to_evaluate[problem_id] = correct_solutions
+        correct_ori_solutions = [solution_file_id for solution_file_id, profile_stat in ori_profile_stats_all_problems[problem_id].items() if profile_stat["correctness"] == "correct"]
+        correct_overlapped_solutions = list(set(correct_optimized_solutions) & set(correct_ori_solutions))
+        correct_overlapped_solutions = sorted(correct_overlapped_solutions, key=lambda x: int(x.split("_")[-1]))
+        problem_solution_to_evaluate[problem_id] = correct_overlapped_solutions
 
     # remove problems with no correct solutions
     problem_solution_to_evaluate = {problem_id: correct_solutions for problem_id, correct_solutions in problem_solution_to_evaluate.items() if len(correct_solutions) > 0}
@@ -170,7 +173,7 @@ if __name__ == "__main__":
     print(optimized_profile_stats_all_problems)
 
     # correct solutions (optimized codegen) to evaluate
-    correct_optimized_problem_solution = get_correct_problem_solution_from_profile_stats(optimized_profile_stats_all_problems)
+    correct_optimized_problem_solution = get_correct_problem_solution_from_profile_stats(ori_profile_stats_all_problems, optimized_profile_stats_all_problems)
     print(f"correct_optimized_problem_solution:")
     print(correct_optimized_problem_solution)
 

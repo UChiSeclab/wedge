@@ -47,14 +47,14 @@ def main(
     input_selection_type: str,
     model_name: str,
 ):
-    ori_profile_stats_file = Path(config["effi_learner_dir"]) / f"ori_human_profile_stats_{input_set}_{input_selection_type}.json"
+    ori_profile_stats_file = Path(config["effi_learner_dir"]) / f"ori_human_profile_stats.json"
     optimized_profile_stats_file = Path(config["effi_learner_dir"]) / f"optimized_human_profile_stats_{input_set}_{input_selection_type}_{model_name}.json"
     improvement_stats_file = Path(config["effi_learner_dir"]) / f"improvement_stats_{input_set}_{input_selection_type}_{model_name}.json"
 
     ori_profile_stats = json.load(open(ori_profile_stats_file, "r"))
     optimized_profile_stats = json.load(open(optimized_profile_stats_file, "r"))
 
-    problem_solution_dict = get_correct_problem_solution_from_profile_stats(optimized_profile_stats)
+    problem_solution_dict = get_correct_problem_solution_from_profile_stats(ori_profile_stats, optimized_profile_stats)
     # Calculate the improvement stats
     improvement_stats = calculate_improvement(problem_solution_dict, ori_profile_stats, optimized_profile_stats)
 
