@@ -4,8 +4,7 @@ from fire import Fire
 
 from config import config
 from utils import get_cf_problems, filter_problems, problem_to_id, run_result_exists
-from evaluate.usefulness.prompt_exp.profile_utils import get_input_output_pairs
-from evaluate.usefulness.prompt_exp.profile_utils import profile_solutions
+from evaluate.usefulness.prompt_exp.profile_utils import profile_solutions, get_input_output_pairs
 from evaluate.usefulness.prompt_exp.stats import get_correct_problem_solution_from_profile_stats, get_subset_profile_stats
 
 ORI_SOLUTIONS_DIR = Path(config["effi_learner_dir"]) / "ori_human_solutions"
@@ -14,7 +13,7 @@ OPTIMIZED_SOLUTIONS_DIR = Path(config["effi_learner_dir"]) / "optimized_human_so
 OPTIMIZED_SOLUTION_PROFILE_EVAL_DIR = Path(config["effi_learner_dir"]) / "optimized_human_solution_profile_eval"
 
 EVAL_INPUT_SET = "alphacode"
-EVAL_INPUT_SELECTION_TYPE = "all"
+EVAL_INPUT_SELECTION_TYPE = "public_private_10"
 
 def main(
     input_set: str,

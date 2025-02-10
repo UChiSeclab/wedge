@@ -82,6 +82,15 @@ def get_input_output_pairs(problem_id: str, strategy: str, input_selection_type:
     elif input_selection_type == "all":
         # include public and private tests, exclude generated tests
         input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if "generated" not in input_file.stem]
+    elif input_selection_type == "public_private_10":
+        input_dir = Path(config["problem_root_dir"]) / problem_id / "input"
+        input_files = sorted(input_dir.glob("public_tests_*.in"), key=lambda x: int(x.stem.split("_")[-1]))[:10]
+        if len(input_files) < 10:
+            private_input_files = sorted(input_dir.glob("private_tests_*.in"), key=lambda x: int(x.stem.split("_")[-1]))[:10-len(input_files)]
+            input_files += private_input_files
+        if len(input_files) < 10:
+            print(f"[Warning] Only {len(input_files)} public and private input files found for problem {problem_id}.")
+        input_output_pairs = [(input_file, output_dir / f"{input_file.stem}.out") for input_file in input_files]
     else:
         raise NotImplementedError(f"Input selection type {input_selection_type} not supported")
 
