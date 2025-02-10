@@ -55,42 +55,50 @@ def profile_and_make_prompt_for_solution(q, ori_solution_file: Path, new_solutio
 
     q.put((ori_solution_file.stem, correctness))  # Store result in queue
 
-def edit_human_solutions(problem: Dict, input_set: str, input_selection_type: str, model_name: str, backend, edit_model, edit_tokenizer, client, checkpoint, use_profile_info: bool = True, num_samples=20):
+def edit_human_solutions(problem: Dict, input_set: str, input_selection_type: str, model_name: str, backend, edit_model, edit_tokenizer, client, checkpoint,):
     """Edit human solutions using multiprocessing."""
     ori_solution_files = sorted((ORI_SOLUTIONS_DIR / problem_to_id(problem)).glob("*.py"))
     new_solution_dir = OPTIMIZED_SOLUTIONS_DIR / f"{input_set}_{input_selection_type}" / problem_to_id(problem) / model_name
     ori_solution_profile_root_dir = ORI_SOLUTION_PROFILE_DIR / f"{input_set}_{input_selection_type}" / problem_to_id(problem)
     new_solution_dir.mkdir(exist_ok=True, parents=True)
+    input_output_pairs = []
 
-    input_output_pairs = get_input_output_pairs(problem_to_id(problem), input_set, input_selection_type)
-    input_file_list = [input_file for input_file, _ in input_output_pairs]
-    gt_output_file_list = [output_file for _, output_file in input_output_pairs]
+    # profiling
+    if not (input_set == "alphacode" and input_selection_type == "none"):
+        input_output_pairs = get_input_output_pairs(problem_to_id(problem), input_set, input_selection_type)
+        input_file_list = [input_file for input_file, _ in input_output_pairs]
+        gt_output_file_list = [output_file for _, output_file in input_output_pairs]
 
-    q = multiprocessing.Queue()
-    processes = []
+        q = multiprocessing.Queue()
+        processes = []
 
+        for ori_solution_file in ori_solution_files:
+            p = multiprocessing.Process(target=profile_and_make_prompt_for_solution, args=(q, ori_solution_file, new_solution_dir, ori_solution_profile_root_dir / ori_solution_file.stem, input_file_list, gt_output_file_list))
+            p.daemon = False  # Ensure process is non-daemonic
+            p.start()
+            processes.append(p)
+
+        results = [q.get() for _ in processes]
+
+        for p in processes:
+            p.join()
+
+    # prompting for optimization
     for ori_solution_file in ori_solution_files:
-        p = multiprocessing.Process(target=profile_and_make_prompt_for_solution, args=(q, ori_solution_file, new_solution_dir, ori_solution_profile_root_dir / ori_solution_file.stem, input_file_list, gt_output_file_list))
-        p.daemon = False  # Ensure process is non-daemonic
-        p.start()
-        processes.append(p)
-
-    results = [q.get() for _ in processes]
-
-    for p in processes:
-        p.join()
-
-    for ori_solution_file in ori_solution_files:
-        prompt_file = new_solution_dir / f"{ori_solution_file.stem}_prompt.txt"
+        overhead_prompt_file = new_solution_dir / f"{ori_solution_file.stem}_prompt.txt"
+        full_prompt_file = new_solution_dir / f"{ori_solution_file.stem}_full_prompt.txt"
         response_file = new_solution_dir / f"{ori_solution_file.stem}_response.txt"
         if response_file.exists() and response_file.stat().st_size > 0:
             print(f"Response file {response_file} exists. Skipping optimization.")
             continue
 
-        overhead_prompt = prompt_file.read_text()
+        if not (input_set == "alphacode" and input_selection_type == "none"):
+            overhead_prompt = overhead_prompt_file.read_text()
+        else:
+            overhead_prompt = ""
         ori_solution_code = ori_solution_file.read_text()
         new_solution_file = new_solution_dir / f"{ori_solution_file.stem}_optimized.py"
-        edit_one_solution(backend, edit_model, edit_tokenizer, client, checkpoint, problem["description"], test_case_construction(input_output_pairs), ori_solution_code, overhead_prompt, response_file, prompt_file, new_solution_file)
+        edit_one_solution(backend, edit_model, edit_tokenizer, client, checkpoint, problem["description"], test_case_construction(input_output_pairs), ori_solution_code, overhead_prompt, response_file, full_prompt_file, new_solution_file)
 
 def main(
     checkpoint: str,
@@ -129,7 +137,7 @@ def main(
         if not run_result_exists(problem_id, input_set):
             print(f"[INFO] Run result does not exist for {input_set} of {problem_id}, skipping.")
             continue
-        edit_human_solutions(problem, input_set, input_selection_type, end_name, backend, edit_model, edit_tokenizer, client, checkpoint, num_samples=1)
+        edit_human_solutions(problem, input_set, input_selection_type, end_name, backend, edit_model, edit_tokenizer, client, checkpoint)
 
 if __name__ == "__main__":
     Fire(main)

@@ -91,6 +91,8 @@ def get_input_output_pairs(problem_id: str, strategy: str, input_selection_type:
         if len(input_files) < 10:
             print(f"[Warning] Only {len(input_files)} public and private input files found for problem {problem_id}.")
         input_output_pairs = [(input_file, output_dir / f"{input_file.stem}.out") for input_file in input_files]
+    elif input_selection_type == "none":
+        input_output_pairs = []
     else:
         raise NotImplementedError(f"Input selection type {input_selection_type} not supported")
 
