@@ -10,7 +10,6 @@ from config import config
 from utils import get_cf_problems, filter_problems, get_problem_test_gen_fail_reason, problem_test_gen_failed
 from selector.select_input import select_slowest_input_files, select_public_input_files
 from evaluate.usefulness.prompt_exp.prompt_utils import openai_prompt_one, hf_prompt_one
-from evaluate.usefulness.prompt_exp.profile_utils import get_input_output_pairs
 from evaluate.usefulness.prompt_exp.code_correctness_perf import run_solution_multi_inputs, generate_overhead_report
 
 from evalplus.sanitize import code_extract
@@ -99,6 +98,38 @@ def edit_solutions(problem: Dict, input_set: str, input_selection_type: str, sol
             overhead_prompt = "The code execution failed."
             prompt_file.write_text(overhead_prompt)
             print(f"Solution {ori_solution_file.stem} failed the correctness test. Skipping optimization.")
+
+def get_input_output_pairs(problem_id: str, strategy: str, input_selection_type: str) -> List[Tuple[Path, Path]]:
+    problem_dir = Path(config["problem_root_dir"]) / problem_id
+    if strategy == "alphacode":
+        input_dir = problem_dir / "input"
+        output_dir = problem_dir / "output"
+    else:
+        input_dir = problem_dir / strategy / "input"
+        output_dir = problem_dir / strategy / "output"
+    input_files = sorted(input_dir.glob("*.in"))
+    input_output_pairs = []
+    for input_file in input_files:
+        output_file = output_dir / f"{input_file.stem}.out"
+        if output_file.exists():
+            input_output_pairs.append((input_file, output_file))
+
+    if input_selection_type == "slow_5":
+        slow_input_files = select_slowest_input_files(problem_id, strategy, top_k=5)
+        input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if input_file in slow_input_files]
+        if len(input_output_pairs) < 5:
+            print(f"[Warning] Only {len(input_output_pairs)} input-output pairs found for problem {problem_id}.")
+    elif input_selection_type == "public_5":
+        assert strategy == "alphacode", f"Public input selection only supported for alphacode strategy, not {strategy}"
+        slow_input_files = select_public_input_files(problem_id, top_k=5)
+        input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if input_file in slow_input_files]
+    elif input_selection_type == "all":
+        # include public and private tests, exclude generated tests
+        input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if "generated" not in input_file.stem]
+    else:
+        raise NotImplementedError(f"Input selection type {input_selection_type} not supported")
+
+    return input_output_pairs
 
 if __name__ == "__main__":
     args = argparse.ArgumentParser()
