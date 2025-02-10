@@ -76,6 +76,10 @@ def run_solution_one_input(solution_file: Path, input_file: Path, gt_output_file
     work_dir_solution_file = work_dir / solution_file.name
     shutil.copy(solution_file, work_dir_solution_file)
 
+    exec_status_file = work_dir / "exec_status.txt"
+    if exec_status_file.exists() and exec_status_file.read_text() == "incorrect":
+        return None, None, None, None, False
+
     instruction_cnt_profile_file = work_dir / f"{solution_file.stem}.perf_stat"
     script_profile_file = work_dir / f"{solution_file.stem}_script_profile.txt"
     line_profiler_profile_file = work_dir / f"{solution_file.stem}_line_decorated.lprof"
@@ -86,24 +90,31 @@ def run_solution_one_input(solution_file: Path, input_file: Path, gt_output_file
     if include_instruction_cnt:
         if not instruction_cnt_profile_file.exists() or instruction_cnt_profile_file.stat().st_size == 0:
             output_file = instruction_cnt_solution(work_dir_solution_file, input_file, work_dir, instruction_cnt_profile_file, timeout=timeout, record_perf=include_instruction_cnt)
-            correctness = check_output_correctness(output_file, gt_output_file)
     if all([script_profile_file.exists(), line_profiler_profile_file.exists(), mem_profiler_profile_file.exists(), instruction_cnt_profile_file.exists()]):
         # skip the solution if all the performance statistics are already collected
+        exec_status_file.write_text("correct")
         return script_profile_file, line_profiler_profile_file, mem_profiler_profile_file, instruction_cnt_profile_file, True
 
     output_file = work_dir / "output.txt"
     if not output_file.exists():
         output_file = instruction_cnt_solution(work_dir_solution_file, input_file, work_dir, instruction_cnt_profile_file, timeout=timeout, record_perf=include_instruction_cnt)
-    correctness = check_output_correctness(output_file, gt_output_file)
-    print("correctness", correctness)
+    if not exec_status_file.exists() or exec_status_file.stat().st_size == 0:
+        correctness = check_output_correctness(output_file, gt_output_file)
+    else:
+        correctness = exec_status_file.read_text() == "correct"
     if early_stop:
         if not correctness:
+            exec_status_file.write_text("incorrect")
             return None, None, None, None, False
 
-    script_profiler_solution(work_dir_solution_file, input_file, work_dir, script_profile_file, timeout)
-    line_profiler_solution(work_dir_solution_file, input_file, work_dir, line_profiler_profile_file, timeout)
-    mem_profiler_solution(work_dir_solution_file, input_file, work_dir, mem_profiler_profile_file, timeout)
+    if not script_profile_file.exists() or script_profile_file.stat().st_size == 0:
+        script_profiler_solution(work_dir_solution_file, input_file, work_dir, script_profile_file, timeout)
+    if not line_profiler_profile_file.exists() or line_profiler_profile_file.stat().st_size == 0:
+        line_profiler_solution(work_dir_solution_file, input_file, work_dir, line_profiler_profile_file, timeout)
+    if not mem_profiler_profile_file.exists() or mem_profiler_profile_file.stat().st_size == 0:
+        mem_profiler_solution(work_dir_solution_file, input_file, work_dir, mem_profiler_profile_file, timeout)
 
+    exec_status_file.write_text("correct")
     return script_profile_file, line_profiler_profile_file, mem_profiler_profile_file, instruction_cnt_profile_file, correctness
 
 def run_solution_one_input_parallel(q, args):
@@ -113,6 +124,8 @@ def run_solution_one_input_parallel(q, args):
 
 def run_solution_multi_inputs(solution_file: Path, input_file_list: List[Path], gt_output_file_list: List[Path], solution_profile_dir: Path, timeout: int = 10, early_stop: bool = True, include_instruction_cnt: bool = False) -> Tuple[Path, Path, Path, Path, bool]:
     """run the solution with multiple inputs and collect correctness and performance statistics."""
+
+    print(f"profiling solution {solution_file} with {len(input_file_list)} inputs")
 
     decorated_solution_file = solution_profile_dir / f"{solution_file.stem}_line_decorated.py"
     add_line_profiler_decorator_to_python_file(solution_file, decorated_solution_file)
