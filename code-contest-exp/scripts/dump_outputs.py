@@ -1,15 +1,14 @@
 import os
 from pathlib import Path
-import shutil
-import subprocess
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from multiprocessing import cpu_count
 from fire import Fire
-from typing import Dict, List
-from multiprocessing import Process, cpu_count
+from typing import Dict
 
 from config import config
 from utils import get_alphacode_result, filter_problems, get_cf_problems
 from common import Language
-from gen_tests import record_gen_tests_output, check_consistency_of_gen_tests_output
+from gen_tests import check_consistency_of_gen_tests_output
 from cgig.cgig_utils import problem_has_extracted_constraint
 
 
@@ -73,23 +72,17 @@ def main(strategy: str, problem_with_extracted_constraint_only: bool = False):
             if problem_has_extracted_constraint(problem["name"].split(".")[0])
         ]
 
-    max_processes = min(int(0.25 * cpu_count()), len(filtered_problems))  # Limit number of processes
-    processes = []
+    max_workers = min(int(0.5 * cpu_count()), len(filtered_problems))  # Limit parallel workers
 
-    for problem in filtered_problems:
-        p = Process(target=process_problem, args=(problem, strategy))
-        p.start()
-        processes.append(p)
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        future_to_problem = {executor.submit(process_problem, problem, strategy): problem for problem in filtered_problems}
 
-        if len(processes) >= max_processes:
-            for p in processes:
-                p.join()  # Wait for all processes to finish before launching new ones
-            processes = []
-
-    # Ensure all remaining processes complete
-    for p in processes:
-        p.join()
-
+        for future in as_completed(future_to_problem):
+            try:
+                future.result()  # Handle any exceptions raised by the processes
+            except Exception as e:
+                problem_id = future_to_problem[future]["name"]
+                print(f"[Error] Processing problem {problem_id} failed with error: {e}")
 
 if __name__ == "__main__":
     Fire(main)
