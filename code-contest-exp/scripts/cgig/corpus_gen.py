@@ -14,12 +14,12 @@ from utils import filter_problems, get_cf_problems
 
 def main(
     fuzz_driver_mode: Literal["raw_fuzz", "instrument_fuzz"] = "raw_fuzz",
-    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator"] = "custom_mutator",
+    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator", "default_mutator"] = "custom_mutator",
     problem_with_extracted_constraint_only: bool = False,
     mutator_mode: str = "self_reflect_feedback",
     top_k_constraints: int = 1,
     num_fuzz_drivers: int = 1,
-    mutator_per_solution: bool = False, # per solution or per problem
+    mutator_per_solution: bool = True, # per solution or per problem
 ):
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
@@ -46,6 +46,9 @@ def main(
         assert top_k_constraints == num_fuzz_drivers, "num_fuzz_drivers should be the same with top_k_constraints for mutator_with_constraint"
     elif mutator_type == "custom_mutator":
         mutator_gen_root_dir = Path(config["custom_mutators_dir"])
+    elif mutator_type == "default_mutator":
+        mutator_gen_root_dir = None
+        assert fuzz_driver_mode == "raw_fuzz", "default_mutator only works with raw_fuzz"
     else:
         raise ValueError(f"Invalid mutator_type: {mutator_type}")
 
@@ -67,18 +70,23 @@ def main(
             if mutator_per_solution:
                 solution_and_input_pair_list = get_solution_and_input_pair_list_with_constraint(problem_id, top_k_constraints)
                 for solution_id, input_pair_id in solution_and_input_pair_list:
-                    mutator_dir = mutator_gen_root_dir / problem_id / solution_id
-                    mutator_gen_mode_dir = mutator_dir / mutator_mode
-                    seed_input_dir = mutator_dir / "seed_inputs"
-                    if not (mutator_gen_mode_dir / "MUTATOR_CHECK_PASS").exists():
-                        print(f"[Warning] {mutator_gen_mode_dir} does not have a good mutator. Skipping...")
-                        continue
+                    if mutator_type != "default_mutator":
+                        mutator_dir = mutator_gen_root_dir / problem_id / solution_id
+                        mutator_gen_mode_dir = mutator_dir / mutator_mode
+                        seed_input_dir = mutator_dir / "seed_inputs"
+                        if not (mutator_gen_mode_dir / "MUTATOR_CHECK_PASS").exists():
+                            print(f"[Warning] {mutator_gen_mode_dir} does not have a good mutator. Skipping...")
+                            continue
+                        custom_mutator_dir = (find_mutator_file(mutator_gen_mode_dir)).parent.absolute()
+                    else:
+                        custom_mutator_dir = None
+                        # adhoc hack
+                        seed_input_dir = Path(config["custom_mutators_dir"]) / "raw_fuzz" / problem_id / solution_id / "seed_inputs"
                     if fuzz_driver_mode == "instrument_fuzz":
                         fuzz_driver_file = mutator_dir / "fuzz_driver" / f"{solution_id}.cpp"
                     else:
                         fuzz_driver_file = Path(config["problem_root_dir"]) / problem_id / "solutions" / "cpp" / f"{solution_id}.cpp"
                     program_dir = corpus_dir / solution_id
-                    custom_mutator_dir = (find_mutator_file(mutator_gen_mode_dir)).parent.absolute()
 
                     task = executor.submit(
                         fuzz_one,
@@ -86,13 +94,14 @@ def main(
                         fuzz_driver_file,
                         seed_input_dir,
                         3600,  # timeout=3600s
-                        True, # use_custom_mutator=True,
+                        (mutator_type != "default_mutator"), # use_custom_mutator=True,
                         mutator_type, # mutator_type=mutator_type,
                         custom_mutator_dir, # custom_mutator_dir=custom_mutator_dir
                     )
                     tasks.append((problem_id, fuzz_driver_file, task))
             else:
                 # legacy code
+                raise NotImplementedError("Not implemented for mutator_per_solution=False")
                 mutator_dir = mutator_gen_root_dir / problem_id
                 mutator_gen_mode_dir = mutator_dir / mutator_mode
                 seed_input_dir = mutator_dir / "seed_inputs"
