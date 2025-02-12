@@ -8,7 +8,7 @@ from pathlib import Path
 from datasets import load_dataset
 import openai
 
-from gpt_caller import API_KEY
+from gpt_caller import OPENAI_API_KEY
 from config import config
 from utils import get_cf_problems, filter_problems
 from evaluate.usefulness.prompt_exp.prompt_utils import hf_prompt_one, openai_prompt_one
@@ -51,7 +51,7 @@ if __name__ == "__main__":
         model = None
         tokenizer = None
         client = openai.OpenAI(
-            api_key=API_KEY, base_url=None
+            api_key=OPENAI_API_KEY, base_url=None
         )
 
     for problem in filtered_problems:

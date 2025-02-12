@@ -5,7 +5,7 @@ from pathlib import Path
 import argparse
 import openai
 
-from gpt_caller import API_KEY
+from gpt_caller import OPENAI_API_KEY
 from config import config
 from utils import get_cf_problems, filter_problems, get_problem_test_gen_fail_reason, problem_test_gen_failed
 from selector.select_input import select_slowest_input_files, select_public_input_files
@@ -164,7 +164,7 @@ if __name__ == "__main__":
         edit_model = None
         edit_tokenizer = None
         client = openai.OpenAI(
-            api_key=API_KEY, base_url=None
+            api_key=OPENAI_API_KEY, base_url=None
         )
 
     for problem in filtered_problems:

@@ -20,8 +20,10 @@ from selector.select_input import (
 from input_validator_run import find_validator_files
 from cgig.cgig_utils import parse_constraints_content_from_response, get_product_cov
 
-API_KEY = "sk-proj-agKWhu46RVJSx5PbRea7T3BlbkFJB3jZFl9KGevQ0QC9vatB"
-
+OPENAI_API_KEY = "sk-proj-agKWhu46RVJSx5PbRea7T3BlbkFJB3jZFl9KGevQ0QC9vatB"
+# DS_API_KEY = "sk-LDtXrldnGmMG1AMO0l1pthGZln7hENPMGMomP5hAwJSauDhf" # this is actually a 3rd library API key
+DS_API_KEY = "sk-viJhjGQ9FiIBmqbI31kwUp7ZVipt13eM69hjvmbdbDu4b97O" # this is actually a 3rd library API key
+SILICON_FLOW_API_KEY = "sk-yxmiwoawubnvphyzphackpxtghhxfcmnglsqwuvcgrpaiuwg"
 
 def request(instruction: str) -> str:
     """Makes a request to gpt"""
@@ -42,7 +44,7 @@ def cut_string(input_string: str, begin_token="```python\n", end_token="```") ->
 
 # TODO: add require_tools parameter, which uses stream=True and if the response does not call a tool, stop and retry immediately: https://community.openai.com/t/interrupting-completion-stream-in-python/30628/9
 def request_conversation(msg_list:List[Dict], model='gpt-4o', tools=None, tool_choice="none", debugInfo=None, max_retry=5, temperature=0.8):
-    openaiClient = openai.OpenAI(api_key=API_KEY)
+    openaiClient = openai.OpenAI(api_key=OPENAI_API_KEY)
     while True:
         try:
             if tools is not None:

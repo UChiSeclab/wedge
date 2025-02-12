@@ -1,10 +1,9 @@
 from transformers import T5ForConditionalGeneration, AutoTokenizer,GPTNeoForCausalLM,AutoModelForCausalLM,AutoModel, AutoModelForSeq2SeqLM
 import torch
-from evalplus.provider import make_model
-from evalplus.gen.util.openai_request import make_request
 import openai
 from evalplus.gen.util import openai_request
 
+@DeprecationWarning
 def construct_prompt_template(inputs, model, tokenizer, num_samples=20):
     try:
         # Set tokenizer's padding token to eos_token for consistency
@@ -23,7 +22,7 @@ def construct_prompt_template(inputs, model, tokenizer, num_samples=20):
         # Generate sequences using the model
         sequences = model.generate(
             **input_tokens,
-            max_new_tokens=512,
+            max_new_tokens=4096,
             do_sample=True,
             num_return_sequences=num_samples
         )
@@ -59,17 +58,28 @@ def construct_prompt_template(inputs, model, tokenizer, num_samples=20):
 
     return grouped_texts # List of lists of generated texts for each input
 
-def hf_prompt_one(input, model, tokenizer, num_samples=20):
+def hf_prompt_one(input, model, tokenizer, num_samples=1):
     # Generate text prompts for a single input
-    return construct_prompt_template([input], model, tokenizer, num_samples=num_samples)[0]
+    input_ids = tokenizer(input, return_tensors="pt", padding=True, truncation=True).input_ids.to(model.device)
+    with torch.no_grad():
+        outputs = model.generate(
+            input_ids,
+            max_length=4096,
+            num_return_sequences=num_samples,
+            do_sample=True,
+            temperature=0.8,
+            pad_token_id=tokenizer.eos_token_id,
+        )
 
-def openai_prompt_one(input, client, checkpoint, num_samples=20):
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+def openai_prompt_one(input, client, checkpoint, num_samples=1):
     ret = openai_request.make_auto_request(
         client,
         message=input,
         model=checkpoint,
-        max_tokens=1024,
-        temperature=1.0,
+        max_tokens=4096,
+        temperature=0.8,
         n=num_samples,
     )
 
@@ -82,9 +92,9 @@ def openai_prompt_one(input, client, checkpoint, num_samples=20):
 if __name__ == '__main__':
     input = "Please complete the Python function that takes a list of integers as input and returns the sum of all the integers in the list. # Example:\nsum_list([1, 2, 3, 4, 5])\n# Output\n15"
     import openai
-    from gpt_caller import API_KEY
+    from gpt_caller import OPENAI_API_KEY
     client = openai.OpenAI(
-        api_key=API_KEY, base_url=None
+        api_key=OPENAI_API_KEY, base_url=None
     )
     outputs = openai_prompt_one(input, client, "gpt-4o", num_samples=1)
     print(outputs)

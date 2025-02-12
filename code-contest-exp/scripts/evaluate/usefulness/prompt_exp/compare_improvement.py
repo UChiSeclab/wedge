@@ -7,7 +7,7 @@ metrics = ["time_ratio", "total_mem_ratio", "max_mem_ratio", "instruction_cnt_ra
 def get_overlap_valid_problem_solution(improvement_dict_1: Dict[str, Dict[str, float]], improvement_dict_2: Dict[str, Dict[str, float]]) -> List[str]:
     overlap_problem_solution_id_list = list(set(improvement_dict_1.keys()) & set(improvement_dict_2.keys()))
     # discard problem_solution_id where the improvement is invalid, i.e., any metric improvement is <= -0.5
-    overlap_problem_solution_id_list = [problem_solution_id for problem_solution_id in overlap_problem_solution_id_list if all([improvement_dict_1[problem_solution_id][metric] > -0.5 for metric in metrics]) and all([improvement_dict_2[problem_solution_id][metric] > -0.5 for metric in metrics])]
+    # overlap_problem_solution_id_list = [problem_solution_id for problem_solution_id in overlap_problem_solution_id_list if all([improvement_dict_1[problem_solution_id][metric] > -0.5 for metric in metrics]) and all([improvement_dict_2[problem_solution_id][metric] > -0.5 for metric in metrics])]
 
     # sort by problem_id and solution_id
     overlap_problem_solution_id_list = sorted(overlap_problem_solution_id_list, key=lambda x: (int(x.split("#")[0].split("_")[0]), int(x.split("#")[1].split("_")[1])))
@@ -16,6 +16,7 @@ def get_overlap_valid_problem_solution(improvement_dict_1: Dict[str, Dict[str, f
 
 def compare_improvement(improvement_stats_1: Dict[str, Dict[str, float]], improvement_stats_2: Dict[str, Dict[str, float]]) -> Dict[str, Dict[str, float]]:
     overlap_problem_solution_id_list = get_overlap_valid_problem_solution(improvement_stats_1, improvement_stats_2)
+    print(f"Number of overlapping valid problem_solution_id: {len(overlap_problem_solution_id_list)}")
 
     improvement_diff = {}
     for problem_solution_id in overlap_problem_solution_id_list:
@@ -57,6 +58,9 @@ if __name__ == "__main__":
     improvement_stats_file_2 = sys.argv[2]
     improvement_stats_1 = json.load(open(improvement_stats_file_1, "r"))
     improvement_stats_2 = json.load(open(improvement_stats_file_2, "r"))
+
+    print()
+    print(f"Comparing {improvement_stats_file_1} and {improvement_stats_file_2}")
 
     improvement_diff = compare_improvement(improvement_stats_1, improvement_stats_2)
     avg_diff, improvement_2_better, improvement_1_better, avg_diff_2_better = summary_improvement_diff(improvement_diff)

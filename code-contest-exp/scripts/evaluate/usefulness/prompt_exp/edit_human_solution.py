@@ -6,7 +6,7 @@ import openai
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import multiprocessing
 
-from gpt_caller import API_KEY
+from gpt_caller import OPENAI_API_KEY, SILICON_FLOW_API_KEY, DS_API_KEY
 from config import config
 from utils import get_cf_problems, filter_problems, get_problem_test_gen_fail_reason, problem_test_gen_failed, problem_to_id, run_result_exists
 from evaluate.usefulness.prompt_exp.SOAP import test_case_construction, edit_one_solution
@@ -118,14 +118,27 @@ def main(
 
     if backend == "hf":
         edit_model = AutoModelForCausalLM.from_pretrained(checkpoint,device_map = "auto",trust_remote_code=True,torch_dtype=torch.float16)
-        edit_tokenizer = AutoTokenizer.from_pretrained(checkpoint,trust_remote_code=True)
+        edit_tokenizer = AutoTokenizer.from_pretrained(checkpoint,trust_remote_code=True,return_attention_mask=True)
         client = None
     elif backend == "openai":
         edit_model = None
         edit_tokenizer = None
-        client = openai.OpenAI(
-            api_key=API_KEY, base_url=None
-        )
+        if checkpoint in ["gpt-4o"]:
+            client = openai.OpenAI(
+                api_key=OPENAI_API_KEY, base_url=None
+            )
+        elif checkpoint in [
+            # "deepseek-ai/DeepSeek-V3",
+            "deepseek-chat"
+        ]:
+            # client = openai.OpenAI(
+            #     api_key=SILICON_FLOW_API_KEY, base_url="https://api.siliconflow.cn/v1"
+            # )
+            client = openai.OpenAI(
+                api_key=DS_API_KEY, base_url="https://api.kwwai.top/v1"
+            )
+        else:
+            raise NotImplementedError(f"Checkpoint {checkpoint} not supported.")
 
     dump_ori_solutions(filtered_problems)
 
