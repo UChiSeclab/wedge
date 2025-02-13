@@ -65,7 +65,7 @@ def get_min_instruction_cnt(problem_id: str, alphacode_result: Dict, target_lang
 
     return min_instruction_cnt
 
-def get_num_solutions(problem_id: str, alphacode_result: Dict, target_language: str = "python3") -> int:
+def get_num_solutions(alphacode_result: Dict, target_language: str = "python3") -> int:
     num_py_solutions = 0
     for solution_id in alphacode_result:
         if solution_id == "time_limit":
@@ -79,10 +79,10 @@ def select_problems_to_evaluate(problem_id_list: List[str], target_language: str
     candidate_problem_id_list = []
     for problem_id in problem_id_list:
         alphacode_result = get_alphacode_result(problem_id, sanitize=False)
-        if get_num_solutions(problem_id, alphacode_result, target_language) < 20:
+        if get_num_solutions(alphacode_result, target_language) < 20:
             continue
         candidate_solution_id_list = select_candidate_solutions(problem_id, alphacode_result, target_language=target_language, must_include_def=must_include_def, select_long_solution=select_long_solution)
-        print(f"problem_id: {problem_id}, candidate_solution_id_list: {len(candidate_solution_id_list)}, num_solutions: {get_num_solutions(problem_id, alphacode_result, target_language)}")
+        print(f"problem_id: {problem_id}, candidate_solution_id_list: {len(candidate_solution_id_list)}, num_solutions: {get_num_solutions(alphacode_result, target_language)}")
         if len(candidate_solution_id_list) >= 5:
             candidate_problem_id_list.append(problem_id)
 
