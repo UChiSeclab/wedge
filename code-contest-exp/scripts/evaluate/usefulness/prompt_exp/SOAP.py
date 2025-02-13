@@ -45,8 +45,11 @@ def test_case_construction(input_output_pairs: List[Tuple[Path, Path]]) -> str:
         test_case += f"Input {i+1}:\n{input_file.read_text()}\nOutput {i+1}:\n{output_file.read_text()}\n\n"
     return test_case
 
-def edit_one_solution(backend, model, edit_tokenizer, client, checkpoint, task_description, test_case, ori_solution_code, overhead_prompt, response_file, prompt_file, new_solution_file, include_test_case=False, num_samples=1):
-    prompt = prompt_construction(task_description, test_case, ori_solution_code, overhead_prompt, include_test_case)
+def edit_one_solution(backend, model, edit_tokenizer, client, checkpoint, task_description, test_case, ori_solution_code, overhead_prompt, response_file, prompt_file, new_solution_file, include_test_case=False, num_samples=1, use_pie_prompt=False):
+    if use_pie_prompt:
+        prompt = f"Below is a program. Optimize the program and provide a more efficient version.\n\n### Program:\n{ori_solution_code}\n\n### Optimized Version:\n"
+    else:
+        prompt = prompt_construction(task_description, test_case, ori_solution_code, overhead_prompt, include_test_case)
     prompt_file.write_text(prompt)
     if backend == "hf":
         responses = hf_prompt_one(prompt, model, edit_tokenizer, num_samples=num_samples)

@@ -31,8 +31,14 @@ def calculate_improvement(problem_solution_dict: Dict, ori_profile_stats: Dict, 
 
     return improvement_stats
 
-def calculate_avg_improvement(improvement_stats: Dict) -> Dict:
+def calculate_avg_improvement(improvement_stats: Dict, negative_improvement_stats: Dict) -> Dict:
     avg_improvement_stats = {}
+    # remove negative improvement
+    for problem_solution_id in negative_improvement_stats:
+        # for key in negative_improvement_stats[problem_solution_id]:
+        #     avg_improvement_stats[key].remove(negative_improvement_stats[problem_solution_id][key])
+        improvement_stats.pop(problem_solution_id)
+
     for problem_solution_id in improvement_stats:
         for key in improvement_stats[problem_solution_id]:
             if key not in avg_improvement_stats:
@@ -41,6 +47,17 @@ def calculate_avg_improvement(improvement_stats: Dict) -> Dict:
     for key in avg_improvement_stats:
         avg_improvement_stats[key] = sum(avg_improvement_stats[key]) / len(avg_improvement_stats[key])
     return avg_improvement_stats
+
+def extract_negative_improvement(improvement_stats: Dict) -> Dict:
+    negative_improvement_stats = {} # key: problem_solution_id, value: improvement stats
+    for problem_solution_id in improvement_stats:
+        for key in improvement_stats[problem_solution_id]:
+            if improvement_stats[problem_solution_id][key] < -0.5:
+                if problem_solution_id not in negative_improvement_stats:
+                    negative_improvement_stats[problem_solution_id] = {}
+                negative_improvement_stats[problem_solution_id][key] = improvement_stats[problem_solution_id][key]
+
+    return negative_improvement_stats
 
 def main(
     input_set: str,
@@ -62,20 +79,29 @@ def main(
     with open(improvement_stats_file, "w") as f:
         json.dump(improvement_stats, f, indent=4)
 
-    avg_improvement_stats = calculate_avg_improvement(improvement_stats)
+    negative_improvement_stats = extract_negative_improvement(improvement_stats)
+    avg_improvement_stats = calculate_avg_improvement(improvement_stats, negative_improvement_stats)
 
+    print("=" * 20)
+    print(f"input_set: {input_set}, input_selection_type: {input_selection_type}, model_name: {model_name}")
+    print(f"Number of solutions: {len(improvement_stats)}")
     # Print the average improvement stats
+    print(f"Average improvement stats:")
     print(avg_improvement_stats)
+    print(f"Negative improvement stats:")
+    print(negative_improvement_stats)
+    print("Solutions with negative improvement:")
+    print(negative_improvement_stats.keys())
 
     # pinpoint the most improved solution in terms of different metrics
-    for key in avg_improvement_stats:
-        most_improved = max(improvement_stats.items(), key=lambda x: x[1][key])
-        print("=" * 20)
-        print(f"Most improved in {key}: {most_improved[0]}")
-        print(f"Improvement: {most_improved[1][key]}")
-        problem_id, solution_id = most_improved[0].split("#")
-        print(f"original solution path: {Path(config['effi_learner_dir']) / 'initial_code_generation' / problem_id / 'gpt-4o' / f'{solution_id}.py'}")
-        print(f"optimized solution path: {Path(config['effi_learner_dir']) / 'optimized_code_generation' / 'alphacode_slow_5' / problem_id / 'gpt-4o' / f'{solution_id}_edited.py'}")
+    # for key in avg_improvement_stats:
+    #     most_improved = max(improvement_stats.items(), key=lambda x: x[1][key])
+    #     print("=" * 20)
+    #     print(f"Most improved in {key}: {most_improved[0]}")
+    #     print(f"Improvement: {most_improved[1][key]}")
+    #     problem_id, solution_id = most_improved[0].split("#")
+    #     print(f"original solution path: {Path(config['effi_learner_dir']) / 'initial_code_generation' / problem_id / 'gpt-4o' / f'{solution_id}.py'}")
+    #     print(f"optimized solution path: {Path(config['effi_learner_dir']) / 'optimized_code_generation' / 'alphacode_slow_5' / problem_id / 'gpt-4o' / f'{solution_id}_edited.py'}")
 
 if __name__ == "__main__":
     Fire(main)

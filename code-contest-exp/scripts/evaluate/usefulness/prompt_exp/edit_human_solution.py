@@ -8,28 +8,27 @@ import multiprocessing
 
 from gpt_caller import OPENAI_API_KEY, SILICON_FLOW_API_KEY, DS_API_KEY
 from config import config
+from common import Language
 from utils import get_cf_problems, filter_problems, get_problem_test_gen_fail_reason, problem_test_gen_failed, problem_to_id, run_result_exists
 from evaluate.usefulness.prompt_exp.SOAP import test_case_construction, edit_one_solution
 from evaluate.usefulness.prompt_exp.code_correctness_perf import run_solution_multi_inputs, generate_overhead_report
 from evaluate.usefulness.prompt_exp.select_evaluate_problem import select_candidate_solutions
 from evaluate.usefulness.prompt_exp.profile_utils import get_input_output_pairs
+from evaluate.usefulness import *
+
 """
-find slowest 5 input files per problem, save them to directory, profile them, and prompt for optimization
+find slowest 5 solution files per problem, save them to directory, profile them, and prompt for optimization
 """
 
-ORI_SOLUTIONS_DIR = Path(config["effi_learner_dir"]) / "ori_human_solutions"
-ORI_SOLUTION_PROFILE_DIR = Path(config["effi_learner_dir"]) / "ori_human_solution_profile"
-OPTIMIZED_SOLUTIONS_DIR = Path(config["effi_learner_dir"]) / "optimized_human_solutions"
-
-def dump_ori_solutions(problem_list: List[Dict]):
+def dump_ori_solutions(problem_list: List[Dict], target_language: str = "python3", must_include_def: bool = True):
     for problem in problem_list:
         problem_id = problem_to_id(problem)
 
         problem_dir = ORI_SOLUTIONS_DIR / problem_id
         problem_dir.mkdir(parents=True, exist_ok=True)
-        slow_solution_ids = select_candidate_solutions(problem_id)[:5]
+        slow_solution_ids = select_candidate_solutions(problem_id, target_language, must_include_def)[:5]
         for solution_id in slow_solution_ids:
-            slow_solution_file = problem_dir / f"{solution_id}.py"
+            slow_solution_file = problem_dir / f"{solution_id}.{Language.str_to_lang(target_language).to_suffix()}"
             slow_solution_file.write_text(problem["solutions"]["solution"][int(solution_id.split("_")[-1])])
 
 def profile_and_make_prompt_for_solution(q, ori_solution_file: Path, new_solution_dir: Path, ori_solution_profile_dir: Path, input_file_list: List[Path], gt_output_file_list: List[Path]):
@@ -55,7 +54,7 @@ def profile_and_make_prompt_for_solution(q, ori_solution_file: Path, new_solutio
 
     q.put((ori_solution_file.stem, correctness))  # Store result in queue
 
-def edit_human_solutions(problem: Dict, input_set: str, input_selection_type: str, model_name: str, backend, edit_model, edit_tokenizer, client, checkpoint,):
+def edit_human_solutions(problem: Dict, input_set: str, input_selection_type: str, model_name: str, backend, edit_model, edit_tokenizer, client, checkpoint, use_pie_prompt: bool = False):
     """Edit human solutions using multiprocessing."""
     ori_solution_files = sorted((ORI_SOLUTIONS_DIR / problem_to_id(problem)).glob("*.py"))
     new_solution_dir = OPTIMIZED_SOLUTIONS_DIR / f"{input_set}_{input_selection_type}" / problem_to_id(problem) / model_name
@@ -98,7 +97,7 @@ def edit_human_solutions(problem: Dict, input_set: str, input_selection_type: st
             overhead_prompt = ""
         ori_solution_code = ori_solution_file.read_text()
         new_solution_file = new_solution_dir / f"{ori_solution_file.stem}_optimized.py"
-        edit_one_solution(backend, edit_model, edit_tokenizer, client, checkpoint, problem["description"], test_case_construction(input_output_pairs), ori_solution_code, overhead_prompt, response_file, full_prompt_file, new_solution_file)
+        edit_one_solution(backend, edit_model, edit_tokenizer, client, checkpoint, problem["description"], test_case_construction(input_output_pairs), ori_solution_code, overhead_prompt, response_file, full_prompt_file, new_solution_file, use_pie_prompt=use_pie_prompt)
 
 def main(
     checkpoint: str,
