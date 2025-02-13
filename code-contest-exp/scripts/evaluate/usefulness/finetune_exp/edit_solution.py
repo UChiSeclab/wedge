@@ -5,6 +5,7 @@ from fire import Fire
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import openai
 import torch
+from tqdm import tqdm
 
 from config import config
 from utils import get_cf_problems, filter_problems, problem_to_id, run_result_exists, get_problem_test_gen_fail_reason, problem_test_gen_failed
@@ -16,8 +17,9 @@ def main(
     checkpoint: str,
     backend: str,
     input_set: str = "alphacode",
-    input_selection_type: str = "slow_5",
+    input_selection_type: str = "none",
 ):
+    assert input_set == "alphacode" and input_selection_type == "none"
     if "/" in checkpoint:
         end_name = checkpoint.split("/")[-1]
     else:
@@ -52,9 +54,9 @@ def main(
         else:
             raise NotImplementedError(f"Checkpoint {checkpoint} not supported.")
 
-    dump_ori_solutions(filtered_problems, target_language="cpp", must_include_def=False)
+    dump_ori_solutions(filtered_problems, target_language="cpp", must_include_def=False, select_long_solution=False, top_k=1)
 
-    for problem in filtered_problems:
+    for problem in tqdm(filtered_problems):
         problem_id = problem_to_id(problem)
         if problem_test_gen_failed(problem_id, input_set) and get_problem_test_gen_fail_reason(problem_id, input_set) in ["No available validator", "Generated zero valid tests"]:
             print(f"[INFO] Test generation failed for {input_set} of {problem_id}, skipping.")

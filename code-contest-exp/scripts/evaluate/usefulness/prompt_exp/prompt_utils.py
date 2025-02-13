@@ -60,7 +60,8 @@ def construct_prompt_template(inputs, model, tokenizer, num_samples=20):
 
 def hf_prompt_one(input, model, tokenizer, num_samples=1):
     # Generate text prompts for a single input
-    input_ids = tokenizer(input, return_tensors="pt", padding=True, truncation=True).input_ids.to(model.device)
+    inputs = tokenizer(input, return_tensors="pt")
+    input_ids = inputs.input_ids.to(model.device)
     with torch.no_grad():
         outputs = model.generate(
             input_ids,
@@ -69,9 +70,14 @@ def hf_prompt_one(input, model, tokenizer, num_samples=1):
             do_sample=True,
             temperature=0.8,
             pad_token_id=tokenizer.eos_token_id,
+            attention_mask=inputs.attention_mask.to(model.device)
         )
 
-    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+    generated_texts = [
+        tokenizer.decode(output, skip_special_tokens=True) for output in outputs
+    ]
+
+    return [text[len(input):].strip() if text.startswith(input) else text for text in generated_texts]
 
 def openai_prompt_one(input, client, checkpoint, num_samples=1):
     ret = openai_request.make_auto_request(

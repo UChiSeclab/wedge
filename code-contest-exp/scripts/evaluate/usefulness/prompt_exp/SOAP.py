@@ -4,6 +4,7 @@ from typing import List, Tuple, Dict
 from pathlib import Path
 import argparse
 import openai
+import re
 
 from gpt_caller import OPENAI_API_KEY
 from config import config
@@ -13,6 +14,42 @@ from evaluate.usefulness.prompt_exp.prompt_utils import openai_prompt_one, hf_pr
 from evaluate.usefulness.prompt_exp.code_correctness_perf import run_solution_multi_inputs, generate_overhead_report
 
 from evalplus.sanitize import code_extract
+
+def extract_first_program(text):
+    """copied from pie"""
+    # Look for the main function's start, considering possible non-standard code
+    main_start = re.search(r"\b(?:int\s+)?main\b", text)
+
+    if not main_start:
+        return text  # Return original if main is not found
+
+    open_braces = 0
+    closing_brace_position = -1
+    main_function_started = False
+
+    # Start looking for opening brace after the detected main function
+    i = main_start.end()
+
+    while i < len(text):
+        if text[i] == "{":
+            open_braces += 1
+            if not main_function_started:
+                main_function_started = True
+
+        elif text[i] == "}":
+            open_braces -= 1
+            if open_braces == 0 and main_function_started:
+                closing_brace_position = i
+                break
+
+        i += 1
+
+    # If we found a closing brace for the first program
+    if closing_brace_position != -1:
+        return text[: closing_brace_position + 1]
+    else:
+        return text  # Return original text if a matching closing brace wasn't found
+
 
 def prompt_construction(task_description, test_case, ori_solution, overhead_prompt, include_test_case=False):
     prompt = f"""
@@ -60,7 +97,10 @@ def edit_one_solution(backend, model, edit_tokenizer, client, checkpoint, task_d
     with open(response_file, "w", encoding="utf-8") as file:
         file.write(responses[0])
     with open(new_solution_file, "w", encoding="utf-8") as file:
-        file.write(code_extract(responses[0]))
+        if use_pie_prompt:
+            file.write(extract_first_program(responses[0]))
+        else:
+            file.write(code_extract(responses[0]))
 
 def edit_solutions(problem: Dict, input_set: str, input_selection_type: str, solution_model_name: str, backend, edit_model, edit_tokenizer, client, checkpoint, num_samples=20):
     # edit model should be the same as the solution model
