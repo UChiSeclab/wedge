@@ -55,7 +55,7 @@ def profile_solutions(solution_profile_dir: Path, solution_files: List[Path], in
 
     return profile_stats
 
-def get_input_output_pairs(problem_id: str, strategy: str, input_selection_type: str) -> List[Tuple[Path, Path]]:
+def get_input_output_pairs(problem_id: str, strategy: str, input_selection_type: str, suppress_warning: bool = False) -> List[Tuple[Path, Path]]:
     problem_dir = Path(config["problem_root_dir"]) / problem_id
     if strategy == "alphacode":
         input_dir = problem_dir / "input"
@@ -74,22 +74,34 @@ def get_input_output_pairs(problem_id: str, strategy: str, input_selection_type:
         slow_input_files = select_slowest_input_files(problem_id, strategy, top_k=5)
         input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if input_file in slow_input_files]
         if len(input_output_pairs) < 5:
-            print(f"[Warning] Only {len(input_output_pairs)} input-output pairs found for problem {problem_id}.")
+            if not suppress_warning:
+                print(f"[Warning] Only {len(input_output_pairs)} input-output pairs found for problem {problem_id}.")
+    if input_selection_type == "public_private_slow_5":
+        slow_input_files = select_slowest_input_files(problem_id, strategy, top_k=1000) # select all slow inputs
+        assert strategy == "alphacode", f"Public-private input selection only supported for alphacode strategy, not {strategy}"
+        input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs \
+            if input_file in slow_input_files and (input_file.stem.startswith("public_tests_") or input_file.stem.startswith("private_tests_"))]
+        input_output_pairs = input_output_pairs[:5]
+        if len(input_output_pairs) < 5:
+            if not suppress_warning:
+                print(f"[Warning] Only {len(input_output_pairs)} input-output pairs found for problem {problem_id}.")
     elif input_selection_type == "public_5":
         assert strategy == "alphacode", f"Public input selection only supported for alphacode strategy, not {strategy}"
-        slow_input_files = select_public_input_files(problem_id, top_k=5)
+        slow_input_files = select_public_input_files(problem_id, top_k=5, suppress_warning=suppress_warning)
         input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if input_file in slow_input_files]
     elif input_selection_type == "all":
         # include public and private tests, exclude generated tests
         input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if "generated" not in input_file.stem]
     elif input_selection_type == "public_private_10":
+        assert strategy == "alphacode", f"Public-private input selection only supported for alphacode strategy, not {strategy}"
         input_dir = Path(config["problem_root_dir"]) / problem_id / "input"
         input_files = sorted(input_dir.glob("public_tests_*.in"), key=lambda x: int(x.stem.split("_")[-1]))[:10]
         if len(input_files) < 10:
             private_input_files = sorted(input_dir.glob("private_tests_*.in"), key=lambda x: int(x.stem.split("_")[-1]))[:10-len(input_files)]
             input_files += private_input_files
         if len(input_files) < 10:
-            print(f"[Warning] Only {len(input_files)} public and private input files found for problem {problem_id}.")
+            if not suppress_warning:
+                print(f"[Warning] Only {len(input_files)} public and private input files found for problem {problem_id}.")
         input_output_pairs = [(input_file, output_dir / f"{input_file.stem}.out") for input_file in input_files]
     elif input_selection_type == "none":
         input_output_pairs = []
