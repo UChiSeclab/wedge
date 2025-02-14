@@ -23,7 +23,9 @@ def calculate_improvement(problem_solution_dict: Dict, ori_profile_stats: Dict, 
                 "time_ratio": (ori_execution_time - optimized_execution_time) / ori_execution_time,
                 "total_mem_ratio": (ori_total_mem - optimized_total_mem) / ori_total_mem,
                 "max_mem_ratio": (ori_max_mem - optimized_max_mem) / ori_max_mem,
-                "instruction_cnt_ratio": (ori_stats["merged_instruction_cnt"] - optimized_stats["merged_instruction_cnt"]) / ori_stats["merged_instruction_cnt"]
+                "instruction_cnt_ratio": (ori_stats["merged_instruction_cnt"] - optimized_stats["merged_instruction_cnt"]) / ori_stats["merged_instruction_cnt"],
+                "time_speedup": ori_execution_time / optimized_execution_time,
+                "instruction_cnt_speedup": ori_stats["merged_instruction_cnt"] / optimized_stats["merged_instruction_cnt"],
             }
 
     # sort by problem_id
