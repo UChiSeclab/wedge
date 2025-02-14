@@ -341,6 +341,8 @@ def main(
         "corpus_instrument_fuzz_mutator_with_constraint_per_solution",
         "corpus_raw_fuzz_mutator_with_constraint",
         "corpus_raw_fuzz_mutator_with_constraint_multi",
+        "corpus_raw_fuzz_mutator_with_constraint_per_solution",
+        "corpus_raw_fuzz_default_mutator",
     ]:
         # we didn't run gen_tests.py for fuzzing generated inputs,
         # so we need to write the output for the first run
@@ -352,6 +354,8 @@ def main(
         "corpus_instrument_fuzz_mutator_with_constraint_per_solution",
         "corpus_raw_fuzz_mutator_with_constraint",
         "corpus_raw_fuzz_mutator_with_constraint_multi",
+        "corpus_raw_fuzz_mutator_with_constraint_per_solution",
+        "corpus_raw_fuzz_default_mutator",
     ]:
         problem_with_extracted_constraint_only = True
 
