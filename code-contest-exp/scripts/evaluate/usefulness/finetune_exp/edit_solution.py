@@ -54,7 +54,7 @@ def main(
         else:
             raise NotImplementedError(f"Checkpoint {checkpoint} not supported.")
 
-    dump_ori_solutions(filtered_problems, target_language="cpp", must_include_def=False, select_long_solution=False, top_k=1)
+    dump_ori_solutions(filtered_problems, target_language="cpp", must_include_def=False, select_long_solution=False, top_k=5)
 
     for problem in tqdm(filtered_problems):
         problem_id = problem_to_id(problem)
