@@ -42,7 +42,7 @@ def run_cpp_solution_perf(
     }
     """
     exec_status_dict = json.loads(exec_status_file.read_text()) if exec_status_file.exists() else {}
-    
+
     if exec_status_dict.get("verdict") in ["incorrect", "compile_error", "judge_error"]:
         return exec_status_dict
     if exec_status_dict.get("verdict") == "correct" and len(exec_status_dict.get("inputs", {})) > 0:

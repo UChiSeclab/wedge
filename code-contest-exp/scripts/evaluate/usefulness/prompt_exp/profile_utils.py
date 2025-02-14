@@ -76,7 +76,7 @@ def get_input_output_pairs(problem_id: str, strategy: str, input_selection_type:
         if len(input_output_pairs) < 5:
             if not suppress_warning:
                 print(f"[Warning] Only {len(input_output_pairs)} input-output pairs found for problem {problem_id}.")
-    if input_selection_type == "public_private_slow_5":
+    elif input_selection_type == "public_private_slow_5":
         slow_input_files = select_slowest_input_files(problem_id, strategy, top_k=1000) # select all slow inputs
         assert strategy == "alphacode", f"Public-private input selection only supported for alphacode strategy, not {strategy}"
         input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs \
@@ -91,7 +91,11 @@ def get_input_output_pairs(problem_id: str, strategy: str, input_selection_type:
         input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if input_file in slow_input_files]
     elif input_selection_type == "all":
         # include public and private tests, exclude generated tests
+        assert strategy == "alphacode", f"All input selection only supported for alphacode strategy, not {strategy}"
         input_output_pairs = [(input_file, output_file) for input_file, output_file in input_output_pairs if "generated" not in input_file.stem]
+    elif input_selection_type == "all_include_generated":
+        # include public and private tests, include generated tests
+        assert strategy == "alphacode", f"All input selection only supported for alphacode strategy, not {strategy}"
     elif input_selection_type == "public_private_10":
         assert strategy == "alphacode", f"Public-private input selection only supported for alphacode strategy, not {strategy}"
         input_dir = Path(config["problem_root_dir"]) / problem_id / "input"

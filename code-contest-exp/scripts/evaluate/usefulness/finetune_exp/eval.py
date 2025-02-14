@@ -12,6 +12,10 @@ OPTIMIZED_SOLUTIONS_DIR = Path(config["pie_dir"]) / "optimized_human_solutions" 
 ORI_SOLUTION_PROFILE_EVAL_DIR = Path(config["pie_dir"]) / "ori_human_solution_profile_eval"
 OPTIMIZED_SOLUTION_PROFILE_EVAL_DIR = Path(config["pie_dir"]) / "optimized_human_solution_profile_eval"
 
+def truncate_to_cutoff(value: float, cutoff: float=10) -> float:
+    # cutoff to mitigate the effect of outliers, e.g., 100x speedup
+    return max(min(value, cutoff), -cutoff)
+
 def get_subset_profile_stats(profile_stats: Dict, input_id_list: List[str]) -> Dict:
     """
     get subset of profile stats
@@ -33,7 +37,7 @@ def calculate_opt_stats(input_set: str, input_selection_type: str, model_name: s
             }
         }
     """
-    
+
     ori_incorrect_cnt = 0
     optimized_incorrect_cnt = 0
     opt_stats = {}
@@ -93,18 +97,30 @@ def summary_opt_stats(opt_stats: Dict) -> Dict:
         exec_time_opt: float,
         instruction_cnt_speedup: float,
         exec_time_speedup: float,
+        instruction_cnt_optimized_ratio: float,
+        exec_time_optimized_ratio: float,
         }
     """
-    instruction_cnt_opt_list = [v["instruction_cnt_opt"] for v in opt_stats.values()]
-    exec_time_opt_list = [v["exec_time_opt"] for v in opt_stats.values()]
-    instruction_cnt_speedup_list = [v["instruction_cnt_speedup"] for v in opt_stats.values()]
-    exec_time_speedup_list = [v["exec_time_speedup"] for v in opt_stats.values()]
+    instruction_cnt_opt_list = [truncate_to_cutoff(v["instruction_cnt_opt"]) for v in opt_stats.values()]
+    exec_time_opt_list = [truncate_to_cutoff(v["exec_time_opt"]) for v in opt_stats.values()]
+    instruction_cnt_speedup_list = [truncate_to_cutoff(v["instruction_cnt_speedup"]) for v in opt_stats.values()]
+    exec_time_speedup_list = [truncate_to_cutoff(v["exec_time_speedup"]) for v in opt_stats.values()]
+
+    instruction_cnt_optimized_num = 0
+    exec_time_optimized_num = 0
+    for problem_solution_id in opt_stats:
+        if opt_stats[problem_solution_id]["instruction_cnt_speedup"] > 1.1:
+            instruction_cnt_optimized_num += 1
+        if opt_stats[problem_solution_id]["exec_time_speedup"] > 1.1:
+            exec_time_optimized_num += 1
 
     summary = {
         "instruction_cnt_opt": sum(instruction_cnt_opt_list) / len(instruction_cnt_opt_list),
         "exec_time_opt": sum(exec_time_opt_list) / len(exec_time_opt_list),
         "instruction_cnt_speedup": sum(instruction_cnt_speedup_list) / len(instruction_cnt_speedup_list),
         "exec_time_speedup": sum(exec_time_speedup_list) / len(exec_time_speedup_list),
+        "instruction_cnt_optimized_ratio": instruction_cnt_optimized_num / len(opt_stats),
+        "exec_time_optimized_ratio": exec_time_optimized_num / len(opt_stats),
     }
 
     return summary
@@ -117,22 +133,30 @@ def eval(
     print("=" * 50)
     print(f"input_set: {input_set}, input_selection_type: {input_selection_type}, model_name: {model_name}")
 
-    filtered_problems = filter_problems(
-        get_cf_problems(use_specified_problem=config["use_specified_problem"]),
-        filter_with_inconsistency_threshold=True,
-    )
+    opt_stats_file = Path(config["pie_dir"]) / f"opt_stats_{input_set}_{input_selection_type}_{model_name}.json"
+    if opt_stats_file.exists():
+        opt_stats = json.loads(opt_stats_file.read_text())
+        problem_solution_id_list = list(opt_stats.keys())
+    else:
+        filtered_problems = filter_problems(
+            get_cf_problems(use_specified_problem=config["use_specified_problem"]),
+            filter_with_inconsistency_threshold=True,
+        )
 
-    problem_solution_id_list = []
-    for problem in filtered_problems:
-        problem_id = problem_to_id(problem)
-        if not run_result_exists(problem_id, input_set):
-            continue
-        ori_solution_dir = ORI_SOLUTIONS_DIR / problem_id
-        ori_solution_files = sorted(ori_solution_dir.glob("*.cpp"))
-        for ori_solution_file in ori_solution_files:
-            problem_solution_id_list.append(f"{problem_id}#{ori_solution_file.stem}")
+        problem_solution_id_list = []
+        for problem in filtered_problems:
+            problem_id = problem_to_id(problem)
+            if not run_result_exists(problem_id, input_set):
+                continue
+            ori_solution_dir = ORI_SOLUTIONS_DIR / problem_id
+            ori_solution_files = sorted(ori_solution_dir.glob("*.cpp"))
+            for ori_solution_file in ori_solution_files:
+                problem_solution_id_list.append(f"{problem_id}#{ori_solution_file.stem}")
 
-    opt_stats = calculate_opt_stats(input_set, input_selection_type, model_name, problem_solution_id_list)
+        opt_stats = calculate_opt_stats(input_set, input_selection_type, model_name, problem_solution_id_list)
+        # dump stats
+        opt_stats_file.write_text(json.dumps(opt_stats))
+
     summary = summary_opt_stats(opt_stats)
 
     print(f"opt_stats:")
@@ -140,9 +164,6 @@ def eval(
     print(f"num of both correct problem_solution_id: {len(opt_stats)}")
     print(summary)
 
-    # dump stats
-    opt_stats_file = Path(config["pie_dir"]) / f"opt_stats_{input_set}_{input_selection_type}_{model_name}.json"
-    opt_stats_file.write_text(json.dumps(opt_stats))
 
 if __name__ == "__main__":
     eval("alphacode", "public_5", "pie-hq-selfplay-13b")
