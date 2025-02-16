@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Dict, Literal, Tuple
-from .cov_xml_parser import parse_cobertura_coverage_report
+from cpp.coverage.scripts.cov_xml_parser import parse_cobertura_coverage_report
 
 def record_file_with_coverage_and_hit_count_product(
     src_file: Path,
