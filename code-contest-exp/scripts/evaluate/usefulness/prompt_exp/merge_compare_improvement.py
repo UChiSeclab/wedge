@@ -50,7 +50,7 @@ def merge_compare_improvement(improvement_dict_list: List[Dict[str, Dict[str, fl
 
         problem_solution_id_list = [problem_solution_id for problem_solution_id in problem_solution_id_list if problem_solution_id not in exclude_problem_solution_id_list]
 
-    print(f"Number of problem_solution_id: {len(problem_solution_id_list)}")
+    print(f"Number of {mode} problem_solution_id: {len(problem_solution_id_list)}")
 
     # calculate the average improvement for each metric
     avg_improvement_stats_list = []

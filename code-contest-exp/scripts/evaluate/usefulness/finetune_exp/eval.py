@@ -1,16 +1,18 @@
 from pathlib import Path
 import json
-from typing import List, Dict
+from typing import List, Dict, Literal
 
 from config import config
 from utils import get_cf_problems, filter_problems, problem_to_id, run_result_exists
 from evaluate.usefulness.prompt_exp.profile_utils import get_input_output_pairs
-
+from evaluate.usefulness.prompt_exp.merge_compare_improvement import get_intersection_problem_solution, get_union_problem_solution
 
 ORI_SOLUTIONS_DIR = Path(config["pie_dir"]) / "ori_human_solutions"
 OPTIMIZED_SOLUTIONS_DIR = Path(config["pie_dir"]) / "optimized_human_solutions" / "alphacode_none"
 ORI_SOLUTION_PROFILE_EVAL_DIR = Path(config["pie_dir"]) / "ori_human_solution_profile_eval"
 OPTIMIZED_SOLUTION_PROFILE_EVAL_DIR = Path(config["pie_dir"]) / "optimized_human_solution_profile_eval"
+
+metrics = ["instruction_cnt_speedup", "exec_time_speedup", "instruction_cnt_opt", "exec_time_opt"]
 
 def truncate_to_cutoff(value: float, cutoff: float=10) -> float:
     # cutoff to mitigate the effect of outliers, e.g., 100x speedup
@@ -31,6 +33,8 @@ def calculate_opt_stats(input_set: str, input_selection_type: str, model_name: s
     """
     calculate optimization stats: {
         problem_solution_id: {
+            instruction_cnt_opt: float,
+            exec_time_opt: float,
             instruction_cnt_speedup: float,
             exec_time_speedup: float,
             correctness: str,
@@ -90,7 +94,7 @@ def calculate_opt_stats(input_set: str, input_selection_type: str, model_name: s
 
     return opt_stats
 
-def summary_opt_stats(opt_stats: Dict) -> Dict:
+def summarize_opt_stats(opt_stats: Dict) -> Dict:
     """
     summary optimization stats: {
         instruction_cnt_opt: float,
@@ -157,20 +161,62 @@ def eval(
         # dump stats
         opt_stats_file.write_text(json.dumps(opt_stats))
 
-    summary = summary_opt_stats(opt_stats)
+    summary = summarize_opt_stats(opt_stats)
 
     print(f"opt_stats:")
     print(f"num of problem_solution_id: {len(problem_solution_id_list)}")
     print(f"num of both correct problem_solution_id: {len(opt_stats)}")
     print(summary)
 
+    return opt_stats
+
+def merge_compare_opt_stats(opt_stats_dict_list: List[Dict[str, Dict[str, float]]], mode: Literal["intersection", "union"]) -> List[Dict[str, Dict[str, float]]]:
+    if mode == "intersection":
+        problem_solution_id_list = get_intersection_problem_solution(opt_stats_dict_list)
+    elif mode == "union":
+        problem_solution_id_list = get_union_problem_solution(opt_stats_dict_list)
+        for opt_stats_dict in opt_stats_dict_list:
+            for problem_solution_id in problem_solution_id_list:
+                if problem_solution_id not in opt_stats_dict:
+                    opt_stats_dict[problem_solution_id] = {metric: 1 if metric.endswith("speedup") else 0 for metric in metrics}
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
+
+    print(f"Number of {mode} problem_solution_id: {len(problem_solution_id_list)}")
+
+    summary_list = []
+    for opt_stats_dict in opt_stats_dict_list:
+        summary = summarize_opt_stats(opt_stats_dict)
+        summary_list.append(summary)
+
+    return summary_list
+
+def display_summary_opt_stats(summary_list: List[Dict[str, Dict[str, float]]]):
+    for i in range(1, len(summary_list) + 1):
+        summary = summary_list[i - 1]
+        print("--------------------------------------------------")
+        print(f"Summary {i}:")
+        for metric in summary:
+            print(f"{metric},{summary[metric]}")
 
 if __name__ == "__main__":
-    eval("alphacode", "public_5", "pie-hq-selfplay-13b")
-    eval("alphacode", "public_private_slow_5", "pie-hq-selfplay-13b")
-    eval("alphacode", "all", "pie-hq-selfplay-13b")
-    eval("corpus_instrument_fuzz_mutator_with_constraint_per_solution", "slow_5", "pie-hq-selfplay-13b")
-    eval("alphacode", "public_5", "pie-conditioned-13b")
-    eval("alphacode", "public_private_slow_5", "pie-conditioned-13b")
-    eval("alphacode", "all", "pie-conditioned-13b")
-    eval("corpus_instrument_fuzz_mutator_with_constraint_per_solution", "slow_5", "pie-conditioned-13b")
+    opt_stats_1_1 = eval("alphacode", "public_5", "pie-hq-selfplay-13b")
+    opt_stats_1_2 = eval("alphacode", "public_private_slow_5", "pie-hq-selfplay-13b")
+    opt_stats_1_3 = eval("alphacode", "all", "pie-hq-selfplay-13b")
+    opt_stats_1_4 = eval("corpus_instrument_fuzz_mutator_with_constraint_per_solution", "slow_5", "pie-hq-selfplay-13b")
+    opt_stats_2_1 = eval("alphacode", "public_5", "pie-conditioned-13b")
+    opt_stats_2_2 = eval("alphacode", "public_private_slow_5", "pie-conditioned-13b")
+    opt_stats_2_3 = eval("alphacode", "all", "pie-conditioned-13b")
+    opt_stats_2_4 = eval("corpus_instrument_fuzz_mutator_with_constraint_per_solution", "slow_5", "pie-conditioned-13b")
+
+    summary_list_1 = merge_compare_opt_stats([opt_stats_1_1, opt_stats_1_2, opt_stats_1_3, opt_stats_1_4], mode="union")
+    summary_list_2 = merge_compare_opt_stats([opt_stats_2_1, opt_stats_2_2, opt_stats_2_3, opt_stats_2_4], mode="union")
+
+    # summary_list_1 = merge_compare_opt_stats([opt_stats_1_1, opt_stats_1_2, opt_stats_1_3, opt_stats_1_4], mode="intersection")
+    # summary_list_2 = merge_compare_opt_stats([opt_stats_2_1, opt_stats_2_2, opt_stats_2_3, opt_stats_2_4], mode="intersection")
+
+    print("==================================================")
+    print("Summary for pie-hq-selfplay-13b:")
+    display_summary_opt_stats(summary_list_1)
+    print("Summary for pie-conditioned-13b:")
+    display_summary_opt_stats(summary_list_2)
