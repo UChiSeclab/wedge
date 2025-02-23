@@ -99,7 +99,7 @@ def run_cpp_solution_perf(
                             print(f"Unicode error in {input_file}")
                             exec_status_dict["inputs"][input_file.name] = {"input_verdict": "incorrect", "execution_time": run_time, "instruction_cnt": instruction_cnt}
                     else:
-                        print(f"Empty output for {input_file}")
+                        print(f"Empty output for {input_file} with {solution_path}")
                         exec_status_dict["inputs"][input_file.name] = {"input_verdict": "incorrect", "execution_time": run_time, "instruction_cnt": instruction_cnt}
                 except subprocess.TimeoutExpired:
                     exec_status_dict["inputs"][input_file.name] = {"input_verdict": "timeout", "execution_time": timeout, "instruction_cnt": 0}

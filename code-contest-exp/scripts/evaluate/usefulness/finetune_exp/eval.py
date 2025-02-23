@@ -208,15 +208,23 @@ if __name__ == "__main__":
     opt_stats_2_2 = eval("alphacode", "public_private_slow_5", "pie-conditioned-13b")
     opt_stats_2_3 = eval("alphacode", "all", "pie-conditioned-13b")
     opt_stats_2_4 = eval("corpus_instrument_fuzz_mutator_with_constraint_per_solution", "slow_5", "pie-conditioned-13b")
+    opt_stats_3_1 = eval("alphacode", "public_5", "pie-all-uncon-13b")
+    opt_stats_3_2 = eval("alphacode", "public_private_slow_5", "pie-all-uncon-13b")
+    opt_stats_3_3 = eval("alphacode", "all", "pie-all-uncon-13b")
+    opt_stats_3_4 = eval("corpus_instrument_fuzz_mutator_with_constraint_per_solution", "slow_5", "pie-all-uncon-13b")
 
     summary_list_1 = merge_compare_opt_stats([opt_stats_1_1, opt_stats_1_2, opt_stats_1_3, opt_stats_1_4], mode="union")
     summary_list_2 = merge_compare_opt_stats([opt_stats_2_1, opt_stats_2_2, opt_stats_2_3, opt_stats_2_4], mode="union")
+    summary_list_3 = merge_compare_opt_stats([opt_stats_3_1, opt_stats_3_2, opt_stats_3_3, opt_stats_3_4], mode="union")
 
     # summary_list_1 = merge_compare_opt_stats([opt_stats_1_1, opt_stats_1_2, opt_stats_1_3, opt_stats_1_4], mode="intersection")
     # summary_list_2 = merge_compare_opt_stats([opt_stats_2_1, opt_stats_2_2, opt_stats_2_3, opt_stats_2_4], mode="intersection")
+    # summary_list_3 = merge_compare_opt_stats([opt_stats_3_1, opt_stats_3_2, opt_stats_3_3, opt_stats_3_4], mode="intersection")
 
     print("==================================================")
     print("Summary for pie-hq-selfplay-13b:")
     display_summary_opt_stats(summary_list_1)
     print("Summary for pie-conditioned-13b:")
     display_summary_opt_stats(summary_list_2)
+    print("Summary for pie-all-uncon-13b:")
+    display_summary_opt_stats(summary_list_3)
