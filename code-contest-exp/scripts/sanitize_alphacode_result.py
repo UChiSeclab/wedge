@@ -17,7 +17,6 @@ def sanitize_run_result(
 ) -> Dict[str, Dict]:
     """Sanitize the experiment data."""
     problem_dir = Path(config["problem_root_dir"]) / problem_id
-    input_dir = problem_dir / "input"
     validator_mode = "self_reflect_feedback"
     validator_dir = problem_dir / config["validator_dir_name"] / validator_mode
     if not (validator_dir / "VAL_GT_INPUT_PASS").exists():

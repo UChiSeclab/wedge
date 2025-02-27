@@ -3,7 +3,7 @@ import os
 import pickle
 from datasets import load_dataset
 import tiktoken
-from typing import Dict, List, Literal
+from typing import Dict, List, Literal, Any
 from pathlib import Path
 import json
 import datetime
@@ -242,6 +242,39 @@ def get_instruction_cnt(experiment_result: Dict, solution_id: str, input_id: str
     instruction_cnt_list = instruction_cnt_dict[input_id]
 
     return mean(instruction_cnt_list)
+
+def get_input_ict_list(result_dict: Dict[str, Any], input_id: str, language: Language = Language.CPP) -> List[float]:
+    ict_list = []
+    for solution_id, solution_result in result_dict.items():
+        if solution_id == "time_limit":
+            continue
+        if solution_result["language"] != str(language):
+            continue
+        if not all(label in ["AC", "TLE"] for label in solution_result["verdict"]):
+            continue
+        ict_list.append(mean(solution_result["instruction_cnt_dict"][input_id]))
+
+    return ict_list
+
+def get_input_avg_ict(result_dict: Dict[str, Any], input_id: str, language: Language = Language.CPP) -> float:
+    ict_list = []
+    for solution_id, solution_result in result_dict.items():
+        if solution_id == "time_limit":
+            continue
+        if solution_result["language"] != str(language):
+            continue
+        if not all(label in ["AC", "TLE"] for label in solution_result["verdict"]):
+            continue
+        if not input_id in solution_result["instruction_cnt_dict"]:
+            # print(f"[ERROR] Instruction count not found for {solution_id} {input_id}")
+            continue
+        ict_list.append(mean(solution_result["instruction_cnt_dict"][input_id]))
+    
+    if len(ict_list) == 0:
+        # print(f"[ERROR] No valid instruction count found for {input_id}")
+        return 0
+
+    return mean(ict_list)
 
 def check_same_output(output_A: List[str], output_B: List[str]) -> bool:
     if output_A == output_B:
