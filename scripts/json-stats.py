@@ -1,419 +1,621 @@
 #!/usr/bin/env python3
+"""
+This program processes raw JSON files containing performance metrics for different
+techniques and computes aggregated statistics for various "top-K" inputs (e.g., top-10,
+top-5, top-3, top-1). It then outputs per-technique CSV files, generates area plots, and
+produces a LaTeX table summarizing the results.
+"""
 
 import argparse
-import os
-import math
-from collections import defaultdict
-import numpy as np
-import pandas as pd
+import concurrent.futures
+import csv
+import heapq
+import logging
 import matplotlib.pyplot as plt
-from matplotlib.path import Path
-from matplotlib.patches import PathPatch
+import numpy as np
+import orjson
+import os
+import pandas as pd
+import seaborn as sns
+import statistics
+import sys
 
-# Global lists
-csv_files = [
-  "wedge-top1inputs.csv",
-  "evalperf-slow-top??inputs.csv",
-  "evalperf-rand-top??inputs.csv",
-  "direct-prompt-top??inputs.csv"
-]
-csv_labels = [
-  "wedge",
-  "evalperf-slow",
-  "evalperf-rand",
-  "direct-prompt"
-]
+# Global set of known problems
+PROBLEM_SET = set(["1003_A", "1107_E", "1225_C", "131_E", " 1404_C.", "171_C.", "321_B.", "485_A.", "603_C", "706_D.", 
+  "821_B.", "958_A1.json", "1005_E2.", "1114_C", "1225_D", "1322_B", "1408_D.", "171_G.", "349_B.", 
+  "489_C.", "608_C", "713_C.", "827_A.", "958_E1.json", "1041_A", "111_B", " 1228_C", "1328_B", "1409_F.", 
+  "181_B.", "351_E.", "48_C", "621_D", "731_F.", "846_B.", "978_E.json", "1041_F", "1129_A2.", "1228_E", 
+  "1332_E", "1413_C.", "189_A.", "356_C.", "513_C.", "626_C", "734_B.", "848_B.", "988_F.json", "1042_E", 
+  "1131_B", "1230_C", "1334_E", "1424_J.", "191_B.", "366_C.", "515_B.", "633_A", "747_C.", "863_B.", "993_A.json", 
+  "1057_C", "1141_A", "1242_B", "1340_B", "1426_E.", "199_B.", "40_B", "520_B.", "63_B", " 758_A.", "868_C.", 
+  "993_B.json", "1059_A", "1147_C", "1243_D", "1340_C", "1428_E.", "215_D.", "431_C.", "525_C.", "656_E", "768_C.", 
+  "889_B.", "999_E.json", "1061_B", "1165_F1.", "1246_A", "1342_E", "1433_F.", "237_C.", "433_A.", "529_E.", 
+  "662_D", "768_E.", "894_B.", "999_F.json", "1061_C", "1182_E", "1253_E", "1345_B", "143_D", "239_A.", "44_B", 
+  "543_A.", "663_B", "773_B.", "898_E.", "9_E.json", "1063_B", "1184_C1.", "1260_D", "1350_A", "1446_C.", "255_D.", 
+  "452_C.", "546_C.", "670_F", "774_J.", "903_A.json", "1064_A", "1201_C", "1260_E", "1355_E", "1447_E.", "278_B.", 
+  "452_D.", "552_C.", "675_E", "787_A.", "910_B.json", "1067_B", "1203_D1.", "1261_B1.", "1359_E", "145_C", "288_B.", 
+  "457_A.", "554_C.", "676_E", "791_B.", "910_C.json", "1081_C", "1204_E", "1263_C", "1370_C", "1475_G.", "289_D.", 
+  "469_B.", "559_C.", "687_C", "793_B.", "911_C.json", "1082_E", "1209_B", "1271_E", "1373_F", "148_A", "2_A", " 476_C.", 
+  "566_F.", "68_B", " 799_C.", "922_A.json", "108_D", " 1210_A", "1286_A", "1384_B1.", "148_E", "301_B.", "477_A.", 
+  "574_D.", "690_B1.", "7_E", " 926_B.json", "1096_F", "1213_D1.", "1288_C", "1396_C", "1513_E.", "312_B.", "478_B.", 
+  "577_A.", "690_C1.", "803_D.", "932_E.json", "1097_C", "1216_E2.", "128_D", " 1397_B", "1550_D.", "31_C", "479_E.", 
+  "583_D.", "690_F1.", "803_F.", "937_B.json", "1102_C", "1225_B1.", "1292_C", "1401_E", "16_B", " 321_A.", "484_B.", 
+  "598_D.", "69_B", " 808_E.", "938_B"])
+
+# Global constants for top-K values and technique labels
+TOP_K_VALUES = [10, 5, 3, 1]
+TECHNIQUES = [
+  "corpus_instrument_fuzz_mutator_with_constraint_per_solution", 
+  "evalperf_slow_solution", 
+  "evalperf_random_solution", 
+  "plain_problem"
+ ]
+
+# Configure logging to display warnings and info messages
+logging.basicConfig(level=logging.INFO)
 
 
-def read_csvs_into_dict(directory_path, csv_files, csv_labels):
+def compute_stats(values):
   """
-  Reads CSV files from the directory path into a dictionary of dictionaries:
-   data_dict[label][combined_key] = ic_avg_of_top_k_means
+  Compute vectorized statistics for a list of numeric values using NumPy.
+  
+  Args:
+    values (list of float): List of measurements (e.g., 5 runs)
+  
+  Returns:
+    dict: Dictionary with keys:
+       - "raw": The original list
+       - "mean": Arithmetic mean
+       - "median": Median
+       - "min": Minimum value
+       - "max": Maximum value
+       - "cv": Coefficient of variation (stdev/mean; 0 if mean is zero)
   """
-  data_dict = {}
-  for csv_file, label in zip(csv_files, csv_labels):
-    file_path = os.path.join(directory_path, csv_file)
-    df = pd.read_csv(file_path)
-    
-    # Extract relevant columns by name
-    combined_keys = df["combined_key"]
-    ic_values = df["ic_avg_of_top_k_means"]
-    
-    # Build the dictionary for the current CSV
-    data_dict[label] = dict(zip(combined_keys, ic_values))
-  return data_dict
+  arr = np.array(values)
+  if arr.size == 0:
+    return {"raw": values, "mean": 0, "median": 0, "min": 0, "max": 0, "cv": 0}
+  mean_val = np.mean(arr)
+  median_val = np.median(arr)
+  min_val = np.min(arr)
+  max_val = np.max(arr)
+  stdev_val = np.std(arr, ddof=1) if arr.size > 1 else 0
+  cv_val = stdev_val / mean_val if mean_val != 0 else 0
+  return {
+    "raw": values,
+    "mean": mean_val,
+    "median": median_val,
+    "min": min_val,
+    "max": max_val,
+    "cv": cv_val,
+  }
+
+
+def merge_json_data_into_structure(json_data, language, data_rt, data_ic):
+  """
+  Merge data from a parsed JSON into the provided data structures.
+  
+  For each solution in json_data that passes language and correctness checks, 
+  update the nested dictionaries for running time and instruction count.
+  
+  Args:
+    json_data (dict): Parsed JSON data
+    language (str): Programming language filter (e.g., "cpp")
+    data_rt (dict): Dictionary to store running time data
+    data_ic (dict): Dictionary to store instruction count data
+  """
+  # Use the provided problem name if available; otherwise, use a placeholder
+  probname = json_data.get("problem_name", "unknown")
+  
+  for solution_name, solution_data in json_data.items():
+    if not solution_name.startswith("solutions_"):
+      continue
+    if solution_data.get("online_judge_verdict") != "correct":
+      continue
+    if solution_data.get("language") != language:
+      continue
+    combined_key = f"{probname}-{solution_name}"
+    data_rt.setdefault(combined_key, {})
+    data_ic.setdefault(combined_key, {})
+    time_dict = solution_data.get("time_dict", {})
+    ic_dict = solution_data.get("instruction_cnt_dict", {})
+    for test_input, times in time_dict.items():
+      if times:
+        # Append the raw 5 run values
+        data_rt[combined_key].setdefault(test_input, []).extend(times)
+    for test_input, counts in ic_dict.items():
+      if counts:
+        data_ic[combined_key].setdefault(test_input, []).extend(counts)
+
+
+def build_data_structure_for_technique(technique_dir, language):
+  """
+  Build an in-memory nested data structure for a given technique.
+  
+  Recursively walks through the JSON files in technique_dir, parses them,
+  and merges the data into two dictionaries: one for running time and 
+  one for instruction counts.
+  
+  Args:
+    technique (str): Technique label (e.g., "wedge")
+    technique_dir (str): Directory containing JSON files for the technique
+    language (str): Programming language filter
+  
+  Returns:
+    tuple: (data_rt, data_ic) where each is a dict structured as:
+        { solution_key: { test_input: [5 run values] } }
+  """
+  data_rt = {} # Running time data
+  data_ic = {} # Instruction count data
+  file_paths = []
+  for root, _, files in os.walk(technique_dir):
+    for file in files:
+      if file.endswith(".json"):
+        file_paths.append(os.path.join(root, file))
+  
+  def process_file(fp):
+    try:
+      with open(fp, "rb") as f:
+        data = orjson.loads(f.read())
+        sys.stdout.write(f"Processing {fp} ...\n")
+      return data
+    except Exception as e:
+      logging.warning("Error parsing file %s: %s", fp, e)
+      return None
+
+  with concurrent.futures.ThreadPoolExecutor() as executor:
+    futures = {executor.submit(process_file, fp): fp for fp in file_paths}
+    for future in concurrent.futures.as_completed(futures):
+      json_data = future.result()
+      if json_data is None:
+        continue
+      # Set problem_name if not present
+      if "problem_name" not in json_data:
+        json_data["problem_name"] = os.path.splitext(os.path.basename(futures[future]))[0]
+      merge_json_data_into_structure(json_data, language, data_rt, data_ic)
+  return data_rt, data_ic
+
+
+def compute_stats_for_structure(data_struct):
+  """
+  Convert a nested data structure of raw run values into computed statistics.
+  
+  Args:
+    data_struct (dict): Nested dictionary structured as:
+              { solution_key: { test_input: [list of run values] } }
+  
+  Returns:
+    dict: Same structure but with each list of run values replaced by a stats dict
+  """
+  result = {}
+  for sol_key, inputs in data_struct.items():
+    result[sol_key] = {}
+    for inp, runs in inputs.items():
+      result[sol_key][inp] = compute_stats(runs)
+  return result
+
+
+def aggregate_top_k(input_stats, top_k):
+  """
+  Aggregate statistics for the top-K test inputs (sorted by descending mean).
+  
+  Args:
+    input_stats (dict): Mapping { test_input: stats dict }
+    top_k (int): Number of top inputs to select
+  
+  Returns:
+    dict: Contains:
+       - "top_k_means": List of means of the top-K inputs
+       - "avg_of_top_k_means": Average of these means
+       - "median_of_top_k_means": Median of these means
+       - "top_k_cvs": List of CVs for the top-K inputs
+       - "avg_of_top_k_cvs": Average CV
+       - "median_of_top_k_cvs": Median CV
+  """
+  items = []
+  for test_input, stats_dict in input_stats.items():
+    mean_val = stats_dict.get("mean", 0)
+    cv_val = stats_dict.get("cv", 0)
+    items.append((test_input, mean_val, cv_val))
+  top_items = heapq.nlargest(top_k, items, key=lambda x: x[1])
+  if not top_items:
+    return {
+      "top_k_means": [],
+      "avg_of_top_k_means": 0,
+      "median_of_top_k_means": 0,
+      "top_k_cvs": [],
+      "avg_of_top_k_cvs": 0,
+      "median_of_top_k_cvs": 0,
+    }
+  top_means = [itm[1] for itm in top_items]
+  top_cvs = [itm[2] for itm in top_items]
+  avg_of_top_means = statistics.mean(top_means)
+  median_of_top_means = statistics.median(top_means)
+  avg_of_top_cvs = statistics.mean(top_cvs)
+  median_of_top_cvs = statistics.median(top_cvs)
+  return {
+    "top_k_means": top_means,
+    "avg_of_top_k_means": avg_of_top_means,
+    "median_of_top_k_means": median_of_top_means,
+    "top_k_cvs": top_cvs,
+    "avg_of_top_k_cvs": avg_of_top_cvs,
+    "median_of_top_k_cvs": median_of_top_cvs,
+  }
+
+
+def compute_aggregate_stats_for_structure(data_rt, data_ic, top_k):
+  """
+  Compute aggregated statistics per solution and global statistics for a given top-K value.
+  
+  Converts raw data to stats and aggregates per solution (selecting top-K inputs), then collects global averages.
+  
+  Args:
+    data_rt (dict): Running time data structure: { solution: { input: [runs] } }
+    data_ic (dict): Instruction count data structure: { solution: { input: [runs] } }
+    top_k (int): Top-K value
+
+  Returns:
+    dict: Contains:
+       - "aggregated_stats": Dict of per-solution aggregates
+       - "global_running_avg_means": List of running time average means
+       - "global_running_avg_cvs": List of running time average CVs
+       - "global_instruction_avg_means": List of instruction count average means
+       - "global_instruction_avg_cvs": List of instruction count average CVs
+  """
+  rt_stats = compute_stats_for_structure(data_rt)
+  ic_stats = compute_stats_for_structure(data_ic)
+  aggregated_stats = {}
+  global_running_avg_means = []
+  global_running_avg_cvs = []
+  global_instruction_avg_means = []
+  global_instruction_avg_cvs = []
+  all_solution_keys = set(rt_stats.keys()) | set(ic_stats.keys())
+  for sol in sorted(all_solution_keys):
+    rt_input_stats = rt_stats.get(sol, {})
+    ic_input_stats = ic_stats.get(sol, {})
+    rt_agg = aggregate_top_k(rt_input_stats, top_k)
+    ic_agg = aggregate_top_k(ic_input_stats, top_k)
+    aggregated_stats[sol] = {"running_time": rt_agg, "instruction_count": ic_agg}
+    global_running_avg_means.append(rt_agg["avg_of_top_k_means"])
+    global_running_avg_cvs.append(rt_agg["avg_of_top_k_cvs"])
+    global_instruction_avg_means.append(ic_agg["avg_of_top_k_means"])
+    global_instruction_avg_cvs.append(ic_agg["avg_of_top_k_cvs"])
+  return {
+    "aggregated_stats": aggregated_stats,
+    "global_running_avg_means": global_running_avg_means,
+    "global_running_avg_cvs": global_running_avg_cvs,
+    "global_instruction_avg_means": global_instruction_avg_means,
+    "global_instruction_avg_cvs": global_instruction_avg_cvs,
+  }
+
+
+def write_csv(aggregated_stats, csv_output_path):
+  """
+  Write aggregated per-solution statistics to a CSV file using pandas.
+  
+  Args:
+    aggregated_stats (dict): Per-solution aggregated data
+    csv_output_path (str): Path to output CSV file
+  """
+  rows = []
+  for sol, stats in aggregated_stats.items():
+    rt = stats["running_time"]
+    ic = stats["instruction_count"]
+    row = {
+      "combined_key": sol,
+      "rt_top_k_means": "|".join(map(str, rt["top_k_means"])),
+      "rt_avg_of_top_k_means": rt["avg_of_top_k_means"],
+      "rt_median_of_top_k_means": rt["median_of_top_k_means"],
+      "rt_top_k_cvs": "|".join(map(str, rt["top_k_cvs"])),
+      "rt_avg_of_top_k_cvs": rt["avg_of_top_k_cvs"],
+      "rt_median_of_top_k_cvs": rt["median_of_top_k_cvs"],
+      "ic_top_k_means": "|".join(map(str, ic["top_k_means"])),
+      "ic_avg_of_top_k_means": ic["avg_of_top_k_means"],
+      "ic_median_of_top_k_means": ic["median_of_top_k_means"],
+      "ic_top_k_cvs": "|".join(map(str, ic["top_k_cvs"])),
+      "ic_avg_of_top_k_cvs": ic["avg_of_top_k_cvs"],
+      "ic_median_of_top_k_cvs": ic["median_of_top_k_cvs"],
+    }
+    rows.append(row)
+  df = pd.DataFrame(rows)
+  os.makedirs(os.path.dirname(csv_output_path), exist_ok=True)
+  df.to_csv(csv_output_path, index=False)
+  logging.info("Wrote CSV to %s", csv_output_path)
+
+
+def compute_ratio_and_arrow(baseline, value):
+  """
+  Compute the ratio between baseline and a given value, and determine arrow annotation.
+  
+  Args:
+    baseline (float): Baseline value
+    value (float): Value to compare
+  
+  Returns:
+    str: Formatted string with arrow and ratio (e.g., "(↓2.5×)" or "(↑1.3×)")
+  """
+  if value == 0:
+    return "(N/A)"
+  ratio = baseline / value
+  ratio_str = f"{ratio:.1f}\times"
+  arrow = "↓" if baseline > value else "↑"
+  return f"({arrow}{ratio_str})"
+
+
+def plot_area_chart(data_dict, baseline_label, overlay_label, output_pdf_name,
+                 x_label="Program ID", y_label="Metric (normalized)",
+                 chart_title="Area Chart Comparison", legend=True,
+                 transparency=0.7, line_style="solid", border=True,
+                 color_scheme="deep", custom_colors=None):
+  """
+  Create an overlaid area chart comparing two techniques (using SEABORN).
+  
+  Plots two area charts (one for baseline and one for overlay) without a trendline.
+  Provides configurable parameters for axis labels, title, legend, transparency,
+  line style, border, and color scheme.
+  
+  Args:
+    data_dict (dict): Dictionary mapping technique labels to dictionaries of {combined_key: numeric value}
+    baseline_label (str): Label for the baseline technique
+    overlay_label (str): Label for the overlay technique
+    output_pdf_name (str): Path to save the PDF plot
+    x_label (str): Label for the x-axis
+    y_label (str): Label for the y-axis
+    chart_title (str): Title for the chart
+    legend (bool): Whether to display the legend
+    transparency (float): Alpha value (0-1) for area fill transparency
+    line_style (str): Line style for plotted lines (e.g., "solid", "dotted")
+    border (bool): Whether to display the plot border
+    color_scheme (str): Predefined seaborn palette name
+    custom_colors (list): Optional list of two color strings for baseline and overlay
+  
+  Returns:
+    None
+  """
+  if custom_colors is None:
+    sns.set_theme(style="white", palette=color_scheme)
+  else:
+    sns.set_theme(style="white", palette=custom_colors)
+  
+  baseline_dict = data_dict.get(baseline_label, {})
+  overlay_dict = data_dict.get(overlay_label, {})
+  common_keys = [k for k in baseline_dict if baseline_dict.get(k, 0) and overlay_dict.get(k, 0)]
+  baseline_filtered = {k: baseline_dict[k] for k in common_keys}
+  overlay_filtered = {k: overlay_dict[k] for k in common_keys}
+  
+  baseline_data = compute_normalized_sorted_list_from_dict(baseline_filtered)
+  overlay_data = compute_normalized_sorted_list_from_dict(overlay_filtered)
+  
+  x_vals_base = list(range(len(baseline_data)))
+  y_vals_base = [val for _, val in baseline_data]
+  x_vals_overlay = list(range(len(overlay_data)))
+  y_vals_overlay = [val for _, val in overlay_data]
+  
+  fig, ax = plt.subplots()
+  sns.lineplot(x=x_vals_base, y=y_vals_base, ax=ax, label=baseline_label,
+         linestyle=line_style,
+         color=custom_colors[0] if custom_colors else None)
+  ax.fill_between(x_vals_base, 0, y_vals_base,
+          alpha=transparency,
+          color=custom_colors[0] if custom_colors else None)
+  
+  sns.lineplot(x=x_vals_overlay, y=y_vals_overlay, ax=ax, label=overlay_label,
+         linestyle=line_style,
+         color=custom_colors[1] if custom_colors else None)
+  ax.fill_between(x_vals_overlay, 0, y_vals_overlay,
+          alpha=transparency,
+          color=custom_colors[1] if custom_colors else None)
+  
+  ax.set_xlabel(x_label, fontsize=16)
+  ax.set_ylabel(y_label, fontsize=16)
+  ax.set_title(chart_title, fontsize=18)
+  
+  if not legend:
+    ax.get_legend().remove()
+  else:
+    ax.legend(fontsize=14)
+  
+  if not border:
+    for spine in ax.spines.values():
+      spine.set_visible(False)
+  
+  fig.savefig(output_pdf_name, format='pdf')
+  plt.close(fig)
 
 
 def compute_normalized_sorted_list_from_dict(values_dict):
   """
-  Given a dictionary {combined_key: value}, return a list of
-  (combined_key, normalized_value), sorted descending by normalized_value.
+  Normalize values by dividing by the minimum and return a sorted list.
   
-  This normalizes by dividing each value by the MINIMUM value in the dict.
+  Args:
+    values_dict (dict): Mapping of keys to numeric values
+  
+  Returns:
+    list: Sorted list of (key, normalized_value) tuples in descending order
   """
   items = list(values_dict.items())
   if not items:
     return []
-  
-  min_val = min(v for (_, v) in items)
+  min_val = min(v for _, v in items)
   if min_val == 0:
-    normalized = [(k, 0.0) for (k, v) in items]
+    normalized = [(k, 0.0) for k, v in items]
   else:
-    normalized = [(k, v / min_val) for (k, v) in items]
-  
-  # Sort descending by normalized value
+    normalized = [(k, v / min_val) for k, v in items]
   normalized.sort(key=lambda x: x[1], reverse=True)
   return normalized
 
 
-def compute_trendline_and_r2(x_vals, y_vals):
+def safe_mean(lst):
   """
-  Given x_vals, y_vals, compute a linear fit y = m*x + b,
-  and return (list_of_y_pred, r2_value).
-  """
-  slope, intercept = np.polyfit(x_vals, y_vals, 1)
-  y_pred = [slope * x + intercept for x in x_vals]
-
-  # Compute R^2 = 1 - SSR/SST
-  residuals = [(yv - pv)**2 for yv, pv in zip(y_vals, y_pred)]
-  ssr = sum(residuals)
-  mean_y = np.mean(y_vals)
-  sst = sum((yv - mean_y)**2 for yv in y_vals)
-  if sst == 0:
-    r2 = 0.0
-  else:
-    r2 = 1 - ssr / sst
+  Return the mean of a list if not empty; otherwise, 0.
   
-  return y_pred, r2
-
-
-def plot_area_chart_with_trend(data_dict, baseline_label, overlay_label, output_pdf_name):
-  """
-  Create an overlaid area chart for the baseline_label and overlay_label,
-  filtering out any combined_key that is 0 (or missing => 0) in either CSV.
-  - The Y-axis is log scale.
-  - A trend line (with R^2) is included for each label, with 5 decimal places.
-  - Output is saved to the specified PDF file (no plt.show()).
-  """
-
-  # Get the full dictionaries for each label
-  baseline_dict = data_dict[baseline_label]
-  overlay_dict = data_dict[overlay_label]
-
-  # Filter out combined_keys that have 0 in either dictionary
-  common_keys = []
-  for k in baseline_dict:
-    x_val = baseline_dict.get(k, 0)
-    y_val = overlay_dict.get(k, 0)
-    if x_val != 0 and y_val != 0:
-      common_keys.append(k)
+  Args:
+    lst (list): List of numeric values
   
-  # Build new, filtered dictionaries
-  baseline_filtered_dict = {k: baseline_dict[k] for k in common_keys}
-  overlay_filtered_dict = {k: overlay_dict[k] for k in common_keys}
+  Returns:
+    float: Mean of the list or 0 if empty
+  """
+  return statistics.mean(lst) if lst else 0
 
-  # Now compute the normalized/sorted lists
-  baseline_data = compute_normalized_sorted_list_from_dict(baseline_filtered_dict)
-  overlay_data = compute_normalized_sorted_list_from_dict(overlay_filtered_dict)
 
-  # Prepare the figure
-  fig, ax = plt.subplots()
-
-  # ---------- Baseline ----------
-  x_vals_base = range(len(baseline_data))
-  y_vals_base = [val for (_, val) in baseline_data]
-  base_color = "#ff6361"
-
-  ax.fill_between(x_vals_base, 0, y_vals_base, alpha=1.0, color=base_color)
-  if len(y_vals_base) > 1:
-    y_pred_base, r2_base = compute_trendline_and_r2(x_vals_base, y_vals_base)
-    ax.plot(x_vals_base, y_pred_base, linestyle='--', color=base_color,
-            label=f"{baseline_label} trend line: R^2={r2_base:.5f}")
-
-  # ---------- Overlay ----------
-  x_vals_overlay = range(len(overlay_data))
-  y_vals_overlay = [val for (_, val) in overlay_data]
-  overlay_color = "#58508d"
-
-  ax.fill_between(x_vals_overlay, 0, y_vals_overlay, alpha=1.0, color=overlay_color)
-  if len(y_vals_overlay) > 1:
-    y_pred_overlay, r2_overlay = compute_trendline_and_r2(x_vals_overlay, y_vals_overlay)
-    ax.plot(x_vals_overlay, y_pred_overlay, linestyle='--', color=overlay_color,
-            label=f"{overlay_label}: R^2={r2_overlay:.5f}")
-
-  # Labels and scaling
-  ax.set_xlabel("Program ID", fontsize=16)
-  ax.set_ylabel("# of instructions (log scale)", fontsize=16)
-  ax.set_yscale('log')  # y-axis log scale
-  ax.set_ylim(bottom=1.0)
-  ax.set_xticks([])   # Remove X-axis ticks
+def generate_latex_table(global_stats_by_topk):
+  """
+  Generate a LaTeX table summarizing instruction counts (normalized by 1e9) and running time (ms)
+  for each technique across different top-K values.
   
-  ax.legend(fontsize=16)
+  For each top-K and each technique, displays "mean ± variation". For non-baseline techniques,
+  shows the ratio (with arrow) relative to the wedge baseline.
   
-  fig.savefig(output_pdf_name, format='pdf')
-  plt.close(fig)
-
-
-def plot_pie_chart_winners(data_dict, labels, output_pdf_name):
+  Args:
+    global_stats_by_topk (dict): Nested dictionary with structure:
+      { top_k: { technique: { 'global_running_avg_means': [...],
+                   'global_running_avg_cvs': [...],
+                   'global_instruction_avg_means': [...],
+                   'global_instruction_avg_cvs': [...] } } }
   """
-  For each combined_key, find which label has the largest ic_avg_of_top_k_means.
-  Sum up the winners and create a pie chart with no legend/title by default.
-
-  Each slice label will show: 
-   label: [no_of_programs]/[total_programs]
-  plus the autopct='%1.1f%%' for the percentage.
-  """
-  # Collect union of all keys
-  all_keys = set()
-  for label in labels:
-    all_keys.update(data_dict[label].keys())
+  header = r"\begin{tabular}{l" + "c" * len(TOP_K_VALUES) + "}"
+  header += "\n\\toprule\n"
+  header += "Technique & " + " & ".join([f"Top-{k}" for k in TOP_K_VALUES]) + r" \\"
+  header += "\n\\midrule\n"
+  lines = [header]
   
-  # Initialize win counts
-  win_counts = {label: 0 for label in labels}
+  # Instruction counts section
+  lines.append(r"\multicolumn{" + str(len(TOP_K_VALUES)+1) +
+         r"}{c}{\textbf{Number of instructions ($\times10^9$)}} \\")
+  for tech in TECHNIQUES:
+    row = [tech.upper()]
+    for k in TOP_K_VALUES:
+      stats = global_stats_by_topk.get(k, {}).get(tech, {})
+      ic_avg = safe_mean(stats.get("global_instruction_avg_means", [])) / 1e9
+      ic_var = safe_mean(stats.get("global_instruction_avg_cvs", []))
+      if tech != "wedge":
+        wedge_stats = global_stats_by_topk.get(k, {}).get("wedge", {})
+        wedge_ic_avg = safe_mean(wedge_stats.get("global_instruction_avg_means", [])) / 1e9
+        ratio_str = compute_ratio_and_arrow(wedge_ic_avg, ic_avg)
+      else:
+        ratio_str = ""
+      row.append(f"{ic_avg:.2f}±{ic_var:.2f} {ratio_str}")
+    lines.append(" & ".join(row) + r" \\")
   
-  # Determine the winner for each combined_key
-  for k in all_keys:
-    best_label = None
-    best_value = -1
-    for label in labels:
-      value = data_dict[label].get(k, 0)  # default to 0 if missing
-      if value > best_value:
-        best_value = value
-        best_label = label
-    
-    if best_label is not None:
-      win_counts[best_label] += 1
+  lines.append(r"\midrule")
   
-  # Summaries
-  counts = list(win_counts.values())
-  total_programs = sum(counts)
-  pie_labels = list(win_counts.keys())
-
-  # Print label stats in console
-  for lbl in pie_labels:
-    count_lbl = win_counts[lbl]
-    perc = round(100.0 * count_lbl / total_programs) if total_programs else 0
-    print(f"{lbl}: {count_lbl}/{total_programs} ({perc}%)")
-
-  # Prepare pie chart
-  fig2, ax2 = plt.subplots()
+  # Running time section
+  lines.append(r"\multicolumn{" + str(len(TOP_K_VALUES)+1) +
+         r"}{c}{\textbf{Running time (ms)}} \\")
+  for tech in TECHNIQUES:
+    row = [tech.upper()]
+    for k in TOP_K_VALUES:
+      stats = global_stats_by_topk.get(k, {}).get(tech, {})
+      rt_avg = safe_mean(stats.get("global_running_avg_means", []))
+      rt_var = safe_mean(stats.get("global_running_avg_cvs", []))
+      if tech != "wedge":
+        wedge_stats = global_stats_by_topk.get(k, {}).get("wedge", {})
+        wedge_rt_avg = safe_mean(wedge_stats.get("global_running_avg_means", []))
+        ratio_str = compute_ratio_and_arrow(wedge_rt_avg, rt_avg)
+      else:
+        ratio_str = ""
+      row.append(f"{rt_avg:.0f}±{rt_var:.1f} {ratio_str}")
+    lines.append(" & ".join(row) + r" \\")
   
-  ax2.pie(
-    counts,
-    # labels=[f"{lbl}: {win_counts[lbl]}/{total_programs}" for lbl in pie_labels],
-    autopct='%1.1f%%',   # Show percentage
-    startangle=90,
-    colors=["#58508d", "#bc5090", "#ff6361", "#ffa600"],
-    textprops={"fontsize":16},
-    pctdistance=1.2
-  )
-
-  # No legend or title by default
-  fig2.savefig(output_pdf_name, format='pdf')
-  plt.close(fig2)
-
-def compute_ratio_value(x, y):
-  """
-  Compute x/y ratio and normalize the values to [-1000, 1000].
-  """
-  if x <= 0 or y <= 0:
-    return None
-  if x >= y:
-    ratio = (x/y - 1)*100.0
-  else:
-    ratio = (1 - (y/x))*100.0
-  
-  # Normalize and lump together
-  ratio = math.ceil(ratio)
-  if ratio > 1000:
-    ratio = 1000
-  if ratio < -1000:
-    ratio = -1000
-  return ratio
-
-def draw_brace(ax, xspan, yy, text, color='black', ls='-', lw=2):
-  """
-  Draws an annotated horizontal brace on the axes from xmin to xmax at y=yy.
-  xspan: (xmin, xmax)
-  yy: the vertical coordinate (in data coords)
-  text: the label string for the brace
-  color, lw: color/line-width for the brace
-  """
-  xmin, xmax = xspan
-  xspan_len = xmax - xmin
-
-  # Current axis limits
-  ax_xmin, ax_xmax = ax.get_xlim()
-  xax_span = ax_xmax - ax_xmin
-  ymin, ymax = ax.get_ylim()
-  yspan = ymax - ymin
-
-  # The resolution and logistic shape
-  resolution = int(xspan_len/xax_span*100)*2 + 1
-  beta = 300.0 / xax_span # shape of the logistic transition
-
-  # Generate x-coords for the brace
-  x = np.linspace(xmin, xmax, resolution)
-  half_len = int(resolution/2) + 1
-  x_half = x[:half_len]
-
-  # logistic-based half-brace
-  y_half_brace = (1/(1.+np.exp(-beta*(x_half - x_half[0]))) +
-          1/(1.+np.exp(-beta*(x_half - x_half[-1]))))
-  # mirror the second half
-  y_brace = np.concatenate((y_half_brace, y_half_brace[-2::-1]))
-
-  # Vertical offset for the brace shape
-  # The constants .05 and -.01 can be tweaked for how "tall" the brace is
-  y_brace = yy + (0.15*y_brace - 0.01)*yspan
-
-  ax.autoscale(False)
-  ax.plot(x, y_brace, color=color, ls=ls, lw=lw)
-
-  # Put the text label above the brace
-  ax.text((xmax + xmin)/2.0, yy + 0.21*yspan, text,
-      ha='center', va='bottom', fontsize=16, color=color)
-
-
-def plot_histogram_ratios(data_dict, baseline_label, overlay_label, output_pdf_name):
-  """
-  Modified snippet:
-   - Log scale on Y
-   - Vertical line at x=0
-   - Two curly braces (negative side, positive side) for the percentages
-   - No legend
-  """
-  baseline_dict = data_dict[baseline_label]
-  overlay_dict = data_dict[overlay_label]
-
-  ratio_values = []
-  all_keys = set(baseline_dict.keys()).intersection(set(overlay_dict.keys()))
-
-  for k in all_keys:
-    x_val = baseline_dict.get(k, 0)
-    y_val = overlay_dict.get(k, 0)
-    # compute_ratio_value() presumably clamps to [-1000, 1000]
-    ratio = compute_ratio_value(x_val, y_val) 
-    if ratio is not None:
-      ratio_values.append(ratio)
-
-  if not ratio_values:
-    print(f"No valid ratio values for {baseline_label} vs {overlay_label}. Skipping histogram.")
-    return
-
-  neg_values = [r for r in ratio_values if r < 0]
-  pos_values = [r for r in ratio_values if r >= 0]
-
-  fig, ax = plt.subplots(figsize=(8,6))
-
-  bins = 40
-  min_val, max_val = -1000, 1000
-
-  # Negative side
-  ax.hist(neg_values, bins=bins, range=(min_val, max_val),
-      color="#58508d", edgecolor="#58508d", alpha=1.0)
-  # Positive side
-  ax.hist(pos_values, bins=bins, range=(min_val, max_val),
-      color="#ff6361", edgecolor="#ff6361", alpha=1.0)
-
-  ax.set_yscale('log') # log scale on Y
-
-  # Vertical line at x=-0.1
-  ax.axvline(x=-0.1, color='black', linestyle='--', linewidth=1)
-
-  # X ticks
-  ax.set_xticks([ -1000, -500, -100, 0, 100, 500, 1000 ])
-  ax.set_xticklabels([ "≤-1000", "-500", "-100", "0", "100", "500", "≥1000" ])
-
-  ax.set_xlabel("normalized ratio (%)", fontsize=16)
-  ax.set_ylabel("# of programs (log scale)", fontsize=16)
-
-  # Don't display the legend
-  # ax.legend()
-
-  # Figure out how many are "negative" vs "positive" ratios
-  total_count = len(ratio_values)
-  neg_pct = 100.0 * len(neg_values)/total_count if total_count else 0
-  pos_pct = 100.0 * len(pos_values)/total_count if total_count else 0
-
-  # Place curly brakets braces at y=some fraction of the top limit
-  y_max = ax.get_ylim()[1]
-  brace_y = 0.4 * y_max # slightly below half of the top
-
-  # Draw curly brace from -1000 to 0
-  draw_brace(ax, (-1000, 0), brace_y, f"{neg_pct:.1f}%", color='black', ls='-', lw=1)
-
-  # Draw curly brace from 0 to 1000
-  draw_brace(ax, (0, 1000), brace_y, f"{pos_pct:.1f}%", color='black', ls='-', lw=1)
-
-  fig.tight_layout()
-  fig.savefig(output_pdf_name, format='pdf')
-  plt.close(fig)
-
-  # Count and compare positive (baseline) verus negative (overlay) ratios
-  pos_bins = [0] * 11
-  for r in pos_values:
-    if int(r/100) < 0 and int(r/100) >= 11: 
-      print(r)
-
-  neg_bins = [0] * 11
-  for r in neg_values:
-    try: 
-      print(r)
-      neg_bins[int(r/100)] += 1
-    except Exception:
-      raise(IndexError)
-
-  # Print in LaTeX table row
-  table_line=f"{baseline_label} vs {overlay_label} >>> "
-  for i in range (0, len(pos_bins)):
-    table_line += f"& {pos_bins[i]} ({neg_bins[i]} $\textcolor{{red}}{{\downarrow\}}$"
-  print(table_line)
+  lines.append(r"\bottomrule")
+  lines.append(r"\end{tabular}")
+  latex_table = "\n".join(lines)
+  print(latex_table)
 
 
 def main():
+  """
+  Main entry point.
+  
+  Processes JSON files for each technique to build an in-memory data structure, computes aggregated
+  statistics for fixed top-K values, writes CSV files, generates area plots, and produces a LaTeX table.
+  
+  Command-line arguments:
+   --json-dir: Base directory with JSON files (organized by technique subdirectories)
+   --output-csv-dir: Directory where CSV files will be written
+   --plot-output-dir: Directory to save PDF plots
+   --language: Programming language filter (default: "cpp")
+  
+  Usage:
+   python this_script.py --json-dir ./json_data --output-csv-dir ./csv_out --plot-output-dir ./plots --language cpp
+  """
   parser = argparse.ArgumentParser(
-    description="Generate plots to compare between different techniques."
+    description="Process JSON files into in-memory nested structures and compute performance stats."
   )
-  parser.add_argument(
-    "--directory",
-    help="Path to the directory containing CSV files.",
-    required=True
-  )
-  parser.add_argument(
-    "--top-k-inputs",
-    help="Number of top inputs (by mean) to consider for each solution. Default=10.",
-    type=int,
-    default=10
-  )
+  parser.add_argument("--json-dir", required=True,
+            help="Base directory containing JSON files organized by technique subdirectories.")
+  parser.add_argument("--output-csv-dir", required=True,
+            help="Directory to write generated CSV files.")
+  parser.add_argument("--plot-output-dir", required=True,
+            help="Directory to save generated PDF plots.")
+  parser.add_argument("--language", default="cpp",
+            help="Programming language filter (default: cpp).")
   args = parser.parse_args()
 
-  for i in range(0, len(csv_files)):
-    csv_files[i] = csv_files[i].replace("??", str(args.top_k_inputs))
+  # Build in-memory data structures for each technique
+  technique_data = {}
+  for tech in TECHNIQUES:
+    tech_dir = os.path.join(args.json_dir, tech)
+    logging.info("Processing technique %s from directory %s", tech, tech_dir)
+    rt_data, ic_data = build_data_structure_for_technique(tech_dir, args.language)
+    technique_data[tech] = {"rt": rt_data, "ic": ic_data}
 
-  # 1. Read CSVs into a nested dictionary
-  data_dict = read_csvs_into_dict(args.directory, csv_files, csv_labels)
+  # Dictionary to store global stats for the LaTeX table
+  global_stats_by_topk = {}
 
-  # 2. Generate area-chart PDFs for combos:
-  baseline = csv_labels[0]
-  for second_idx in range(1, len(csv_labels)):
-    second_label = csv_labels[second_idx]
+  # For each fixed top-K value, compute aggregated stats and write CSV files
+  for top_k in TOP_K_VALUES:
+    global_stats_by_topk[top_k] = {}
+    for tech in TECHNIQUES:
+      logging.info("Aggregating stats for technique %s with top-%d", tech, top_k)
+      data_rt = technique_data[tech]["rt"]
+      data_ic = technique_data[tech]["ic"]
+      agg_results = compute_aggregate_stats_for_structure(data_rt, data_ic, top_k)
+      global_stats_by_topk[top_k][tech] = agg_results
+      csv_filename = f"{tech}-top{top_k}inputs.csv"
+      csv_output_path = os.path.join(args.output_csv_dir, csv_filename)
+      write_csv(agg_results["aggregated_stats"], csv_output_path)
 
-    # Create an area chart of the distribution
-    pdf_name_area = f"areachart_{baseline}_vs_{second_label}_top{args.top_k_inputs}inputs.pdf"
-    print(f"Creating overlaid area chart for '{baseline}' vs '{second_label}' -> {pdf_name_area}")
-    plot_area_chart_with_trend(data_dict, baseline, second_label, pdf_name_area)
+  # Generate area plots comparing baseline ("wedge") with other techniques
+  for top_k in TOP_K_VALUES:
+    baseline_csv = os.path.join(args.output_csv_dir, f"wedge-top{top_k}inputs.csv")
+    try:
+      df_baseline = pd.read_csv(baseline_csv)
+    except Exception as e:
+      logging.warning("Could not read CSV file %s: %s", baseline_csv, e)
+      continue
+    baseline_dict = dict(zip(df_baseline["combined_key"], df_baseline["ic_avg_of_top_k_means"]))
+    for tech in TECHNIQUES:
+      if tech == "wedge":
+        continue
+      overlay_csv = os.path.join(args.output_csv_dir, f"{tech}-top{top_k}inputs.csv")
+      try:
+        df_overlay = pd.read_csv(overlay_csv)
+      except Exception as e:
+        logging.warning("Could not read CSV file %s: %s", overlay_csv, e)
+        continue
+      overlay_dict = dict(zip(df_overlay["combined_key"], df_overlay["ic_avg_of_top_k_means"]))
+      plot_filename = os.path.join(args.plot_output_dir, f"areachart_{top_k}_{tech}.pdf")
+      data_dict = {"wedge": baseline_dict, tech: overlay_dict}
+      plot_area_chart(
+        data_dict, 
+        baseline_label="wedge", 
+        overlay_label=tech, 
+        output_pdf_name=plot_filename,
+        x_label="Program ID",
+        y_label="Instruction Count (normalized)",
+        chart_title=f"Area Chart: Top-{top_k} ({tech} vs WEDGE)",
+        legend=True,
+        transparency=0.7,
+        line_style="solid",
+        border=True,
+        color_scheme="deep" # can provide custom_colors array of custom colors
+      )
+      logging.info("Generated area plot: %s", plot_filename)
 
-    # Create a histogram of ratio differences
-    pdf_name_hist = f"histogram_{baseline}_vs_{second_label}_top{args.top_k_inputs}inputs.pdf"
-    print(f"Creating histogram of ratio differences -> {pdf_name_hist}")
-    plot_histogram_ratios(data_dict, baseline, second_label, pdf_name_hist)
-
-  # 3. Generate pie chart PDF for winners among ALL CSV files
-  winners_pdf_name = f"piechart_ranked_top{args.top_k_inputs}inputs.pdf"
-  print(f"Creating pie chart of winners -> {winners_pdf_name}")
-  plot_pie_chart_winners(data_dict, csv_labels, winners_pdf_name)
+  # Generate LaTeX table summarizing the results
+  generate_latex_table(global_stats_by_topk)
 
 
 if __name__ == "__main__":
   main()
+
