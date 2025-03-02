@@ -44,11 +44,15 @@ def sanitize_run_result(
         if solution == "time_limit":
             continue
         time_dict = data["time_dict"]
+        ict_dict = data["instruction_cnt_dict"]
         sanitized_time_dict = {}
+        sanitized_ict_dict = {}
         for input_name, time_list in time_dict.items():
             if validation_result[input_name] == "PASS":
                 sanitized_time_dict[input_name] = time_list
+                sanitized_ict_dict[input_name] = ict_dict[input_name]
         sanitized_experiment_data[solution]["time_dict"] = sanitized_time_dict
+        sanitized_experiment_data[solution]["instruction_cnt_dict"] = sanitized_ict_dict
 
     return sanitized_experiment_data
 
