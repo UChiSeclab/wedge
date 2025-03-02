@@ -23,7 +23,7 @@ def process_problem(problem_id: str, corpus_gen_dir: str, validator_mode:str, fu
     validator_dir = problem_dir / "validator_gen" / validator_mode
     if not (validator_dir / "VAL_GT_INPUT_PASS").exists():
         print(f"[Warning] {validator_dir} does not have a good validator. Skipping...")
-        record_failing_problem(problem_id, strategy, "No available validator")
+        record_failing_problem(problem_id, f"{strategy}_{fuzz_driver_mode}_{mutator_type}", "No available validator")
         return
     validator_file, _ = find_validator_files(validator_dir)
 

@@ -14,3 +14,4 @@ Pympler # evalperf dependency
 sentencepiece==0.2.0
 memory_profiler==0.61.0
 line_profiler==4.2.0
+orjson==3.10.15
