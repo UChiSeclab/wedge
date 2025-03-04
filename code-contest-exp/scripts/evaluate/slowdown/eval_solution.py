@@ -105,6 +105,44 @@ def calculate_avg_stats(strategy_solution_stats: Dict, top_k: int) -> Tuple[floa
 
     return mean(avg_instruction_cnt), mean(avg_time)
 
+def make_latex_table(table_data: Dict):
+    # table_data: {strategy -> {top_k -> {"avg_instruction_cnt": float, "avg_instruction_cnt_slowdown": float}}}
+    strategy_name_map = {
+        "corpus_instrument_fuzz_mutator_with_constraint_per_solution": r"\tool",
+        "evalperf_slow_solution": r"\evalperfslow",
+        "evalperf_random_solution": r"\evalperfrandom",
+        "plain_problem": r"\directprompting",
+        "corpus_raw_fuzz_mutator_with_constraint_per_solution": r"\wedgenoinstrument",
+        "corpus_raw_fuzz_custom_mutator": r"\wedgenoconstraint",
+        "corpus_raw_fuzz_default_mutator": r"\wedgenomutator",
+    }
+    head = r"\begin{tabular}{llll}"
+    head += r"\toprule "
+    head += r"\# of slowest inputs & Top-10 & Top-5 & Top-3 \\ \midrule"
+    subtitle_slowdown = r"\rowcolor[gray]{0.95} \multicolumn{4}{c}{Relative slowdown compared with default tests} \\"
+    subtitle_ict = r"\rowcolor[gray]{0.95} \multicolumn{4}{c}{Number of instructions ($\times 10^8$)} \\"
+    slowdown_content = ""
+    ict_content = ""
+    for strategy in table_data:
+        slowdown_content += f" {strategy_name_map[strategy]} & "
+        ict_content += f" {strategy_name_map[strategy]} & "
+        for top_k in [10, 5, 3]:
+            if strategy == "corpus_instrument_fuzz_mutator_with_constraint_per_solution":
+                slowdown_content += r"\textbf{%.2f} & " % table_data[strategy][top_k]["avg_instruction_cnt_slowdown"]
+                ict_content += r"\textbf{%.2f} & " % ((table_data[strategy][top_k]["avg_instruction_cnt"]) / 10**8)
+            else:
+                slowdown_content += r"%.2f & " % table_data[strategy][top_k]["avg_instruction_cnt_slowdown"]
+                ict_content += r"%.2f & " % ((table_data[strategy][top_k]["avg_instruction_cnt"]) / 10**8)
+        slowdown_content = slowdown_content[:-2] + " \\\\"
+        ict_content = ict_content[:-2] + " \\\\"
+    slowdown_content += r" \midrule"
+    ict_content += r" \bottomrule"
+    tail = r"\end{tabular}"
+
+    table = "\n".join([head, subtitle_slowdown, slowdown_content, subtitle_ict, ict_content, tail])
+
+    print(table)
+
 if __name__ == '__main__':
     mode = sys.argv[1]
     output_dir = Path("results/slowdown")
@@ -125,7 +163,7 @@ if __name__ == '__main__':
 
     print(f"Number of problems: {len(problem_id_list)}")
     if mode == 'main':
-        target_strategies = ["evalperf_random_solution", "evalperf_slow_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "plain_problem"]
+        target_strategies = ["corpus_instrument_fuzz_mutator_with_constraint_per_solution", "evalperf_random_solution", "evalperf_slow_solution", "plain_problem"]
     elif mode == 'ablation':
         target_strategies = ["corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_default_mutator"]
     else:
@@ -141,7 +179,9 @@ if __name__ == '__main__':
         with open(alphacode_sanitized_file, "r") as f:
             alphacode_sanitized_stats = json.load(f)
 
+    table_data = {}
     for strategy in target_strategies:
+        table_data[strategy] = {}
         output_file = output_dir / f"{strategy}.json"
         if not output_file.exists():
             all_solution_stats = parallel_problem_stats(problem_id_list, strategy)
@@ -153,9 +193,14 @@ if __name__ == '__main__':
                 all_solution_stats = json.load(f)
 
         for top_k in [3, 5, 10]:
+            table_data[strategy][top_k] = {}
             avg_instruction_cnt, avg_time = calculate_avg_stats(all_solution_stats, top_k)
             alphacode_avg_instruction_cnt, alphacode_avg_time = calculate_avg_stats(alphacode_sanitized_stats, top_k)
             avg_ict_slowdown = avg_instruction_cnt / alphacode_avg_instruction_cnt
             avg_time_slowdown = avg_time / alphacode_avg_time
             print(f"Strategy: {strategy}, top_k: {top_k}, avg_instruction_cnt: {avg_instruction_cnt}, avg_time: {avg_time}")
             print(f"Strategy: {strategy}, top_k: {top_k}, avg_instruction_cnt_slowdown: {avg_ict_slowdown}, avg_time_slowdown: {avg_time_slowdown}")
+            table_data[strategy][top_k]["avg_instruction_cnt"] = avg_instruction_cnt
+            table_data[strategy][top_k]["avg_instruction_cnt_slowdown"] = avg_ict_slowdown
+
+    make_latex_table(table_data)
