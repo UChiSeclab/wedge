@@ -1,14 +1,13 @@
-import numpy as np
-from matplotlib import pyplot as plt
 from pathlib import Path
-from typing import Dict, List, Tuple
-from multiprocessing import Pool, Manager
+from typing import Dict, List, Tuple, Set
+from multiprocessing import Pool
 import os, sys
 import logging
 import json
+from scipy.stats import mannwhitneyu
 
 from config import config
-from utils import get_cf_problems, filter_problems, mean, get_alphacode_result, get_experiment_result, problem_to_id
+from utils import get_cf_problems, filter_problems, mean, get_experiment_result, problem_to_id
 from cgig.cgig_utils import problem_has_extracted_constraint
 from common import Language
 
@@ -25,6 +24,17 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger()
+
+def get_intersection_problem_solutions(alphacode_sanitized_stats: Dict, all_strategy_solution_stats: Dict, all_strategies: List[str]) -> Set:
+    intersection_problem_solution_ids = set(alphacode_sanitized_stats.keys())
+    print(f"Number of solutions in alphacode: {len(intersection_problem_solution_ids)}")
+    for strategy in all_strategies:
+        print(f"Number of solutions in {strategy}: {len(all_strategy_solution_stats[strategy].keys())}")
+        intersection_problem_solution_ids = intersection_problem_solution_ids.intersection(set(all_strategy_solution_stats[strategy].keys()))
+        print(f"Number of solutions after intersecting with {strategy}: {len(intersection_problem_solution_ids)}")
+
+    print(f"Number of problems with all strategies: {len(intersection_problem_solution_ids)}")
+    return intersection_problem_solution_ids
 
 def clean_experiment_result(experiment_result: Dict) -> Dict:
     """Remove the solutions that are not AC or TLE"""
@@ -59,7 +69,6 @@ def get_top_k_slow_inputs_over_solutions(
 
     top_k_slow_inputs = sorted(input_solution_stats, key=lambda input_id: mean(input_solution_stats[input_id]), reverse=True)[:top_k]
     return top_k_slow_inputs
-    
 
 def get_problem_solution_stats(problem_id: str, strategy: str, top_k: int = 10) -> Dict:
     solution_stats = {} # problem_solution_id -> {input_id -> {"avg_instruction_cnt": float, "avg_time": float}}
@@ -95,15 +104,43 @@ def parallel_problem_stats(problem_id_list: List[str], strategy: str) -> Dict:
             merged_solution_stats.update(result)
     return merged_solution_stats
 
-def calculate_avg_stats(strategy_solution_stats: Dict, top_k: int) -> Tuple[float, float]:
-    avg_instruction_cnt = []
-    avg_time = []
-    for problem_solution_id in strategy_solution_stats:
+def calculate_avg_stats(problem_solution_ids: Set, strategy_solution_stats: Dict, top_k: int) -> Tuple[float, float]:
+    avg_instruction_cnt_list = []
+    avg_time_list = []
+    for problem_solution_id in problem_solution_ids:
         for input_id in list(strategy_solution_stats[problem_solution_id])[:top_k]:
-            avg_instruction_cnt.append(strategy_solution_stats[problem_solution_id][input_id]["avg_instruction_cnt"])
-            avg_time.append(strategy_solution_stats[problem_solution_id][input_id]["avg_time"])
+            avg_instruction_cnt_list.append(strategy_solution_stats[problem_solution_id][input_id]["avg_instruction_cnt"])
+            avg_time_list.append(strategy_solution_stats[problem_solution_id][input_id]["avg_time"])
 
-    return mean(avg_instruction_cnt), mean(avg_time)
+    return mean(avg_instruction_cnt_list), mean(avg_time_list)
+
+def calculate_avg_maps(problem_solution_ids: Set, strategy_solution_stats: Dict, top_k: int) -> Tuple[Dict, Dict]:
+    avg_instruction_cnt_map = {} # problem_solution_id -> [avg_instruction_cnt]
+    avg_time_map = {}
+    for problem_solution_id in problem_solution_ids:
+        avg_instruction_cnt_map[problem_solution_id] = []
+        avg_time_map[problem_solution_id] = []
+        for input_id in list(strategy_solution_stats[problem_solution_id])[:top_k]:
+            avg_instruction_cnt_map[problem_solution_id].append(strategy_solution_stats[problem_solution_id][input_id]["avg_instruction_cnt"])
+            avg_time_map[problem_solution_id].append(strategy_solution_stats[problem_solution_id][input_id]["avg_time"])
+
+    return avg_instruction_cnt_map, avg_time_map
+
+def significance_test(strategy_data_list_map: Dict[str, Dict[str, Dict[str, List[float]]]], strategy_1: str, strategy_2: str, top_k: int):
+    avg_larger_cnt = 0
+    significance_larger_cnt = 0
+    for problem_solution_id in strategy_data_list_map[strategy_1][top_k]:
+        data_1 = strategy_data_list_map[strategy_1][top_k][problem_solution_id]
+        data_2 = strategy_data_list_map[strategy_2][top_k][problem_solution_id]
+        if mean(data_1) > mean(data_2):
+            avg_larger_cnt += 1
+        # test if data_1 is significantly larger than data_2
+        stat, p = mannwhitneyu(data_1, data_2, alternative="greater")
+        if p < 0.05:
+            significance_larger_cnt += 1
+
+    print(f"Strategy {strategy_1} has larger average instruction count than {strategy_2} in {avg_larger_cnt} out of {len(strategy_data_list_map[strategy_1][top_k])} solutions")
+    print(f"Strategy {strategy_1} has significantly larger average instruction count than {strategy_2} in {significance_larger_cnt} out of {len(strategy_data_list_map[strategy_1][top_k])} solutions")
 
 def make_latex_table(table_data: Dict):
     # table_data: {strategy -> {top_k -> {"avg_instruction_cnt": float, "avg_instruction_cnt_slowdown": float}}}
@@ -179,28 +216,49 @@ if __name__ == '__main__':
         with open(alphacode_sanitized_file, "r") as f:
             alphacode_sanitized_stats = json.load(f)
 
+    all_strategy_solution_stats = {}
     table_data = {}
-    for strategy in target_strategies:
-        table_data[strategy] = {}
+    for strategy in all_strategies:
         output_file = output_dir / f"{strategy}.json"
         if not output_file.exists():
-            all_solution_stats = parallel_problem_stats(problem_id_list, strategy)
+            strategy_solution_stats = parallel_problem_stats(problem_id_list, strategy)
             with open(output_file, "w") as f:
-                json.dump(all_solution_stats, f, indent=4)
+                json.dump(strategy_solution_stats, f, indent=4)
             print(f"Dumped {strategy} to {output_file}")
         else:
             with open(output_file, "r") as f:
-                all_solution_stats = json.load(f)
+                strategy_solution_stats = json.load(f)
+                
+        all_strategy_solution_stats[strategy] = strategy_solution_stats
+    
+    intersection_problem_solution_ids = get_intersection_problem_solutions(alphacode_sanitized_stats, all_strategy_solution_stats, all_strategies)
+    print(f"Number of problem solutions with all strategies: {len(intersection_problem_solution_ids)}")
 
+    strategy_ict_list_map = {}
+    for strategy in target_strategies:
+        table_data[strategy] = {}
+        strategy_ict_list_map[strategy] = {}
+        strategy_solution_stats = all_strategy_solution_stats[strategy]
         for top_k in [3, 5, 10]:
             table_data[strategy][top_k] = {}
-            avg_instruction_cnt, avg_time = calculate_avg_stats(all_solution_stats, top_k)
-            alphacode_avg_instruction_cnt, alphacode_avg_time = calculate_avg_stats(alphacode_sanitized_stats, top_k)
+            strategy_ict_list_map[strategy][top_k] = {}
+            avg_instruction_cnt, avg_time = calculate_avg_stats(intersection_problem_solution_ids, strategy_solution_stats, top_k)
+            alphacode_avg_instruction_cnt, alphacode_avg_time = calculate_avg_stats(intersection_problem_solution_ids, alphacode_sanitized_stats, top_k)
             avg_ict_slowdown = avg_instruction_cnt / alphacode_avg_instruction_cnt
             avg_time_slowdown = avg_time / alphacode_avg_time
             print(f"Strategy: {strategy}, top_k: {top_k}, avg_instruction_cnt: {avg_instruction_cnt}, avg_time: {avg_time}")
             print(f"Strategy: {strategy}, top_k: {top_k}, avg_instruction_cnt_slowdown: {avg_ict_slowdown}, avg_time_slowdown: {avg_time_slowdown}")
             table_data[strategy][top_k]["avg_instruction_cnt"] = avg_instruction_cnt
             table_data[strategy][top_k]["avg_instruction_cnt_slowdown"] = avg_ict_slowdown
+
+            avg_instruction_cnt_map, avg_time_map = calculate_avg_maps(intersection_problem_solution_ids, strategy_solution_stats, top_k)
+            strategy_ict_list_map[strategy][top_k] = avg_instruction_cnt_map
+
+    if mode == "ablation":
+        # Mann-Whitney U test
+        significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_mutator_with_constraint_per_solution", 10)
+        significance_test(strategy_ict_list_map, "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", 10)
+        significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", 10)
+        significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_default_mutator", 10)
 
     make_latex_table(table_data)
