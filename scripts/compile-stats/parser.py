@@ -16,6 +16,8 @@ def merge_json_data_into_structure(json_data, language, data_rt, data_ic):
       continue
     if solution_data.get("language") != language:
       continue
+    if any(verdict in ["CE"] for verdict in solution_data.get("verdict", [])):
+      continue
     combined_key = f"{probname}-{solution_name.strip()}"
     data_rt.setdefault(combined_key, {})
     data_ic.setdefault(combined_key, {})
