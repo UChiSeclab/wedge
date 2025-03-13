@@ -36,23 +36,28 @@ def get_intersection_problem_solutions(alphacode_sanitized_stats: Dict, all_stra
     print(f"Number of problems with all strategies: {len(intersection_problem_solution_ids)}")
     return intersection_problem_solution_ids
 
-def clean_experiment_result(experiment_result: Dict) -> Dict:
+def clean_experiment_result(experiment_result: Dict, exclude_kill_wa: bool=True) -> Dict:
     """Remove the solutions that are not AC or TLE"""
     cleaned_experiment_result = {}
     for solution_id in experiment_result:
         if solution_id == "time_limit":
             continue
         verdicts = experiment_result[solution_id]["verdict"]
-        if all(verdict in ["AC", "TLE"] for verdict in verdicts):
-            cleaned_experiment_result[solution_id] = experiment_result[solution_id]
+        if exclude_kill_wa:
+            if all(verdict in ["AC", "TLE"] for verdict in verdicts):
+                cleaned_experiment_result[solution_id] = experiment_result[solution_id]
+        else:
+            if all(verdict in ["AC", "TLE", "KILL", "WA"] for verdict in verdicts):
+                cleaned_experiment_result[solution_id] = experiment_result[solution_id]
 
     return cleaned_experiment_result
 
+@DeprecationWarning
 def get_top_k_slow_inputs_over_solutions(
     experiment_result: Dict,
     solution_ids: List[str],
     lang: Language,
-    top_k: int = 5,
+    top_k: int = 10,
 ) -> List[str]:
     # Get the top k slow inputs over all solutions (in terms of instruction count)
     input_solution_stats = {}
@@ -70,24 +75,61 @@ def get_top_k_slow_inputs_over_solutions(
     top_k_slow_inputs = sorted(input_solution_stats, key=lambda input_id: mean(input_solution_stats[input_id]), reverse=True)[:top_k]
     return top_k_slow_inputs
 
+def get_top_k_slow_inputs_for_solution(
+    experiment_result: Dict,
+    solution_id: str,
+    lang: Language,
+    top_k: int = 10,
+) -> Tuple[List[str], List[str]]:
+    # Get the top k slow inputs for a solution (in terms of instruction count)
+    input_ict_slow_inputs = []
+    input_time_slow_inputs = []
+    if not solution_id in experiment_result:
+        print(f"[Warning] Solution {solution_id} not found in experiment result")
+        return input_ict_slow_inputs, input_time_slow_inputs
+    if experiment_result[solution_id]["language"] != str(lang):
+        return input_ict_slow_inputs, input_time_slow_inputs
+    input_solution_ict_stats = {}
+    input_solution_time_stats = {}
+    for input_id in experiment_result[solution_id]["instruction_cnt_dict"]:
+        instruction_cnt = mean(experiment_result[solution_id]["instruction_cnt_dict"][input_id])
+        time = mean(experiment_result[solution_id]["time_dict"][input_id])
+        input_solution_ict_stats[input_id] = instruction_cnt
+        input_solution_time_stats[input_id] = time
+
+    input_ict_slow_inputs = sorted(input_solution_ict_stats, key=lambda input_id: input_solution_ict_stats[input_id], reverse=True)[:top_k]
+    input_time_slow_inputs = sorted(input_solution_time_stats, key=lambda input_id: input_solution_time_stats[input_id], reverse=True)[:top_k]
+
+    return input_ict_slow_inputs, input_time_slow_inputs
+
 def get_problem_solution_stats(problem_id: str, strategy: str, top_k: int = 10) -> Dict:
-    solution_stats = {} # problem_solution_id -> {input_id -> {"avg_instruction_cnt": float, "avg_time": float}}
+    solution_stats = {} # problem_solution_id -> {ict_stats: {input_id: avg_instruction_cnt}, time_stats: {input_id: avg_time}}
     strategy_result = get_experiment_result(problem_id, strategy)
-    strategy_result = clean_experiment_result(strategy_result)
+    if strategy.startswith("alphacode"):
+        strategy_result = clean_experiment_result(strategy_result, exclude_kill_wa=True)
+    else:
+        strategy_result = clean_experiment_result(strategy_result, exclude_kill_wa=False)
     solution_ids = list(strategy_result.keys())
-    strategy_slow_inputs = get_top_k_slow_inputs_over_solutions(strategy_result, solution_ids, Language.CPP, top_k=top_k) # top 10 slow inputs, ranked by avg instruction count
     for solution_id in solution_ids:
         if strategy_result[solution_id]["language"] != str(Language.CPP):
             continue
 
+        strategy_ict_slow_inputs, strategy_time_slow_inputs = get_top_k_slow_inputs_for_solution(strategy_result, solution_id, Language.CPP, top_k=top_k) # top 10 slow inputs, ranked by avg instruction count
+
         problem_solution_id = f"{problem_id}_{solution_id}"
         solution_stats[problem_solution_id] = {}
-        for input_id in strategy_slow_inputs:
+        solution_stats[problem_solution_id]["ict_stats"] = {}
+        solution_stats[problem_solution_id]["time_stats"] = {}
+        for input_id in strategy_ict_slow_inputs:
             try:
-                solution_stats[problem_solution_id][input_id] = {
-                    "avg_instruction_cnt": mean(strategy_result[solution_id]["instruction_cnt_dict"][input_id]),
-                    "avg_time": mean(strategy_result[solution_id]["time_dict"][input_id]),
-                }
+                solution_stats[problem_solution_id]["ict_stats"][input_id] = mean(strategy_result[solution_id]["instruction_cnt_dict"][input_id])
+            except KeyError:
+                print(f"[Warning] Input {input_id} not found in solution {solution_id} of problem {problem_id} in strategy {strategy}")
+                logger.info(f"[Warning] Input {input_id} not found in solution {solution_id} of problem {problem_id} in strategy {strategy}")
+                raise KeyError(f"Input {input_id} not found in solution {solution_id} of problem {problem_id} in strategy {strategy}")
+        for input_id in strategy_time_slow_inputs:
+            try:
+                solution_stats[problem_solution_id]["time_stats"][input_id] = mean(strategy_result[solution_id]["time_dict"][input_id])
             except KeyError:
                 print(f"[Warning] Input {input_id} not found in solution {solution_id} of problem {problem_id} in strategy {strategy}")
                 logger.info(f"[Warning] Input {input_id} not found in solution {solution_id} of problem {problem_id} in strategy {strategy}")
@@ -108,9 +150,12 @@ def calculate_avg_stats(problem_solution_ids: Set, strategy_solution_stats: Dict
     avg_instruction_cnt_list = []
     avg_time_list = []
     for problem_solution_id in problem_solution_ids:
-        for input_id in list(strategy_solution_stats[problem_solution_id])[:top_k]:
-            avg_instruction_cnt_list.append(strategy_solution_stats[problem_solution_id][input_id]["avg_instruction_cnt"])
-            avg_time_list.append(strategy_solution_stats[problem_solution_id][input_id]["avg_time"])
+        debug_list = [strategy_solution_stats[problem_solution_id]["ict_stats"][input_id] for input_id in list(strategy_solution_stats[problem_solution_id]["ict_stats"])]
+        if len(debug_list) == 0:
+            print(f"Problem solution {problem_solution_id} has no slow inputs")
+            raise ValueError(f"Problem solution {problem_solution_id} has no slow inputs")
+        avg_instruction_cnt_list.append(mean([strategy_solution_stats[problem_solution_id]["ict_stats"][input_id] for input_id in list(strategy_solution_stats[problem_solution_id]["ict_stats"])[:top_k]]))
+        avg_time_list.append(mean([strategy_solution_stats[problem_solution_id]["time_stats"][input_id] for input_id in list(strategy_solution_stats[problem_solution_id]["time_stats"])[:top_k]]))
 
     return mean(avg_instruction_cnt_list), mean(avg_time_list)
 
@@ -120,9 +165,8 @@ def calculate_avg_maps(problem_solution_ids: Set, strategy_solution_stats: Dict,
     for problem_solution_id in problem_solution_ids:
         avg_instruction_cnt_map[problem_solution_id] = []
         avg_time_map[problem_solution_id] = []
-        for input_id in list(strategy_solution_stats[problem_solution_id])[:top_k]:
-            avg_instruction_cnt_map[problem_solution_id].append(strategy_solution_stats[problem_solution_id][input_id]["avg_instruction_cnt"])
-            avg_time_map[problem_solution_id].append(strategy_solution_stats[problem_solution_id][input_id]["avg_time"])
+        avg_instruction_cnt_map[problem_solution_id].extend([strategy_solution_stats[problem_solution_id]["ict_stats"][input_id] for input_id in list(strategy_solution_stats[problem_solution_id]["ict_stats"])[:top_k]])
+        avg_time_map[problem_solution_id].extend([strategy_solution_stats[problem_solution_id]["time_stats"][input_id] for input_id in list(strategy_solution_stats[problem_solution_id]["time_stats"])[:top_k]])
 
     return avg_instruction_cnt_map, avg_time_map
 
@@ -153,17 +197,17 @@ def make_latex_table(table_data: Dict):
         "corpus_raw_fuzz_custom_mutator": r"\wedgenoconstraint",
         "corpus_raw_fuzz_default_mutator": r"\wedgenomutator",
     }
-    head = r"\begin{tabular}{llll}"
+    head = r"\begin{tabular}{lllll}"
     head += r"\toprule "
-    head += r"\# of slowest inputs & Top-10 & Top-5 & Top-3 \\ \midrule"
-    subtitle_slowdown = r"\rowcolor[gray]{0.95} \multicolumn{4}{c}{Relative slowdown compared with default tests} \\"
-    subtitle_ict = r"\rowcolor[gray]{0.95} \multicolumn{4}{c}{Number of instructions ($\times 10^8$)} \\"
+    head += r"\# of slowest inputs & Top-10 & Top-5 & Top-3 & Top-1 \\ \midrule"
+    subtitle_slowdown = r"\rowcolor[gray]{0.95} \multicolumn{5}{c}{Relative slowdown compared with default tests} \\"
+    subtitle_ict = r"\rowcolor[gray]{0.95} \multicolumn{5}{c}{Number of instructions ($\times 10^8$)} \\"
     slowdown_content = ""
     ict_content = ""
     for strategy in table_data:
         slowdown_content += f" {strategy_name_map[strategy]} & "
         ict_content += f" {strategy_name_map[strategy]} & "
-        for top_k in [10, 5, 3]:
+        for top_k in [10, 5, 3, 1]:
             if strategy == "corpus_instrument_fuzz_mutator_with_constraint_per_solution":
                 slowdown_content += r"\textbf{%.2f} & " % table_data[strategy][top_k]["avg_instruction_cnt_slowdown"]
                 ict_content += r"\textbf{%.2f} & " % ((table_data[strategy][top_k]["avg_instruction_cnt"]) / 10**8)
@@ -186,7 +230,7 @@ if __name__ == '__main__':
     output_dir.mkdir(parents=True, exist_ok=True)
     filtered_problems = filter_problems(get_cf_problems(use_specified_problem=config["use_specified_problem"]))
     problem_id_list = [problem_to_id(problem) for problem in filtered_problems]
-    all_strategies = ["evalperf_random_solution", "evalperf_slow_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "plain_problem", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_default_mutator"]
+    all_strategies = ["evalperf_random_solution", "evalperf_slow_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "plain_problem", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution"]
     problem_id_to_exclude = []
     problem_id_list = [problem_id for problem_id in problem_id_list if problem_has_extracted_constraint(problem_id)]
     for problem_id in problem_id_list:
@@ -202,7 +246,7 @@ if __name__ == '__main__':
     if mode == 'main':
         target_strategies = ["corpus_instrument_fuzz_mutator_with_constraint_per_solution", "evalperf_random_solution", "evalperf_slow_solution", "plain_problem"]
     elif mode == 'ablation':
-        target_strategies = ["corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_default_mutator"]
+        target_strategies = ["corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
     else:
         raise ValueError(f"Invalid mode: {mode}")
 
@@ -239,7 +283,7 @@ if __name__ == '__main__':
         table_data[strategy] = {}
         strategy_ict_list_map[strategy] = {}
         strategy_solution_stats = all_strategy_solution_stats[strategy]
-        for top_k in [3, 5, 10]:
+        for top_k in [1, 3, 5, 10]:
             table_data[strategy][top_k] = {}
             strategy_ict_list_map[strategy][top_k] = {}
             avg_instruction_cnt, avg_time = calculate_avg_stats(intersection_problem_solution_ids, strategy_solution_stats, top_k)
@@ -259,6 +303,5 @@ if __name__ == '__main__':
         significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_mutator_with_constraint_per_solution", 10)
         significance_test(strategy_ict_list_map, "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", 10)
         significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", 10)
-        significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_default_mutator", 10)
 
     make_latex_table(table_data)
