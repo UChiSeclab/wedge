@@ -76,6 +76,7 @@ def get_top_k_slow_inputs_over_solutions(
     return top_k_slow_inputs
 
 def get_top_k_slow_inputs_for_solution(
+    strategy: str,
     experiment_result: Dict,
     solution_id: str,
     lang: Language,
@@ -94,6 +95,10 @@ def get_top_k_slow_inputs_for_solution(
     for input_id in experiment_result[solution_id]["instruction_cnt_dict"]:
         instruction_cnt = mean(experiment_result[solution_id]["instruction_cnt_dict"][input_id])
         time = mean(experiment_result[solution_id]["time_dict"][input_id])
+        if strategy.endswith("default_mutator") and time == 60:
+            # Skip the killed AFL++ inputs since they are likely invalid but skipped the validator
+            continue
+
         input_solution_ict_stats[input_id] = instruction_cnt
         input_solution_time_stats[input_id] = time
 
@@ -114,7 +119,7 @@ def get_problem_solution_stats(problem_id: str, strategy: str, top_k: int = 10) 
         if strategy_result[solution_id]["language"] != str(Language.CPP):
             continue
 
-        strategy_ict_slow_inputs, strategy_time_slow_inputs = get_top_k_slow_inputs_for_solution(strategy_result, solution_id, Language.CPP, top_k=top_k) # top 10 slow inputs, ranked by avg instruction count
+        strategy_ict_slow_inputs, strategy_time_slow_inputs = get_top_k_slow_inputs_for_solution(strategy, strategy_result, solution_id, Language.CPP, top_k=top_k) # top 10 slow inputs, ranked by avg instruction count
 
         problem_solution_id = f"{problem_id}_{solution_id}"
         solution_stats[problem_solution_id] = {}
@@ -159,6 +164,19 @@ def calculate_avg_stats(problem_solution_ids: Set, strategy_solution_stats: Dict
 
     return mean(avg_instruction_cnt_list), mean(avg_time_list)
 
+def calculate_per_solution_slowdown(problem_solution_ids: Set, strategy_solution_stats: Dict, alphacode_sanitized_stats: Dict, top_k: int) -> Tuple[float, float]:
+    avg_ict_slowdown_list = []
+    avg_time_slowdown_list = []
+    for problem_solution_id in problem_solution_ids:
+        avg_instruction_cnt = mean([strategy_solution_stats[problem_solution_id]["ict_stats"][input_id] for input_id in list(strategy_solution_stats[problem_solution_id]["ict_stats"])[:top_k]])
+        avg_time = mean([strategy_solution_stats[problem_solution_id]["time_stats"][input_id] for input_id in list(strategy_solution_stats[problem_solution_id]["time_stats"])[:top_k]])
+        alphacode_avg_instruction_cnt = mean([alphacode_sanitized_stats[problem_solution_id]["ict_stats"][input_id] for input_id in list(alphacode_sanitized_stats[problem_solution_id]["ict_stats"])[:top_k]])
+        alphacode_avg_time = mean([alphacode_sanitized_stats[problem_solution_id]["time_stats"][input_id] for input_id in list(alphacode_sanitized_stats[problem_solution_id]["time_stats"])[:top_k]])
+        avg_ict_slowdown_list.append(avg_instruction_cnt / alphacode_avg_instruction_cnt)
+        avg_time_slowdown_list.append(avg_time / alphacode_avg_time)
+
+    return mean(avg_ict_slowdown_list), mean(avg_time_slowdown_list)
+
 def calculate_avg_maps(problem_solution_ids: Set, strategy_solution_stats: Dict, top_k: int) -> Tuple[Dict, Dict]:
     avg_instruction_cnt_map = {} # problem_solution_id -> [avg_instruction_cnt]
     avg_time_map = {}
@@ -182,6 +200,7 @@ def significance_test(strategy_data_list_map: Dict[str, Dict[str, Dict[str, List
         stat, p = mannwhitneyu(data_1, data_2, alternative="greater")
         if p < 0.05:
             significance_larger_cnt += 1
+            # print(f"[INFO] Problem solution {problem_solution_id} has significant larger instruction count in {strategy_1} than {strategy_2}")
 
     print(f"Strategy {strategy_1} has larger average instruction count than {strategy_2} in {avg_larger_cnt} out of {len(strategy_data_list_map[strategy_1][top_k])} solutions")
     print(f"Strategy {strategy_1} has significantly larger average instruction count than {strategy_2} in {significance_larger_cnt} out of {len(strategy_data_list_map[strategy_1][top_k])} solutions")
@@ -196,6 +215,7 @@ def make_latex_table(table_data: Dict):
         "corpus_raw_fuzz_mutator_with_constraint_per_solution": r"\wedgenoinstrument",
         "corpus_raw_fuzz_custom_mutator": r"\wedgenoconstraint",
         "corpus_raw_fuzz_default_mutator": r"\wedgenomutator",
+        "corpus_instrument_fuzz_custom_mutator": r"\wedgecustom",
     }
     head = r"\begin{tabular}{lllll}"
     head += r"\toprule "
@@ -226,16 +246,17 @@ def make_latex_table(table_data: Dict):
 
 if __name__ == '__main__':
     mode = sys.argv[1]
-    output_dir = Path("results/slowdown")
+    output_dir = Path(f"{config['result_root_dir']}/slowdown")
     output_dir.mkdir(parents=True, exist_ok=True)
     filtered_problems = filter_problems(get_cf_problems(use_specified_problem=config["use_specified_problem"]))
     problem_id_list = [problem_to_id(problem) for problem in filtered_problems]
-    all_strategies = ["evalperf_random_solution", "evalperf_slow_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "plain_problem", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution"]
+    all_strategies = ["evalperf_random_solution", "evalperf_slow_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "plain_problem", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_custom_mutator", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_default_mutator"]
+
     problem_id_to_exclude = []
     problem_id_list = [problem_id for problem_id in problem_id_list if problem_has_extracted_constraint(problem_id)]
     for problem_id in problem_id_list:
         for strategy in all_strategies:
-            if not Path(f"results/{strategy}/{problem_id}.json").exists():
+            if not Path(f"{config['result_root_dir']}/{strategy}/{problem_id}.json").exists():
                 # print(f"Problem {problem_id} not found for strategy {strategy}")
                 problem_id_to_exclude.append(problem_id)
                 break
@@ -243,10 +264,13 @@ if __name__ == '__main__':
     problem_id_list = [problem_id for problem_id in problem_id_list if problem_id not in problem_id_to_exclude]
 
     print(f"Number of problems: {len(problem_id_list)}")
+    print(f"problem list: {problem_id_list}")
     if mode == 'main':
         target_strategies = ["corpus_instrument_fuzz_mutator_with_constraint_per_solution", "evalperf_random_solution", "evalperf_slow_solution", "plain_problem"]
     elif mode == 'ablation':
-        target_strategies = ["corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
+        target_strategies = ["corpus_raw_fuzz_default_mutator", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
+        # appendix
+        # target_strategies = ["corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_custom_mutator", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
     else:
         raise ValueError(f"Invalid mode: {mode}")
 
@@ -290,10 +314,14 @@ if __name__ == '__main__':
             alphacode_avg_instruction_cnt, alphacode_avg_time = calculate_avg_stats(intersection_problem_solution_ids, alphacode_sanitized_stats, top_k)
             avg_ict_slowdown = avg_instruction_cnt / alphacode_avg_instruction_cnt
             avg_time_slowdown = avg_time / alphacode_avg_time
+            avg_ict_per_solution_slowdown, avg_time_per_solution_slowdown = calculate_per_solution_slowdown(intersection_problem_solution_ids, strategy_solution_stats, alphacode_sanitized_stats, top_k)
             print(f"Strategy: {strategy}, top_k: {top_k}, avg_instruction_cnt: {avg_instruction_cnt}, avg_time: {avg_time}")
             print(f"Strategy: {strategy}, top_k: {top_k}, avg_instruction_cnt_slowdown: {avg_ict_slowdown}, avg_time_slowdown: {avg_time_slowdown}")
+            print(f"Strategy: {strategy}, top_k: {top_k}, avg_instruction_cnt_per_solution_slowdown: {avg_ict_per_solution_slowdown}, avg_time_per_solution_slowdown: {avg_time_per_solution_slowdown}")
             table_data[strategy][top_k]["avg_instruction_cnt"] = avg_instruction_cnt
-            table_data[strategy][top_k]["avg_instruction_cnt_slowdown"] = avg_ict_slowdown
+            # table_data[strategy][top_k]["avg_instruction_cnt_slowdown"] = avg_ict_slowdown
+            # table_data[strategy][top_k]["avg_instruction_cnt_per_solution_slowdown"] = avg_ict_per_solution_slowdown
+            table_data[strategy][top_k]["avg_instruction_cnt_slowdown"] = avg_ict_per_solution_slowdown
 
             avg_instruction_cnt_map, avg_time_map = calculate_avg_maps(intersection_problem_solution_ids, strategy_solution_stats, top_k)
             strategy_ict_list_map[strategy][top_k] = avg_instruction_cnt_map
@@ -301,7 +329,10 @@ if __name__ == '__main__':
     if mode == "ablation":
         # Mann-Whitney U test
         significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_mutator_with_constraint_per_solution", 10)
-        significance_test(strategy_ict_list_map, "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", 10)
+        significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_custom_mutator", 10)
         significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", 10)
+        significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_default_mutator", 10)
+        significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_custom_mutator", "corpus_raw_fuzz_custom_mutator", 10)
+        significance_test(strategy_ict_list_map, "corpus_raw_fuzz_custom_mutator", "corpus_instrument_fuzz_custom_mutator", 10)
 
     make_latex_table(table_data)
