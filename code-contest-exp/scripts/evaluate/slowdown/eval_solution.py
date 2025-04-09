@@ -151,6 +151,47 @@ def parallel_problem_stats(problem_id_list: List[str], strategy: str) -> Dict:
             merged_solution_stats.update(result)
     return merged_solution_stats
 
+def calculate_win_rate(problem_solution_ids: List[str], solution_stats: Dict, strategies: List[str], top_k: int = 10) -> Dict[str, Dict[str, float]]:
+    win_stats = {} # problem_solution_id -> (ict_win_strategy, time_win_strategy)
+    for problem_solution_id in problem_solution_ids:
+        win_stats[problem_solution_id] = {}
+        ict_win_strategy = None
+        time_win_strategy = None
+        win_ict = 0
+        win_time = 0
+        for strategy in strategies:
+            strategy_solution_stats = solution_stats[strategy]
+            avg_ict = mean([strategy_solution_stats[problem_solution_id]["ict_stats"][input_id] for input_id in list(strategy_solution_stats[problem_solution_id]["ict_stats"])[:top_k]])
+            avg_time = mean([strategy_solution_stats[problem_solution_id]["time_stats"][input_id] for input_id in list(strategy_solution_stats[problem_solution_id]["time_stats"])[:top_k]])
+            if avg_ict > win_ict:
+                win_ict = avg_ict
+                ict_win_strategy = strategy
+            if avg_time > win_time:
+                win_time = avg_time
+                time_win_strategy = strategy
+        win_stats[problem_solution_id]["ict_win_strategy"] = ict_win_strategy
+        win_stats[problem_solution_id]["time_win_strategy"] = time_win_strategy
+
+    win_strategy_stats = {} # strategy -> (ict_win_cnt, time_win_cnt)
+    for strategy in strategies:
+        win_strategy_stats[strategy] = {}
+        win_strategy_stats[strategy]["ict_win_cnt"] = 0
+        win_strategy_stats[strategy]["time_win_cnt"] = 0
+        for problem_solution_id in problem_solution_ids:
+            if win_stats[problem_solution_id]["ict_win_strategy"] == strategy:
+                win_strategy_stats[strategy]["ict_win_cnt"] += 1
+            if win_stats[problem_solution_id]["time_win_strategy"] == strategy:
+                win_strategy_stats[strategy]["time_win_cnt"] += 1
+    for strategy in strategies:
+        win_strategy_stats[strategy]["ict_win_rate"] = win_strategy_stats[strategy]["ict_win_cnt"] / len(problem_solution_ids)
+        win_strategy_stats[strategy]["time_win_rate"] = win_strategy_stats[strategy]["time_win_cnt"] / len(problem_solution_ids)
+
+    return win_strategy_stats
+
+def display_win_rate(win_strategy_stats: Dict, strategies: List[str]):
+    for strategy in strategies:
+        print(f"Strategy {strategy} win rate: {win_strategy_stats[strategy]['ict_win_rate']:.2f} (ict), {win_strategy_stats[strategy]['time_win_rate']:.2f} (time)")
+
 def calculate_avg_stats(problem_solution_ids: Set, strategy_solution_stats: Dict, top_k: int) -> Tuple[float, float]:
     avg_instruction_cnt_list = []
     avg_time_list = []
@@ -216,6 +257,7 @@ def make_latex_table(table_data: Dict):
         "corpus_raw_fuzz_custom_mutator": r"\wedgenoconstraint",
         "corpus_raw_fuzz_default_mutator": r"\wedgenomutator",
         "corpus_instrument_fuzz_custom_mutator": r"\wedgecustom",
+        "corpus_instrument_fuzz_default_mutator": r"\wedgedefault",
     }
     head = r"\begin{tabular}{lllll}"
     head += r"\toprule "
@@ -250,7 +292,7 @@ if __name__ == '__main__':
     output_dir.mkdir(parents=True, exist_ok=True)
     filtered_problems = filter_problems(get_cf_problems(use_specified_problem=config["use_specified_problem"]))
     problem_id_list = [problem_to_id(problem) for problem in filtered_problems]
-    all_strategies = ["evalperf_random_solution", "evalperf_slow_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "plain_problem", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_custom_mutator", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_default_mutator"]
+    all_strategies = ["evalperf_random_solution", "evalperf_slow_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "plain_problem", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_default_mutator", "corpus_instrument_fuzz_default_mutator"]
 
     problem_id_to_exclude = []
     problem_id_list = [problem_id for problem_id in problem_id_list if problem_has_extracted_constraint(problem_id)]
@@ -268,7 +310,7 @@ if __name__ == '__main__':
     if mode == 'main':
         target_strategies = ["corpus_instrument_fuzz_mutator_with_constraint_per_solution", "evalperf_random_solution", "evalperf_slow_solution", "plain_problem"]
     elif mode == 'ablation':
-        target_strategies = ["corpus_raw_fuzz_default_mutator", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
+        target_strategies = ["corpus_raw_fuzz_default_mutator", "corpus_instrument_fuzz_default_mutator", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
         # appendix
         # target_strategies = ["corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_custom_mutator", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
     else:
@@ -326,13 +368,17 @@ if __name__ == '__main__':
             avg_instruction_cnt_map, avg_time_map = calculate_avg_maps(intersection_problem_solution_ids, strategy_solution_stats, top_k)
             strategy_ict_list_map[strategy][top_k] = avg_instruction_cnt_map
 
+    win_strategy_stats = calculate_win_rate(intersection_problem_solution_ids, all_strategy_solution_stats, target_strategies, top_k=10)
+    display_win_rate(win_strategy_stats, target_strategies)
+
     if mode == "ablation":
         # Mann-Whitney U test
         significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_mutator_with_constraint_per_solution", 10)
-        significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_custom_mutator", 10)
+        # significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_custom_mutator", 10)
         significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", 10)
         significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_default_mutator", 10)
-        significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_custom_mutator", "corpus_raw_fuzz_custom_mutator", 10)
-        significance_test(strategy_ict_list_map, "corpus_raw_fuzz_custom_mutator", "corpus_instrument_fuzz_custom_mutator", 10)
+        # significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_custom_mutator", "corpus_raw_fuzz_custom_mutator", 10)
+        # significance_test(strategy_ict_list_map, "corpus_raw_fuzz_custom_mutator", "corpus_instrument_fuzz_custom_mutator", 10)
+        significance_test(strategy_ict_list_map, "corpus_raw_fuzz_default_mutator", "corpus_instrument_fuzz_default_mutator", 10)
 
     make_latex_table(table_data)
