@@ -20,7 +20,8 @@ from selector.select_input import (
 from input_validator_run import find_validator_files
 from cgig.cgig_utils import parse_constraints_content_from_response, get_product_cov
 
-OPENAI_API_KEY = "sk-proj-agKWhu46RVJSx5PbRea7T3BlbkFJB3jZFl9KGevQ0QC9vatB"
+# OPENAI_API_KEY = "sk-proj-agKWhu46RVJSx5PbRea7T3BlbkFJB3jZFl9KGevQ0QC9vatB"
+OPENAI_API_KEY = "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"
 # DS_API_KEY = "sk-LDtXrldnGmMG1AMO0l1pthGZln7hENPMGMomP5hAwJSauDhf" # this is actually a 3rd library API key
 DS_API_KEY = "sk-viJhjGQ9FiIBmqbI31kwUp7ZVipt13eM69hjvmbdbDu4b97O" # this is actually a 3rd library API key
 SILICON_FLOW_API_KEY = "sk-yxmiwoawubnvphyzphackpxtghhxfcmnglsqwuvcgrpaiuwg"
