@@ -12,6 +12,14 @@ from selector.select_solution import select_solutions
 from cgig.cgig_utils import find_mutator_file, problem_has_extracted_constraint, get_solution_and_input_pair_list_with_constraint
 from utils import filter_problems, get_cf_problems
 
+def get_fuzz_driver_file(problem_id: str, solution_id: str, fuzz_driver_mode: str) -> Path:
+    # adhoc hack for legacy problem
+    if fuzz_driver_mode == "instrument_fuzz":
+        return Path(config["mutator_with_constraint_per_solution_dir"]) / "instrument_fuzz" / problem_id / solution_id / "fuzz_driver" / f"{solution_id}.cpp"
+    elif fuzz_driver_mode == "raw_fuzz":
+        return Path(config["problem_root_dir"]) / problem_id / "solutions" / "cpp" / f"{solution_id}.cpp"
+    raise ValueError(f"Invalid fuzz driver mode: {fuzz_driver_mode}")
+
 def main(
     fuzz_driver_mode: Literal["raw_fuzz", "instrument_fuzz"] = "raw_fuzz",
     mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator", "default_mutator"] = "custom_mutator",
@@ -48,7 +56,6 @@ def main(
         mutator_gen_root_dir = Path(config["custom_mutators_dir"])
     elif mutator_type == "default_mutator":
         mutator_gen_root_dir = None
-        assert fuzz_driver_mode == "raw_fuzz", "default_mutator only works with raw_fuzz"
     else:
         raise ValueError(f"Invalid mutator_type: {mutator_type}")
 
@@ -82,10 +89,7 @@ def main(
                         custom_mutator_dir = None
                         # adhoc hack
                         seed_input_dir = Path(config["custom_mutators_dir"]) / "raw_fuzz" / problem_id / solution_id / "seed_inputs"
-                    if fuzz_driver_mode == "instrument_fuzz":
-                        fuzz_driver_file = mutator_dir / "fuzz_driver" / f"{solution_id}.cpp"
-                    else:
-                        fuzz_driver_file = Path(config["problem_root_dir"]) / problem_id / "solutions" / "cpp" / f"{solution_id}.cpp"
+                    fuzz_driver_file = get_fuzz_driver_file(problem_id, solution_id, fuzz_driver_mode)
                     program_dir = corpus_dir / solution_id
 
                     task = executor.submit(

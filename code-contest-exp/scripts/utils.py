@@ -41,7 +41,11 @@ def get_experiment_result(problem_id: str, experiment_name: str) -> Dict:
         result_path = Path(config["result_three_groups_root_dir"]) / experiment_name / f"{problem_id}.json"
     assert result_path.exists(), f"Result file for problem {problem_id} {experiment_name} does not exist."
     with open(result_path, "r", encoding="utf-8") as file:
-        result = json.load(file)
+        try:
+            result = json.load(file)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from {result_path}: {e}")
+            raise e
     return result
 
 def problem_to_id(problem: Dict) -> str:

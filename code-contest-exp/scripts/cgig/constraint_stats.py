@@ -1,8 +1,8 @@
 import json
 import os
 from pathlib import Path
-from typing import List, Dict, Tuple, Any
-from utils import get_cf_problems, filter_problems, problem_to_id, get_experiment_result, get_input_ict_list, get_input_avg_ict, mean, run_result_exists
+from typing import List, Dict, Tuple
+from utils import get_cf_problems, filter_problems, problem_to_id, get_experiment_result, get_input_avg_ict, mean, run_result_exists
 from cgig_utils import problem_has_extracted_constraint
 from scipy.stats import mannwhitneyu
 
@@ -90,7 +90,6 @@ def get_likely_bad_constraint_entrys(constraint_entrys: List[Path]) -> List[Path
         if num_crash / num_inputs > 0.5:
             likely_bad_constraint_entrys.append(constraint_entry)
 
-    print(f"Likely bad constraint entrys: {len(likely_bad_constraint_entrys)}")
     return likely_bad_constraint_entrys
 
 def classify_inputs(strategy: str, merged_input_status_dict: Dict[str, Dict[str, str]]) -> Tuple[List[str], List[str]]:
@@ -104,13 +103,45 @@ def classify_inputs(strategy: str, merged_input_status_dict: Dict[str, Dict[str,
 
     return constraint_satisfying_inputs, constraint_not_satisfying_inputs
 
+def get_all_fuzz_inputs(problem_id: str, strategy: str) -> List[str]:
+    if strategy.startswith("corpus_instrument_fuzz_"):
+        mutator_type = strategy.replace("corpus_instrument_fuzz_", "")
+        corpus_gen_dir = Path(config["corpus_instrument_gen_dir"]) / mutator_type
+    elif strategy.startswith("corpus_raw_fuzz_"):
+        mutator_type = strategy.replace("corpus_raw_fuzz_", "")
+        corpus_gen_dir = Path(config["corpus_raw_gen_dir"]) / mutator_type
+    else:
+        raise ValueError(f"Invalid strategy: {strategy}")
+
+    input_files = []
+    problem_dir = corpus_gen_dir / problem_id
+    for queue_dir in problem_dir.rglob("queue"):
+        for input_file in queue_dir.glob("id:*"):
+            input_files.append(input_file)
+
+    return input_files
+
 def calculate_input_satisfy_ratio(problem_id_list: List[str], strategies: List[str], likely_good_constraint_entrys: List[Path]):
+    strategy_input_valid_dict = {}
+    strategy_input_all_dict = {}
     strategy_input_satisfy_dict = {}
     strategy_input_not_satisfy_dict = {}
     for problem_id in problem_id_list:
         all_input_status_dict = get_all_input_status_dict(problem_id, strategies, Path(config["input_classify_dir"]), likely_good_constraint_entrys)
         merged_input_status_dict = merge_all_input_status_dict(all_input_status_dict)
         for strategy in strategies:
+            # count the number of valid inputs
+            if run_result_exists(problem_id, strategy):
+                if strategy.startswith("corpus_"):
+                    strategy_input_valid_dict[strategy] = strategy_input_valid_dict.get(strategy, 0) + len(os.listdir(Path(config["problem_root_dir"]) / problem_id / strategy / "input"))
+                    strategy_input_all_dict[strategy] = strategy_input_all_dict.get(strategy, 0) + len(get_all_fuzz_inputs(problem_id, strategy))
+                else:
+                    if strategy == 'alphacode_sanitized':
+                        pass
+                    else:
+                        strategy_input_valid_dict[strategy] = strategy_input_valid_dict.get(strategy, 0) + len(os.listdir(Path(config["problem_root_dir"]) / problem_id / strategy / "input"))
+                        strategy_input_all_dict[strategy] = strategy_input_all_dict.get(strategy, 0) + config["num_tests"]
+
             # print(f"Problem {problem_id} Strategy {strategy} total input count: {len(merged_input_status_dict[strategy])}")
             if len(merged_input_status_dict[strategy]) == 0:
                 print(f"[warning] No input found for strategy {strategy} in problem {problem_id}")
@@ -124,6 +155,10 @@ def calculate_input_satisfy_ratio(problem_id_list: List[str], strategies: List[s
 
     for strategy in strategies:
         print('='*20)
+        if strategy != 'alphacode_sanitized':
+            print(f"Strategy {strategy} total valid input count: {strategy_input_valid_dict[strategy]}")
+            print(f"Strategy {strategy} total all input count: {strategy_input_all_dict[strategy]}")
+            print(f"Strategy {strategy} validity ratio: {strategy_input_valid_dict[strategy] / strategy_input_all_dict[strategy]}")
         print(f"Strategy {strategy} total input satisfy count: {strategy_input_satisfy_dict[strategy]}")
         print(f"Strategy {strategy} total input not satisfy count: {strategy_input_not_satisfy_dict[strategy]}")
         print(f"Strategy {strategy} satisfy ratio: {strategy_input_satisfy_dict[strategy] / (strategy_input_satisfy_dict[strategy] + strategy_input_not_satisfy_dict[strategy])}")
@@ -157,36 +192,33 @@ def compare_inputs(problem_id_list: List[str], strategies: List[str], likely_goo
 
     return solution_input_satisfy_dict, solution_input_not_satisfy_dict
 
-def per_solution_compare_input_avg(solution_input_satisfy_dict: Dict[str, List[float]], solution_input_not_satisfy_dict: Dict[str, List[float]]):
+def per_solution_compare_input_avg(problem_solution_id_list: List[str], solution_input_satisfy_dict: Dict[str, List[float]], solution_input_not_satisfy_dict: Dict[str, List[float]]):
     ratio_list = []
     significance_list = []
     threshold = 0.05
     significant_case_list = []
-    for problem_solution_id in solution_input_satisfy_dict:
+    for problem_solution_id in problem_solution_id_list:
         assert len(solution_input_not_satisfy_dict[problem_solution_id]) > 0, f"No not satisfy input found for {problem_solution_id}"
         satisfy_avg = mean(solution_input_satisfy_dict[problem_solution_id])
         not_satisfy_avg = mean(solution_input_not_satisfy_dict[problem_solution_id])
         ratio_list.append(satisfy_avg / not_satisfy_avg)
-        
+
         # significance test
         stat, p = mannwhitneyu(solution_input_satisfy_dict[problem_solution_id], solution_input_not_satisfy_dict[problem_solution_id])
         significance_list.append(p)
         if p < threshold:
             significant_case_list.append(problem_solution_id)
 
-    print(f"Per solution ratio list: {ratio_list}")
     print(f"Per solution avg ratio: {mean(ratio_list)}")
-    print(f"Per solution significance list: {significance_list}")
     print(f"Per solution avg significance: {mean(significance_list)}")
-    print(f"Significant case list: {significant_case_list}")
     print(f"Significant case count: {len(significant_case_list)}")
-    print(f"Significant case ratio: {len(significant_case_list) / len(solution_input_satisfy_dict)}")
+    print(f"Significant case ratio: {len(significant_case_list) / len(problem_solution_id_list)}")
 
 if __name__ == "__main__":
     problem_id_list = [problem_to_id(problem) for problem in filter_problems(get_cf_problems(use_specified_problem=config["use_specified_problem"]))]
     problem_id_list = [problem_id for problem_id in problem_id_list if problem_has_extracted_constraint(problem_id)]
 
-    strategies = ["alphacode_sanitized", "plain_problem", "evalperf_slow_solution", "evalperf_random_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_default_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution"]
+    strategies = ["alphacode_sanitized", "plain_problem", "evalperf_slow_solution", "evalperf_random_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", "corpus_instrument_fuzz_custom_mutator", "corpus_raw_fuzz_default_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution"]
 
     all_instrumented_program_constraint_entrys = get_all_instrumented_program_constraint_entrys(problem_id_list)
     non_compilable_constraint_entrys = get_all_non_compilable_instrumented_program_constraint_entrys(problem_id_list)
@@ -205,4 +237,7 @@ if __name__ == "__main__":
     # compare the slowdown of constraint satisfying inputs and constraint not satisfying inputs (per program and overall)
     solution_input_satisfy_dict, solution_input_not_satisfy_dict = compare_inputs(problem_id_list, strategies, likely_good_constraint_entrys)
 
-    per_solution_compare_input_avg(solution_input_satisfy_dict, solution_input_not_satisfy_dict)
+    print(f'Number of solutions with constraint satisfying inputs: {len(solution_input_satisfy_dict)}')
+    print(f'Number of solutions with constraint not satisfying inputs: {len(solution_input_not_satisfy_dict)}')
+    solution_with_satisfy_and_not_satisfy_list = list(set(solution_input_satisfy_dict) & set(solution_input_not_satisfy_dict))
+    per_solution_compare_input_avg(solution_with_satisfy_and_not_satisfy_list, solution_input_satisfy_dict, solution_input_not_satisfy_dict)
