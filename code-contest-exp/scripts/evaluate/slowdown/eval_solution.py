@@ -249,7 +249,7 @@ def significance_test(strategy_data_list_map: Dict[str, Dict[str, Dict[str, List
 def make_latex_table(table_data: Dict):
     # table_data: {strategy -> {top_k -> {"avg_instruction_cnt": float, "avg_instruction_cnt_slowdown": float}}}
     strategy_name_map = {
-        "corpus_instrument_fuzz_mutator_with_constraint_per_solution": r"\tool",
+        "corpus_instrument_fuzz_mutator_with_constraint_per_solution": r"\toolfull",
         "evalperf_slow_solution": r"\evalperfslow",
         "evalperf_random_solution": r"\evalperfrandom",
         "plain_problem": r"\directprompting",
@@ -292,7 +292,7 @@ if __name__ == '__main__':
     output_dir.mkdir(parents=True, exist_ok=True)
     filtered_problems = filter_problems(get_cf_problems(use_specified_problem=config["use_specified_problem"]))
     problem_id_list = [problem_to_id(problem) for problem in filtered_problems]
-    all_strategies = ["evalperf_random_solution", "evalperf_slow_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "plain_problem", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_default_mutator", "corpus_instrument_fuzz_default_mutator"]
+    all_strategies = ["evalperf_random_solution", "evalperf_slow_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "plain_problem", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_default_mutator", "corpus_instrument_fuzz_default_mutator", "corpus_instrument_fuzz_custom_mutator"]
 
     problem_id_to_exclude = []
     problem_id_list = [problem_id for problem_id in problem_id_list if problem_has_extracted_constraint(problem_id)]
@@ -309,10 +309,10 @@ if __name__ == '__main__':
     print(f"problem list: {problem_id_list}")
     if mode == 'main':
         target_strategies = ["corpus_instrument_fuzz_mutator_with_constraint_per_solution", "evalperf_random_solution", "evalperf_slow_solution", "plain_problem"]
-    elif mode == 'ablation':
-        target_strategies = ["corpus_raw_fuzz_default_mutator", "corpus_instrument_fuzz_default_mutator", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
-        # appendix
-        # target_strategies = ["corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_custom_mutator", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
+    elif mode == 'ablation_full':
+        target_strategies = ["corpus_raw_fuzz_default_mutator", "corpus_instrument_fuzz_default_mutator", "corpus_raw_fuzz_custom_mutator", "corpus_instrument_fuzz_custom_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
+    elif mode == 'ablation_main':
+        target_strategies = ["corpus_raw_fuzz_custom_mutator", "corpus_instrument_fuzz_custom_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
     else:
         raise ValueError(f"Invalid mode: {mode}")
 
@@ -371,14 +371,23 @@ if __name__ == '__main__':
     win_strategy_stats = calculate_win_rate(intersection_problem_solution_ids, all_strategy_solution_stats, target_strategies, top_k=10)
     display_win_rate(win_strategy_stats, target_strategies)
 
-    if mode == "ablation":
+    if mode in ["ablation_full", "ablation"]:
         # Mann-Whitney U test
         significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_mutator_with_constraint_per_solution", 10)
-        # significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_custom_mutator", 10)
+        significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_custom_mutator", 10)
         significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", 10)
         significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_default_mutator", 10)
-        # significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_custom_mutator", "corpus_raw_fuzz_custom_mutator", 10)
-        # significance_test(strategy_ict_list_map, "corpus_raw_fuzz_custom_mutator", "corpus_instrument_fuzz_custom_mutator", 10)
+        significance_test(strategy_ict_list_map, "corpus_instrument_fuzz_custom_mutator", "corpus_raw_fuzz_custom_mutator", 10)
+        significance_test(strategy_ict_list_map, "corpus_raw_fuzz_custom_mutator", "corpus_instrument_fuzz_custom_mutator", 10)
         significance_test(strategy_ict_list_map, "corpus_raw_fuzz_default_mutator", "corpus_instrument_fuzz_default_mutator", 10)
+
+    if mode == "main":
+        # generating numbers required for the paper
+        # calculate the improvement over baseline (direct prompting), avg_instruction_cnt
+        for top_k in [10, 5, 3, 1]:
+            tool_ict_cnt = table_data["corpus_instrument_fuzz_mutator_with_constraint_per_solution"][top_k]["avg_instruction_cnt"]
+            direct_prompting_ict_cnt = table_data["plain_problem"][top_k]["avg_instruction_cnt"]
+            direct_prompting_improvement = direct_prompting_ict_cnt / tool_ict_cnt
+            print(f"improvement over direct prompting (avg_instruction_cnt) for top_k={top_k}: {direct_prompting_improvement}")      
 
     make_latex_table(table_data)
