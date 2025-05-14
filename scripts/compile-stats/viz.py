@@ -77,23 +77,23 @@ def generate_overlay_table(global_stats_by_topk, output_tex_file):
   lines.append(r"\begin{tabular}{lllll}")
   lines.append(r"\toprule")
   lines.append(r"\# of slowest inputs & Top-10 & Top-5 & Top-3 & Top-1 \\ \midrule")
-  lines.append(r"\rowcolor[gray]{0.95}\multicolumn{5}{c}{Number of instructions ($\times 10^9$)} \\")
+  lines.append(r"\rowcolor[gray]{0.95}\multicolumn{5}{c}{Number of instructions ($\times 10^8$)} \\")
   for tech, tech_folder in config.TECHNIQUES.items():
     row = [tech]
     for top_k in sorted(config.TOP_K_VALUES, reverse=True):
       stats = global_stats_by_topk.get(top_k, {}).get(tech, {})
-      ic_avg = sts.safe_mean(stats.get("global_instruction_avg_means", [])) / 1e9
-      ic_var = sts.safe_mean(stats.get("global_instruction_avg_cvs", []))
+      ic_avg = sts.safe_mean(stats.get("global_instruction_avg_means", [])) / 1e8
+      ic_var = (100 * sts.safe_mean(stats.get("global_instruction_avg_cvs", [])))
       if tech != config.BASELINE_TECHNIQUE:
         baseline_stats = global_stats_by_topk.get(top_k, {}).get(config.BASELINE_TECHNIQUE, {})
-        baseline_ic_avg = sts.safe_mean(baseline_stats.get("global_instruction_avg_means", [])) / 1e9
+        baseline_ic_avg = sts.safe_mean(baseline_stats.get("global_instruction_avg_means", [])) / 1e8
         ratio_str = sts.compute_ratio_and_arrow(baseline_ic_avg, ic_avg, latex_fmt=True)
       else:
         ratio_str = ""
       if tech == config.BASELINE_TECHNIQUE:
-        cell = r"\textbf{" + f"{ic_avg:.2f}$\pm${ic_var:.2f}" + "}"
+        cell = r"\textbf{" + f"{ic_avg:.2f}$\pm${ic_var:.2f}\%" + "}"
       else:
-        cell = f"{ic_avg:.2f}$\pm${ic_var:.2f} ({ratio_str})"
+        cell = f"{ic_avg:.2f}$\pm${ic_var:.2f}\% ({ratio_str})"
       row.append(cell)
     lines.append(" & ".join(row) + r" \\")
   lines.append(r"\midrule")
@@ -103,7 +103,7 @@ def generate_overlay_table(global_stats_by_topk, output_tex_file):
     for top_k in sorted(config.TOP_K_VALUES, reverse=True):
       stats = global_stats_by_topk.get(top_k, {}).get(tech, {})
       rt_avg = int(1000 * sts.safe_mean(stats.get("global_running_avg_means", [])))
-      rt_var = sts.safe_mean(stats.get("global_running_avg_cvs", []))
+      rt_var = int(100 * sts.safe_mean(stats.get("global_running_avg_cvs", [])))
       if tech != config.BASELINE_TECHNIQUE:
         baseline_stats = global_stats_by_topk.get(top_k, {}).get(config.BASELINE_TECHNIQUE, {})
         baseline_rt_avg = int(1000 * sts.safe_mean(baseline_stats.get("global_running_avg_means", [])))
@@ -111,9 +111,9 @@ def generate_overlay_table(global_stats_by_topk, output_tex_file):
       else:
         ratio_str = ""
       if tech == config.BASELINE_TECHNIQUE:
-        cell = r"\textbf{" + f"{rt_avg}$\pm${rt_var:.1f}" + "}"
+        cell = r"\textbf{" + f"{rt_avg}$\pm${rt_var:.2f}\%" + "}"
       else:
-        cell = f"{rt_avg}$\pm${rt_var:.1f} ({ratio_str})"
+        cell = f"{rt_avg}$\pm${rt_var:.2f}\% ({ratio_str})"
       row.append(cell)
     lines.append(" & ".join(row) + r" \\")
   lines.append(r"\bottomrule")
@@ -128,16 +128,16 @@ def generate_overlay_table(global_stats_by_topk, output_tex_file):
   header = f"{'# of slowest inputs':<25} {'Top-10':<20} {'Top-5':<20} {'Top-3':<20} {'Top-1':<20}"
   txt_lines.append(header)
   txt_lines.append("-" * len(header))
-  txt_lines.append("Number of instructions (x 1e9):")
+  txt_lines.append("Number of instructions (x 1e8):")
   for tech, tech_folder in config.TECHNIQUES.items():
     row = [f"{tech:<25}"]
     for top_k in sorted(config.TOP_K_VALUES, reverse=True):
       stats = global_stats_by_topk.get(top_k, {}).get(tech, {})
-      ic_avg = sts.safe_mean(stats.get("global_instruction_avg_means", [])) / 1e9
-      ic_var = sts.safe_mean(stats.get("global_instruction_avg_cvs", []))
+      ic_avg = sts.safe_mean(stats.get("global_instruction_avg_means", [])) / 1e8
+      ic_var = 100 * sts.safe_mean(stats.get("global_instruction_avg_cvs", []))
       if tech != config.BASELINE_TECHNIQUE:
         baseline_stats = global_stats_by_topk.get(top_k, {}).get(config.BASELINE_TECHNIQUE, {})
-        baseline_ic_avg = sts.safe_mean(baseline_stats.get("global_instruction_avg_means", [])) / 1e9
+        baseline_ic_avg = sts.safe_mean(baseline_stats.get("global_instruction_avg_means", [])) / 1e8
         ratio_str = sts.compute_ratio_and_arrow(baseline_ic_avg, ic_avg, latex_fmt=False)
       else:
         ratio_str = ""
