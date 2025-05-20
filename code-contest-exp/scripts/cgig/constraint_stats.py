@@ -1,5 +1,5 @@
 import json
-import os
+import os, sys
 from pathlib import Path
 from typing import List, Dict, Tuple
 from utils import get_cf_problems, filter_problems, problem_to_id, get_experiment_result, get_input_avg_ict, mean, run_result_exists
@@ -215,10 +215,18 @@ def per_solution_compare_input_avg(problem_solution_id_list: List[str], solution
     print(f"Significant case ratio: {len(significant_case_list) / len(problem_solution_id_list)}")
 
 if __name__ == "__main__":
+    mode = sys.argv[1]
     problem_id_list = [problem_to_id(problem) for problem in filter_problems(get_cf_problems(use_specified_problem=config["use_specified_problem"]))]
     problem_id_list = [problem_id for problem_id in problem_id_list if problem_has_extracted_constraint(problem_id)]
 
-    strategies = ["alphacode_sanitized", "plain_problem", "evalperf_slow_solution", "evalperf_random_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", "corpus_instrument_fuzz_custom_mutator", "corpus_raw_fuzz_default_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution"]
+    if mode == "main":
+        # check overall significant case ratio
+        strategies = ["alphacode_sanitized", "plain_problem", "evalperf_slow_solution", "evalperf_random_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
+    elif mode == "ablation":
+        # check the individual ratio of constraint satisfying
+        strategies = ["corpus_raw_fuzz_default_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_default_mutator", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
+    else:
+        raise ValueError(f"Invalid mode: {mode}")
 
     all_instrumented_program_constraint_entrys = get_all_instrumented_program_constraint_entrys(problem_id_list)
     non_compilable_constraint_entrys = get_all_non_compilable_instrumented_program_constraint_entrys(problem_id_list)

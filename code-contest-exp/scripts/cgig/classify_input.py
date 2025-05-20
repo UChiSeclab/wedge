@@ -143,6 +143,7 @@ def process_strategy(
         for input_pair in os.listdir(constraints_dir / problem_id / solution_id):
             result_file = input_classify_dir / problem_id / solution_id / input_pair / f"{strategy}.json"
             if result_file.exists():
+                print(f"{result_file} already exists, skipping")
                 continue
             instrumented_program = constraints_dir / problem_id / solution_id / input_pair / "transformed_program.cpp"
 
@@ -157,7 +158,7 @@ def main(problem_root_dir: str = config["problem_root_dir"]):
     constraints_dir = Path(config["constraints_dir"])
     problem_root_dir = Path(problem_root_dir)
     input_classify_dir = Path(config["input_classify_dir"])
-    strategies = ["alphacode_sanitized", "plain_problem", "evalperf_slow_solution", "evalperf_random_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution", "corpus_raw_fuzz_custom_mutator", "corpus_raw_fuzz_default_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution"]
+    strategies = ["alphacode_sanitized", "plain_problem", "evalperf_slow_solution", "evalperf_random_solution", "corpus_raw_fuzz_custom_mutator", "corpus_instrument_fuzz_custom_mutator", "corpus_raw_fuzz_default_mutator", "corpus_instrument_fuzz_default_mutator", "corpus_raw_fuzz_mutator_with_constraint_per_solution", "corpus_instrument_fuzz_mutator_with_constraint_per_solution"]
 
     cleanup_thread = threading.Thread(target=clear_shared_memory, daemon=True)
     cleanup_thread.start()
