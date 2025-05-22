@@ -22,9 +22,6 @@ def merge_json_data_into_structure(json_data, language, data_rt, data_ic):
     if solution_data.get("language") != language:
       continue
     wedge_verdicts = solution_data.get("verdict", [])
-    if not isinstance(wedge_verdicts, list) or len(wedge_verdicts) < config.REPETITIONS:
-      logging.warning(f"problem: {json_data['problem_name']} | solution: {solution_name} | verdicts: {wedge_verdicts}\n")
-      continue
     if not all(verdict in {"AC", "TLE", "WA", "KILL"} for verdict in solution_data.get("verdict", [])):
       logging.warning(f"problem: {json_data['problem_name']} | solution: {solution_name} | verdicts: {wedge_verdicts}\n")
       continue
@@ -121,9 +118,6 @@ def parse_blacklist(blacklist_path):
         "validity": validity,
       }
       blacklist.setdefault(key, {})[filename] = entry
-
-  for bl in blacklist.keys():
-    logging.info("Adding key %s into blacklist dictionary, with %d values", bl, len(blacklist[bl]))
 
   return blacklist
 

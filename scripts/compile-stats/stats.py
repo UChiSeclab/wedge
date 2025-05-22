@@ -96,7 +96,52 @@ def compute_aggregate_stats_for_structure(data_rt, data_ic, top_k):
     "global_instruction_avg_cvs": global_instruction_avg_cvs,
   }
 
-def compute_ratio_and_arrow(baseline, value, latex_fmt=True):
+def compute_slowdown_stats_for_topk(global_stats_by_topk, reference_technique, techniques, top_k):
+  ref_data = (
+    global_stats_by_topk
+    .get(top_k, {})
+    .get(reference_technique, {})
+    .get("aggregated_stats", {})
+  )
+  slowdown = {}
+  for tech in techniques:
+    if tech == reference_technique:
+      continue
+    tech_data = (
+      global_stats_by_topk
+      .get(top_k, {})
+      .get(tech, {})
+      .get("aggregated_stats", {})
+    )
+    sol_keys = sorted(set(tech_data) & set(ref_data))
+    ratios_ic = []
+    ratios_rt = []
+    for sol in sol_keys:
+      ic_t = tech_data[sol]["instruction_count"]["avg_of_top_k_means"]
+      ic_r = ref_data[sol]["instruction_count"]["avg_of_top_k_means"]
+      rt_t = tech_data[sol]["running_time"]["avg_of_top_k_means"]
+      rt_r = ref_data[sol]["running_time"]["avg_of_top_k_means"]
+      ratio_ic = ic_t / ic_r if ic_r else 0.0
+      ratio_rt = rt_t / rt_r if rt_r else 0.0
+      ratios_ic.append({"solution_id": sol, "ratio": ratio_ic})
+      ratios_rt.append({"solution_id": sol, "ratio": ratio_rt})
+    ic_values = [entry["ratio"] for entry in ratios_ic]
+    rt_values = [entry["ratio"] for entry in ratios_rt]
+    slowdown[tech] = {
+      "instruction_count": {
+        "average": safe_mean(ic_values),
+        "median": safe_median(ic_values),
+        "ratios": ratios_ic
+      },
+      "running_time": {
+        "average": safe_mean(rt_values),
+        "median": safe_median(rt_values),
+        "ratios": ratios_rt
+      }
+    }
+  return slowdown
+
+def compute_ratio_and_arrow(baseline, value, inverted=False, latex_fmt=True):
   """
   Compute the ratio between baseline and value and return a formatted string with an arrow.
   """
@@ -105,7 +150,10 @@ def compute_ratio_and_arrow(baseline, value, latex_fmt=True):
   if baseline == value:
     return "(=1.0\\times)" if latex_fmt else "(=1.0×)"
   
-  ratio = 1.0 * baseline / value
+  if inverted:
+    ratio = 1.0 * baseline / value
+  else:
+    ratio  = 1.0 * value / baseline
   if latex_fmt:
     ratio_str = f"{ratio:.1f}\\times"
     arrow = "\\textcolor{red}{\\downarrow}" if baseline > value else "\\textcolor{green}{\\uparrow}"
@@ -135,6 +183,15 @@ def safe_mean(lst):
   """
   try:
     return statistics.mean(lst) if lst else 0
+  except Exception:
+    return 0
+  
+def safe_median(lst):
+  """
+  Return the median of a list if not empty; otherwise, return 0.
+  """
+  try:
+    return statistics.median(lst) if lst else 0
   except Exception:
     return 0
 

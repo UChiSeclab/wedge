@@ -140,25 +140,39 @@ PROBLEM_SET = {
 #     "1096_F", "1102_C", "1182_E", "1201_C", "1413_C", "143_D", "199_B", "554_C", "768_E", "889_B"
 # }
 
+REFERENCE_TECHNIQUE = "alphacode"
 BASELINE_TECHNIQUE = "wedge"
 TECHNIQUES = {
     "wedge": "corpus_instrument_fuzz_mutator_with_constraint_per_solution",
-    # "wedge-yesInstr-customMut": "corpus_instrument_fuzz_custom_mutator",
-    # "wedge-yesInstr-defaultMut": "corpus_instrument_fuzz_default_mutator",
-    # "wedge-noInstr-constrntMut": "corpus_raw_fuzz_mutator_with_constraint_per_solution",
-    # "wedge-noInstr-customMut": "corpus_raw_fuzz_custom_mutator",
-    # "wedge-noInstr-defaultMut": "corpus_raw_fuzz_default_mutator",
+    "wedge-yesInstr-defaultMut": "corpus_instrument_fuzz_default_mutator",
+    "wedge-noInstr-constrntMut": "corpus_raw_fuzz_mutator_with_constraint_per_solution",
+    "wedge-noInstr-defaultMut": "corpus_raw_fuzz_default_mutator",
+    "evalperf-slow": "evalperf_slow_solution",
+    "evalperf-rand": "evalperf_random_solution",
+    "direct-prompt": "plain_problem",
+    "alphacode": "alphacode"
+}
+BASELINES = {
+    "wedge": "corpus_instrument_fuzz_mutator_with_constraint_per_solution",
     "evalperf-slow": "evalperf_slow_solution",
     "evalperf-rand": "evalperf_random_solution",
     "direct-prompt": "plain_problem",
 }
+ABLATIONS = {
+    "wedge": "corpus_instrument_fuzz_mutator_with_constraint_per_solution",
+    "wedge-yesInstr-defaultMut": "corpus_instrument_fuzz_default_mutator",
+    "wedge-noInstr-constrntMut": "corpus_raw_fuzz_mutator_with_constraint_per_solution",
+    "wedge-noInstr-defaultMut": "corpus_raw_fuzz_default_mutator",
+}
 
-TOP_K_VALUES = [10, 5, 3, 1]
+
+TOP_K_VALUES = [10]
 
 OUTPUT_FORMATS = {
   "csv": "./csv_out",
   "plots": "./plots"
 }
 
-CUSTOM_2_COLOR_SCHEME=["#67A190", "#F7A260"]
+CUSTOM_2_COLOR_SCHEME=["#FF6361", "#58508D"]
+#CUSTOM_2_COLOR_SCHEME=["#67A190", "#F7A260"]
 CUSTOM_4_COLOR_SCHEME=["#CF5569", "#F7A260", "#F6CD5D", "#67A190"]

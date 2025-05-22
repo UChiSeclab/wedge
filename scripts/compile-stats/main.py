@@ -242,12 +242,12 @@ def generate_histograms(unified_stats, output_plot_dir):
   For each top-K value and each overlay technique, generate histograms 
   comparing techniques.
   """
-  techniques = list(config.TECHNIQUES)
-  baseline = techniques[0]
-  overlays = techniques[1:]
+  baseline = config.BASELINE_TECHNIQUE
 
   for top_k in config.TOP_K_VALUES:
-    for overlay in overlays:
+    for overlay in list(config.TECHNIQUES):
+      if overlay == config.REFERENCE_TECHNIQUE or overlay == config.BASELINE_TECHNIQUE:
+        continue
       data_dict = {}
       for tech in (baseline, overlay):
         data_dict[tech] = {
@@ -268,6 +268,7 @@ def generate_histograms(unified_stats, output_plot_dir):
             baseline_label=baseline,
             overlay_label=overlay,
             output_pdf_name=pdf,
+            legend=False,
             x_label="Normalized Ratio (%)",
             y_label="# of programs (log scale)",
             **({"color_scheme": scheme} if scheme else {"custom_colors": colors})
@@ -275,36 +276,6 @@ def generate_histograms(unified_stats, output_plot_dir):
           logging.info("Histogram: %s", pdf)
       else:
         logging.error("Skipping histogram %s vs %s @ top-%d", baseline, overlay, top_k)
-
-def generate_pie_charts(unified_stats, output_plot_dir):
-  """
-  Generate pie charts summarizing winning techniques.
-  """
-  techniques = list(config.TECHNIQUES)
-
-  for top_k in config.TOP_K_VALUES:
-    data_dict = {
-      tech: {
-        sol_key: sol_data[tech][top_k]["ic"]["avg"]
-        for sol_key, sol_data in unified_stats.items()
-        if tech in sol_data and top_k in sol_data[tech]
-      }
-      for tech in techniques
-    }
-
-    for scheme, colors in [
-      (None, config.CUSTOM_4_COLOR_SCHEME),
-      ("deep", None),
-    ]:
-      pdf = os.path.join(output_plot_dir, 
-                         f"piechart_ranked_top{top_k}{'_deep' if scheme=='deep' else ''}.pdf")
-      viz.generate_pie_chart(
-        data_dict,
-        output_pdf_name=pdf,
-        legend=False,
-        **({"color_scheme": scheme} if scheme else {"custom_colors": colors})
-      )
-      logging.info("Pie chart: %s", pdf)
 
 def main():
   parser_arg = argparse.ArgumentParser()
@@ -354,6 +325,14 @@ def main():
   logging.info("[TIMING] In-memory data structure generation and CSV write out: %.2fs", 
          time.perf_counter() - t0)
 
+  # Compute slowdown relative to the reference technique
+  slowdown = stats.compute_slowdown_stats_for_topk(
+    global_stats_by_topk, 
+    config.REFERENCE_TECHNIQUE, 
+    config.TECHNIQUES, 
+    max(config.TOP_K_VALUES)
+  )
+  
   t0 = time.perf_counter()
   # Build unified stats structure.
   unified_stats = build_unified_stats(global_stats_by_topk)
@@ -363,18 +342,19 @@ def main():
   # Generate plots
   generate_overlay_plots(global_stats_by_topk, args.plot_output_dir)
   generate_histograms(unified_stats, args.plot_output_dir)
-  generate_pie_charts(unified_stats, args.plot_output_dir)
 
   # Generate LaTeX tables
-  overlay_table_file = os.path.join(args.plot_output_dir, "table_overlay_chart.tex")
-  viz.generate_overlay_table(global_stats_by_topk, overlay_table_file)
-  logging.info("Generated area chart LaTeX table: %s", overlay_table_file)
+  overlay_table_file = os.path.join(args.plot_output_dir, "table_efficiency_baselines.tex")
+  viz.generate_efficiency_tables(global_stats_by_topk, unified_stats, config.BASELINES, overlay_table_file)
+  logging.info("Generated efficiency tables (baselines): %s", overlay_table_file)
+  overlay_table_file = os.path.join(args.plot_output_dir, "table_efficiency_ablations.tex")
+  viz.generate_efficiency_tables(global_stats_by_topk, unified_stats, config.ABLATIONS, overlay_table_file)
+  logging.info("Generated efficiency tables (ablations): %s", overlay_table_file)
   histogram_table_file = os.path.join(args.plot_output_dir, "table_histogram.tex")
   viz.generate_histogram_table(unified_stats, histogram_table_file)
-  logging.info("Generated histogram LaTeX table: %s", histogram_table_file)
-  pie_table_file = os.path.join(args.plot_output_dir, "table_pie_chart.tex")
-  viz.generate_pie_chart_table(unified_stats, pie_table_file)
-  logging.info("Generated pie chart LaTeX table: %s", pie_table_file)
+  logging.info("Generated histogram table: %s", histogram_table_file)
+  viz.generate_slowdown_tables(slowdown)
+  logging.info("Generated slowdown table")
 
 if __name__ == "__main__":
   main()
