@@ -70,8 +70,13 @@ wedge
 ├── README
 └── LICENSE
 ```
+where
+- `wedge` are tests and stats related to our framework
+- `evalperf_slow` and `evalperf_rand` are tests and stats related to [EvalPerf](https://evalplus.github.io/evalperf.html)
+- `test_gen_prompt` are tests and stats related to our LLM-based test generation prompting baslines
+- `wedge_***` are tests and stats related to the varios ablated verions of WEDGE
 
-### 1.1. Cloning the repository
+### 1.1 Cloning the repository
 
 **Step #1**: To download the repository locally, users can run the following command:
 ```
@@ -79,7 +84,7 @@ git clone https://github.com/elmerjfudd/wedge
 ```
 We encourate users to check that the downloaded copy has the same directory structure as above.
 
-### 1.2. Environment Setup
+### 1.2 Environment Setup
 
 WEDGE relies on a few dependencies:
 - Ubuntu 20.04 or later
