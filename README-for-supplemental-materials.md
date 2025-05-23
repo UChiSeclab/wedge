@@ -11,32 +11,62 @@ The repository has the following directory structure. Users are recommended not 
 
 ```
 wedge
-├──problems
-|  ├── problemA
-|  |   ├── metadata
-|  |   |   ├── problem_statement.txt
-|  |   |   ├── llm_prompt_constraints.txt
-|  |   |   ├── llm_response_constraints.txt
-|  |   ├── measurements
-|  |   |   ├── problemA_stats.JSON
-|  |   ├── solutions
-|  |   |   ├── sol1.cpp
-|  |   |   ├── sol2.cpp
-|  |   |    ...
-|  |   └── tests
-|  |       ├── codecontests
-|  |       ├── wedge
-|  |       ├── evalperf-rand
-|  |       ├── evalperf-slow
-|  |       └── tgprompt
-|  ├── problemB
-|  |   ├── ...  
+├── problems
+|   ├── problemA
+|   |   ├── metadata
+|   |   |   ├── problem_statement.txt
+|   |   |   ├── llm_prompt_constraints.txt
+|   |   |   └── llm_response_constraints.txt
+|   |   ├── solutions
+|   |   |   ├── sol1.cpp
+|   |   |   ├── sol2.cpp
+|   |   |    ...
+|   |   └── tests
+|   |       ├── codecontests
+|   |       ├── wedge
+|   |       ├── evalperf_random
+|   |       ├── evalperf_slowom
+|   |       └── test_gen_prompt
+|   ├── problemB
+|   |   ├── ...  
  ...
-|
+├── data
+|   ├── codecontests
+|   |   ├── problemA.json
+|   |   ├── problemB.json
+|   |   ...
+|   ├── wedge
+|   |   ├── problemA.json
+|   |   ├── problemB.json
+|   |   ...
+|   ├── wedge_yesInstr_defaultMut
+|   |   ├── problemA.json
+|   |   ├── problemB.json
+|   |   ...
+|   ├── wedge_noInstr_constrntMut
+|   |   ├── problemA.json
+|   |   ├── problemB.json
+|   |   ...
+|   ├── wedge_noInstr_defaultMut
+|   |   ├── problemA.json
+|   |   ├── problemB.json
+|   |   ... 
+|   ├── evalperf_random
+|   |   ├── problemA.json
+|   |   ├── problemB.json
+|   |   ...
+|   ├── evalperf_slow
+|   |   ├── problemA.json
+|   |   ├── problemB.json
+|   |   ...
+|   └── test_gen_prompt
+|   |   ├── problemA.json
+|   |   ├── problemB.json
+|   |   ...
 ├── code
-|  ├── get_stats.py
-|  ├── gpt_constraints.prompt
-|  └── run.py
+|  ├── stats/
+|  ├── run_tests/
+|  └── prompting/
 ├── README
 └── LICENSE
 ```
@@ -53,12 +83,13 @@ We encourate users to check that the downloaded copy has the same directory stru
 
 WEDGE relies on a few dependencies:
 - Ubuntu 20.04 or later
-- Python 3.8 or later, along with several relevant packages
-- `perf` X.XX or later
-- `gcov` X.XX or later
+- Python 3.10 or later, along with several relevant packages
+- `perf` 5.15 or later
+- `gcov` 11.4 or later
 
 **Step #2**: To install these dependencies, users can run the following command:
 ```
+cd  /path/to/wedge/repo
 sudo ./setup_env.sh
 ```
 > [!NOTE]
@@ -66,6 +97,7 @@ sudo ./setup_env.sh
 
 **Step #3**: Finally, users need to update their `PYTHONPATH` environment varialbe:
 ```
+cd /path/to/wedge/repo
 export PYTHONPATH=$PYTHONPATH:$(pwd)/code
 ```
 
@@ -73,9 +105,9 @@ export PYTHONPATH=$PYTHONPATH:$(pwd)/code
 
 We provide users with the raw measurements collected by WEDGE. This way, users can collect statistics and recreate the tables and figures for our main experiements: WEDGE vs. baslines; and WEDGE vs. its ablated versions.
 
-To generate statistics, users should use the `./code/get-stats` utility:
+To generate statistics, users should use the `./code/stats` utility:
 ```
-python3 ./code/get-stats/main.py 
+python3 ./code/stats/main.py 
                  --data-path DATA_DIR
                  --summaries-out-path STATS_DIR 
                  [--language LANGUAGE]
@@ -88,8 +120,7 @@ where
 Here is an usage example, assuming the directory structure above:
 ```
 cd /path/to/wedge/repo
-mkdir -p summaries/tables summaries/plots summaries/csv
-python3 ./code-get-stats/main.py --data-path $(pwd)/data/ --summaries-out-path ./summaries 
+python3 ./code/stats/main.py --data-path $(pwd)/data/ --summaries-out-path $(pwd)/summaries --language cpp
 ```
 This command will populate the `summaries/tables`, `summaires/plots` and `summaries/csv` directories with the tables, plots and aggregated measurements in CSV format that comprise the key results of our original main experiments.  
 
