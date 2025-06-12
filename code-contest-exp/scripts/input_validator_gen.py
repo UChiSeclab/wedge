@@ -16,7 +16,7 @@ detected, then regenerate validator (providing feedback, ie., error messages)
 
 """
 
-REFELECT_MSG = '''
+REFLECT_MSG = '''
 The validator script you provided is incorrect as it failed on some good test inputs that follow the constraints of the problem statement. Please reflect and try again. You must include "Shape of the input:" and "Constraints:" sections as well (in addition to the validator script) in your new response, and you might need to fix them if there are incorrect ones.
 '''
 
@@ -253,8 +253,8 @@ def prompt_and_dump_results(
                 msg_list.append(
                     {
                         "role": "user",
-                        "content": REFELECT_MSG
-                            if mode == "self_reflect" else REFELECT_MSG + feedback_msg
+                        "content": REFLECT_MSG
+                            if mode == "self_reflect" else REFLECT_MSG + feedback_msg
                     }
                 )
         gpt_response = request_conversation(
