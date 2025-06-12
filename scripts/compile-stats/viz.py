@@ -1,10 +1,12 @@
+from typing import Dict, Any, Tuple, List
 import config
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import seaborn as sns
-import stats as sts
+import stats as mystats
+import statistics
 
 def get_color_for_technique(tech, custom_colors):
   keys = list(config.TECHNIQUES.keys())
@@ -32,7 +34,7 @@ def generate_overlay_plot(data_dict, output_pdf_name,
     if tech not in data_dict:
       logging.warning("Data for technique %s not found; skipping.", tech)
       continue
-    normalized_data = sts.compute_normalized_sorted_list_from_dict(data_dict[tech])
+    normalized_data = mystats.compute_normalized_sorted_list_from_dict(data_dict[tech])
     x_vals = list(range(len(normalized_data)))
     y_vals = [val for _, val in normalized_data]
     color = get_color_for_technique(tech, custom_colors)
@@ -68,104 +70,204 @@ def generate_overlay_plot(data_dict, output_pdf_name,
   fig.savefig(output_pdf_name, format="pdf")
   plt.close(fig)
 
-def generate_overlay_table(global_stats_by_topk, output_tex_file):
+def summarize(values, scale):
   """
-  Generate a LaTeX table summarizing instruction counts and running times.
+  Return (mean, median) of `values` after multiplying by `scale`.
+  Empty → (0.0, 0.0).
   """
-  # --- Build and print LATEX version ---
-  lines = []
-  lines.append(r"\begin{tabular}{lllll}")
-  lines.append(r"\toprule")
-  lines.append(r"\# of slowest inputs & Top-10 & Top-5 & Top-3 & Top-1 \\ \midrule")
-  lines.append(r"\rowcolor[gray]{0.95}\multicolumn{5}{c}{Number of instructions ($\times 10^8$)} \\")
-  for tech, tech_folder in config.TECHNIQUES.items():
-    row = [tech]
-    for top_k in sorted(config.TOP_K_VALUES, reverse=True):
-      stats = global_stats_by_topk.get(top_k, {}).get(tech, {})
-      ic_avg = sts.safe_mean(stats.get("global_instruction_avg_means", [])) / 1e8
-      ic_var = (100 * sts.safe_mean(stats.get("global_instruction_avg_cvs", [])))
-      if tech != config.BASELINE_TECHNIQUE:
-        baseline_stats = global_stats_by_topk.get(top_k, {}).get(config.BASELINE_TECHNIQUE, {})
-        baseline_ic_avg = sts.safe_mean(baseline_stats.get("global_instruction_avg_means", [])) / 1e8
-        ratio_str = sts.compute_ratio_and_arrow(baseline_ic_avg, ic_avg, latex_fmt=True)
-      else:
-        ratio_str = ""
-      if tech == config.BASELINE_TECHNIQUE:
-        cell = r"\textbf{" + f"{ic_avg:.2f}$\pm${ic_var:.2f}\%" + "}"
-      else:
-        cell = f"{ic_avg:.2f}$\pm${ic_var:.2f}\% ({ratio_str})"
-      row.append(cell)
-    lines.append(" & ".join(row) + r" \\")
-  lines.append(r"\midrule")
-  lines.append(r"\rowcolor[gray]{0.95}\multicolumn{5}{c}{Running time (ms)} \\")
-  for tech, tech_folder in config.TECHNIQUES.items():
-    row = [tech]
-    for top_k in sorted(config.TOP_K_VALUES, reverse=True):
-      stats = global_stats_by_topk.get(top_k, {}).get(tech, {})
-      rt_avg = int(1000 * sts.safe_mean(stats.get("global_running_avg_means", [])))
-      rt_var = int(100 * sts.safe_mean(stats.get("global_running_avg_cvs", [])))
-      if tech != config.BASELINE_TECHNIQUE:
-        baseline_stats = global_stats_by_topk.get(top_k, {}).get(config.BASELINE_TECHNIQUE, {})
-        baseline_rt_avg = int(1000 * sts.safe_mean(baseline_stats.get("global_running_avg_means", [])))
-        ratio_str = sts.compute_ratio_and_arrow(baseline_rt_avg, rt_avg, latex_fmt=True)
-      else:
-        ratio_str = ""
-      if tech == config.BASELINE_TECHNIQUE:
-        cell = r"\textbf{" + f"{rt_avg}$\pm${rt_var:.2f}\%" + "}"
-      else:
-        cell = f"{rt_avg}$\pm${rt_var:.2f}\% ({ratio_str})"
-      row.append(cell)
-    lines.append(" & ".join(row) + r" \\")
-  lines.append(r"\bottomrule")
-  lines.append(r"\end{tabular}")
-  latex_code = "\n".join(lines)
-  with open(output_tex_file, "w") as f:
-    f.write(latex_code)
+  if not values:
+    return 0.0, 0.0
+  avg = statistics.mean(values) * scale
+  med = statistics.median(values) * scale
+  return avg, med
 
-  # --- Build and print plain text version ---
-  txt_lines = []
-  txt_lines.append("---- TABLE 1: Area Chart Summary ----")
-  header = f"{'# of slowest inputs':<25} {'Top-10':<20} {'Top-5':<20} {'Top-3':<20} {'Top-1':<20}"
-  txt_lines.append(header)
-  txt_lines.append("-" * len(header))
-  txt_lines.append("Number of instructions (x 1e8):")
-  for tech, tech_folder in config.TECHNIQUES.items():
-    row = [f"{tech:<25}"]
-    for top_k in sorted(config.TOP_K_VALUES, reverse=True):
-      stats = global_stats_by_topk.get(top_k, {}).get(tech, {})
-      ic_avg = sts.safe_mean(stats.get("global_instruction_avg_means", [])) / 1e8
-      ic_var = 100 * sts.safe_mean(stats.get("global_instruction_avg_cvs", []))
-      if tech != config.BASELINE_TECHNIQUE:
-        baseline_stats = global_stats_by_topk.get(top_k, {}).get(config.BASELINE_TECHNIQUE, {})
-        baseline_ic_avg = sts.safe_mean(baseline_stats.get("global_instruction_avg_means", [])) / 1e8
-        ratio_str = sts.compute_ratio_and_arrow(baseline_ic_avg, ic_avg, latex_fmt=False)
+def format_ratios(this_val, baselines, inverted, latex_fmt):
+  """
+  For each baseline name→value, call and return name, arrow, and ratio strings.
+  """
+  return {
+    name: mystats.compute_ratio_and_arrow(base_val, this_val, inverted=inverted, latex_fmt=latex_fmt)
+    for name, base_val in baselines.items()
+  }
+
+def count_wins_for_tech(unified_stats, techniques, top_k):
+  """
+  For the given top_k, count how many times each technique achieves
+  the highest avg instruction count.
+  """
+  win_counts = {tech: 0 for tech in techniques}
+  total_cases = 0
+  for sol_data in unified_stats.values():
+    if not all(tech in sol_data and top_k in sol_data[tech]
+          for tech in techniques):
+      continue
+    best, _ = max(
+      ((tech, sol_data[tech][top_k]["ic"]["avg"])
+       for tech in techniques),
+      key=lambda x: x[1]
+    )
+    win_counts[best] += 1
+    total_cases += 1
+  return win_counts, total_cases
+
+def generate_efficiency_tables(global_stats_by_topk, unified_stats, techniques, output_tex_file):
+  """
+  Generate tables summarizing instruction counts and running times.
+  """
+  TABLES = [
+    {
+      "name": "Instruction Counts",
+      "latex_caption": r"\# of instructions",
+      "field": "global_instruction_avg_means",
+      "scale": 1e-8,
+    },
+    {
+      "name": "Running time (ms)",
+      "latex_caption": "Running time (ms)",
+      "field": "global_running_avg_means",
+      "scale": 1000,
+    }
+  ]
+  max_top_k = max(config.TOP_K_VALUES)
+  baseline = config.BASELINE_TECHNIQUE
+  reference = config.REFERENCE_TECHNIQUE
+
+  wins = {}
+  total_count = {}
+
+  wins, total_count = count_wins_for_tech(unified_stats, techniques, max_top_k)
+
+  # Compute stats relative to the baseline and reference techniques
+  def _stats_for(tech_name: str):
+    s = global_stats_by_topk.get(max_top_k, {}).get(tech_name, {})
+    avg_ic, med_ic = summarize(s.get("global_instruction_avg_means", []), 1e-8)
+    avg_rt, med_rt = summarize(s.get("global_running_avg_means", []), 1000)
+    return {"avg_ic": avg_ic, "med_ic": med_ic, "avg_rt": avg_rt, "med_rt": med_rt}
+
+  base_stats = _stats_for(baseline)
+  reference_stats = _stats_for(reference)
+
+  # Predefined collections to store the tables
+  text_tables: List[Tuple[str, List[Tuple[str,str,str,float,str]]]] = []
+  latex_lines: List[str] = []
+
+  for tbl in TABLES:
+    latex_lines += [
+      r"\begin{table}[]",
+      r"\begin{tabular}{lllrrr}",
+      r"\toprule",
+      rf"\multirow{{2}}{{*}}{{Technique}} & "
+      rf"\multicolumn{{2}}{{c}}{{{tbl['latex_caption']}}} & "
+      r"\multirow{2}{*}{Win rate} & "
+      r"\multicolumn{2}{c}{Rel. to AlphaCode} \\",
+      r"              & \multicolumn{1}{c}{Average} & \multicolumn{1}{c}{Median} "
+      r"& & \multicolumn{1}{c}{Average} & \multicolumn{1}{c}{Median} \\",
+      r"\midrule",
+    ]
+
+    # Predefined per-row plain‐text storage
+    rows_txt: List[Tuple[str,str,str,float,str]] = []
+
+    if tbl["field"] == "global_instruction_avg_means":
+      avg_key, med_key = "avg_ic", "med_ic"
+    else:
+      avg_key, med_key = "avg_rt", "med_rt"
+
+    for tech in techniques:
+
+      s = global_stats_by_topk.get(max_top_k, {}).get(tech, {})
+      vals = s.get(tbl["field"], [])
+      avg, med = summarize(vals, tbl["scale"])
+
+      wr = (wins.get(tech, 0) / total_count * 100) if total_count else 0.0
+      
+      r_base_avg_ltx = format_ratios(avg, { "BASE": base_stats[avg_key] }, True, latex_fmt=True )["BASE"]
+      r_base_med_ltx = format_ratios(med, { "BASE": base_stats[med_key] }, True, latex_fmt=True )["BASE"]
+      r_base_avg_txt = format_ratios(avg, { "BASE": base_stats[avg_key] }, True, latex_fmt=False)["BASE"]
+      r_base_med_txt = format_ratios(med, { "BASE": base_stats[med_key] }, True, latex_fmt=False)["BASE"]
+
+      r_ref_avg = (reference_stats[avg_key] / avg) if avg else 0.0
+      r_ref_med = (reference_stats[med_key] / med) if med else 0.0
+
+      r_ref_avg_ltx = f"{r_ref_avg:.2f}"
+      r_ref_med_ltx = f"{r_ref_med:.2f}"
+      r_ref_avg_txt = f"{r_ref_avg:.2f}"
+      r_ref_med_txt = f"{r_ref_med:.2f}"
+
+      if tech == baseline:
+        avg_ltx = f"{avg:.2f}"
+        med_ltx = f"{med:.2f}"
       else:
-        ratio_str = ""
-      cell = f"{ic_avg:.2f}±{ic_var:.2f} {ratio_str}"
-      row.append(f"{cell:<20}")
-    txt_lines.append(" ".join(row))
-  txt_lines.append("-" * len(header))
-  txt_lines.append("Running time (ms):")
-  for tech, tech_folder in config.TECHNIQUES.items():
-    row = [f"{tech:<25}"]
-    for top_k in sorted(config.TOP_K_VALUES, reverse=True):
-      stats = global_stats_by_topk.get(top_k, {}).get(tech, {})
-      rt_avg = int(1000 * sts.safe_mean(stats.get("global_running_avg_means", [])))
-      rt_var = sts.safe_mean(stats.get("global_running_avg_cvs", []))
-      if tech != config.BASELINE_TECHNIQUE:
-        baseline_stats = global_stats_by_topk.get(top_k, {}).get(config.BASELINE_TECHNIQUE, {})
-        baseline_rt_avg = int(1000 * sts.safe_mean(baseline_stats.get("global_running_avg_means", [])))
-        ratio_str = sts.compute_ratio_and_arrow(baseline_rt_avg, rt_avg, latex_fmt=False)
+        avg_ltx = f"{avg:.2f} {r_base_avg_ltx}"
+        med_ltx = f"{med:.2f} {r_base_med_ltx}"
+
+      latex_lines.append(f"{tech} & {avg_ltx} & {med_ltx} & {wr:.1f}\\% & {r_ref_avg_ltx} & {r_ref_med_ltx} \\\\")
+
+      if tech == baseline:
+        avg_txt = f"{avg:.2f}"
+        med_txt = f"{med:.2f}"
       else:
-        ratio_str = ""
-      cell = f"{rt_avg}$±${rt_var:.1f} {ratio_str}"
-      row.append(f"{cell:<20}")
-    txt_lines.append(" ".join(row))
-  plain_text_table = "\n".join(txt_lines)
-  logging.info("\n%s", plain_text_table)
+        avg_txt = f"{avg:.2f} {r_base_avg_txt}"
+        med_txt = f"{med:.2f} {r_base_med_txt}"
+
+      rows_txt.append((tech, avg_txt, med_txt, wr, r_ref_avg_txt, r_ref_med_txt))
+
+    latex_lines += [r"\bottomrule", r"\end{tabular}", r"\end{table}", ""]
+ 
+    title = f"Top-{max_top_k} {tbl['name']}"
+    text_tables.append((title, rows_txt))
+
+  with open(output_tex_file, "w") as f:
+    f.write("\n".join(latex_lines))
+
+  def _print_text_table(
+    title: str,
+    rows: List[Tuple[str,str,str,float,str]]
+  ) -> None:
+    print(f"---- {title} ----")
+    headers = ["Technique", "Average", "Median", "Outperforming %", "Rel. to AlphaCode"]
+    print("\t".join(headers))
+    print("-" * (len(headers) * 12))
+    for tech, a, m, wr, a_rel, m_rel in rows:
+      print(f"{tech}\t{a}\t{m}\t{wr:.1f}%\t{a_rel}\t{m_rel}")
+    print("\n")
+
+  for title, rows in text_tables:
+    _print_text_table(title, rows)
+
+  logging.info("Wrote two tables (instructions & running time) for Top-%d", max_top_k)
+
+def generate_slowdown_tables(slowdown):
+  """
+  Print the slwodown tables to stdout only.
+  """
+  ref = config.REFERENCE_TECHNIQUE
+
+  print(f"---- Slowdown vs {ref}: Instruction Counts ----")
+  headers = ["Technique", f"vs. {ref} slowdown"]
+  print("\t".join(headers))
+  print("-" * (len(headers) * 12))
+  for tech, stats in slowdown.items():
+    if tech == ref:
+      continue
+    avg = stats["instruction_count"]["average"]
+    med = stats["instruction_count"]["median"]
+    print(f"{tech}\t{avg:.2f}\t{med:.2f}")
+  print()
+
+  print(f"---- Slowdown vs {ref}: Running Times ----")
+  print("\t".join(headers))
+  print("-" * (len(headers) * 12))
+  for tech, stats in slowdown.items():
+    if tech == ref:
+      continue
+    avg = stats["running_time"]["average"]
+    med = stats["running_time"]["median"]
+    print(f"{tech}\t{avg:.2f}\t{med:.2f}")
+  print()
 
 def generate_histogram(data_dict, baseline_label, overlay_label, output_pdf_name,
-            x_label="Normalized Ratio (%)", y_label="# of programs (log scale)",
+            x_label="normalized slowdown ratio (%)", y_label="# of programs (log scale)",
             chart_title=None, legend=True,
             bins=40, bin_range=(-1000, 1000), transparency=1.0,
             border=True, color_scheme="rocket", custom_colors=None):
@@ -186,7 +288,7 @@ def generate_histogram(data_dict, baseline_label, overlay_label, output_pdf_name
   for k in common_keys:
     x_val = baseline_dict.get(k, 0)
     y_val = overlay_dict.get(k, 0)
-    ratio = sts.compute_ratio_value(x_val, y_val)
+    ratio = mystats.compute_ratio_value(x_val, y_val)
     if ratio is not None:
       ratio_values.append(ratio)
 
@@ -238,6 +340,8 @@ def generate_histogram_table(unified_stats, output_tex_file):
   table_rows = []
   for top_k in sorted(config.TOP_K_VALUES, reverse=True):
     for overlay_label in list(config.TECHNIQUES.keys())[1:]:
+      if overlay_label == config.REFERENCE_TECHNIQUE:
+        continue
       pos_bins = [0] * 6
       neg_bins = [0] * 6
       for sol_key, sol_data in unified_stats.items():
@@ -245,7 +349,7 @@ def generate_histogram_table(unified_stats, output_tex_file):
           top_k in sol_data[config.BASELINE_TECHNIQUE] and top_k in sol_data[overlay_label]):
           x_val = sol_data[config.BASELINE_TECHNIQUE][top_k]["ic"]["avg"]
           y_val = sol_data[overlay_label][top_k]["ic"]["avg"]
-          ratio = sts.compute_ratio_value(x_val, y_val)
+          ratio = mystats.compute_ratio_value(x_val, y_val)
           if ratio is not None:
             idx = get_bin_index(ratio)
             if ratio >= 0:
@@ -281,6 +385,8 @@ def generate_histogram_table(unified_stats, output_tex_file):
   txt_lines.append("-" * len(header))
   for top_k in sorted(config.TOP_K_VALUES, reverse=True):
     for overlay_label in list(config.TECHNIQUES.keys())[1:]:
+      if overlay_label == config.REFERENCE_TECHNIQUE:
+        continue
       pos_bins = [0] * 6
       neg_bins = [0] * 6
       for sol_key, sol_data in unified_stats.items():
@@ -288,7 +394,7 @@ def generate_histogram_table(unified_stats, output_tex_file):
           top_k in sol_data[config.BASELINE_TECHNIQUE] and top_k in sol_data[overlay_label]):
           x_val = sol_data[config.BASELINE_TECHNIQUE][top_k]["ic"]["avg"]
           y_val = sol_data[overlay_label][top_k]["ic"]["avg"]
-          ratio = sts.compute_ratio_value(x_val, y_val)
+          ratio = mystats.compute_ratio_value(x_val, y_val)
           if ratio is not None:
             idx = int(abs(ratio) // 200)
             idx = min(idx, 5)
@@ -302,111 +408,6 @@ def generate_histogram_table(unified_stats, output_tex_file):
         arrow = "↓" if pos_bins[i] >= neg_bins[i] else "↑"
         cell = f"{pos_bins[i]:,}".rjust(7) + f" ({arrow}{neg_bins[i]:,})".rjust(8)
         row += f"{cell:>15}"
-      txt_lines.append(row)
-  plain_text_table = "\n".join(txt_lines)
-  logging.info("\n%s", plain_text_table)
-
-def generate_pie_chart(data_dict, output_pdf_name,
-            chart_title=None, legend=True,
-            color_scheme="rocket", custom_colors=None):
-  """
-  Create a pie chart summarizing which technique wins most often.
-  """
-  if custom_colors is None:
-    sns.set_theme(style="white", palette=color_scheme)
-    colors = sns.color_palette(color_scheme, n_colors=len(config.TECHNIQUES))
-  else:
-    colors = custom_colors
-
-  all_keys = set()
-  for tech, tech_folder in config.TECHNIQUES.items():
-    all_keys.update(data_dict.get(tech, {}).keys())
-  
-  win_counts = {tech: 0 for tech, tech_folder in config.TECHNIQUES.items()}
-  for k in all_keys:
-    best_label = None
-    best_value = -1
-    for tech, tech_folder in config.TECHNIQUES.items():
-      value = data_dict.get(tech, {}).get(k, 0)
-      if value > best_value:
-        best_value = value
-        best_label = tech
-    if best_label is not None:
-      win_counts[best_label] += 1
-  #total = sum(win_counts.values())
-  #pie_labels = []
-  counts = []
-  for tech, tech_folder in config.TECHNIQUES.items():
-    cnt = win_counts[tech]
-    counts.append(cnt)
-  #  percentage = 100.0 * cnt / total if total > 0 else 0.0
-  #  pie_labels.append(f"{tech}: {cnt:,} ({percentage:.1f}\\%)")
-  fig, ax = plt.subplots()
-  ax.pie(counts, labels=None, autopct='%1.1f%%', startangle=90,
-      colors=colors, textprops={"fontsize":16})
-  if chart_title:
-    ax.set_title(chart_title, fontsize=18)
-  if legend:
-    ax.legend(loc="best", fontsize=14)
-  os.makedirs(os.path.dirname(output_pdf_name), exist_ok=True)
-  fig.savefig(output_pdf_name, format="pdf")
-  plt.close(fig)
-
-def generate_pie_chart_table(unified_stats, output_tex_file):
-  """
-  Generate a multi-part LaTeX table summarizing the win counts per technique.
-  """
-  # --- Build and print LATEX version ---
-  def count_wins(unified_stats, top_k):
-    win_counts = {tech: 0 for tech, tech_folder in config.TECHNIQUES.items()}
-    total = 0
-    for sol_key, sol_data in unified_stats.items():
-      if not all(tech in sol_data and top_k in sol_data[tech] for tech, tech_folder in config.TECHNIQUES.items()):
-        continue
-      best = max(((tech, sol_data[tech][top_k]["ic"]["avg"]) for tech, tech_folder in config.TECHNIQUES.items()),
-            key=lambda x: x[1], default=(None, 0))
-      if best[0]:
-        win_counts[best[0]] += 1
-        total += 1
-    return win_counts, total
-
-  lines = []
-  lines.append(r"\begin{tabular}{lcc}")
-  lines.append(r"\toprule")
-  lines.append("Technique & Is Best & Percentage \\\\")
-  lines.append(r"\midrule")
-  for top_k in sorted(config.TOP_K_VALUES, reverse=True):
-    lines.append(r"\rowcolor[gray]{0.95}\multicolumn{3}{c}{\textbf{Top " + f"{top_k} slowest inputs" + r"}}\\")
-    win_counts, total = count_wins(unified_stats, top_k)
-    for tech, tech_folder in config.TECHNIQUES.items():
-      percentage = 100.0 * win_counts[tech] / total if total > 0 else 0.0
-      lines.append(f"{tech} & {win_counts[tech]:,} & {percentage:.1f}\\% \\\\")
-  lines.append(r"\bottomrule")
-  lines.append(r"\end{tabular}")
-  latex_code = "\n".join(lines)
-  with open(output_tex_file, "w") as f:
-    f.write(latex_code)
-
-  # --- Build and print plain text version ---
-  txt_lines = []
-  txt_lines.append("---- TABLE 3: Pie Chart Summary ----")
-  header = f"{'Top-K':<10} {'Technique':<20} {'Is Best':>10} {'Percentage':>12}"
-  txt_lines.append(header)
-  txt_lines.append("-" * len(header))
-  for top_k in sorted(config.TOP_K_VALUES, reverse=True):
-    win_counts = {tech: 0 for tech, tech_folder in config.TECHNIQUES.items()}
-    total_count = 0
-    for sol_key, sol_data in unified_stats.items():
-      if not all(tech in sol_data and top_k in sol_data[tech] for tech, tech_folder in config.TECHNIQUES.items()):
-        continue
-      best = max(((tech, sol_data[tech][top_k]["ic"]["avg"]) for tech, tech_folder in config.TECHNIQUES.items()),
-            key=lambda x: x[1], default=(None, 0))
-      if best[0]:
-        win_counts[best[0]] += 1
-        total_count += 1
-    for tech, tech_folder in config.TECHNIQUES.items():
-      percentage = 100.0 * win_counts[tech] / total_count if total_count > 0 else 0.0
-      row = f"Top {top_k}".ljust(10) + f" {tech:<20} {win_counts[tech]:>10} {percentage:>11.1f}%"
       txt_lines.append(row)
   plain_text_table = "\n".join(txt_lines)
   logging.info("\n%s", plain_text_table)
