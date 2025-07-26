@@ -22,7 +22,7 @@ def aflpp_compile(program_file: Path, work_dir: Path, run_perffuzz: bool = False
     if run_perffuzz and not perffuzz_dir:
         raise ValueError("PERFFUZZ_DIR environment variable is not set")
     if run_perffuzz:
-        fuzz_compile_exec = f"{perffuzz_dir}/afl-clang-fast"
+        fuzz_compile_exec = f"{perffuzz_dir}/afl-clang-fast++"
     else:
         fuzz_compile_exec = f"{aflpp_dir}/afl-clang++"
     for cpp_version in ["c++17", "c++14", "c++11"]:
@@ -76,20 +76,27 @@ def run_aflpp(work_dir: Path, binary_file: Path, seed_input_dir: Path, timeout: 
     shutil.rmtree(output_dir, ignore_errors=True)
 
     if run_perffuzz:
-        fuzz_exec = f"{perffuzz_dir}/afl-fuzz"
-    else:
-        fuzz_exec = f"{aflpp_dir}/afl-fuzz"
-    aflpp_fuzz_cmd = [
-        fuzz_exec,
-        "-i", seed_input_dir.absolute().as_posix(), 
-        "-o", output_dir.absolute().as_posix(),
-        "-V", str(timeout),
-        "-t", "20000", # 20s timeout for each run
-        "--", binary_file.absolute().as_posix()
-    ]
-    if run_perffuzz:
         # add "-p" flag before "-i"
-        aflpp_fuzz_cmd.insert(1, "-p")
+        aflpp_fuzz_cmd = [
+            "timeout",
+            str(timeout),
+            f"{perffuzz_dir}/afl-fuzz",
+            "-p", # run perffuzz
+            "-i", seed_input_dir.absolute().as_posix(), 
+            "-o", output_dir.absolute().as_posix(),
+            "-t", "20000", # 20s timeout for each run
+            "-m", "100000", # 100GB memory limit, because the other one has no limit
+            "--", binary_file.absolute().as_posix()
+        ]
+    else:
+        aflpp_fuzz_cmd = [
+            f"{aflpp_dir}/afl-fuzz",
+            "-i", seed_input_dir.absolute().as_posix(), 
+            "-o", output_dir.absolute().as_posix(),
+            "-V", str(timeout),
+            "-t", "20000", # 20s timeout for each run
+            "--", binary_file.absolute().as_posix()
+        ]
 
     # add timeout to the command
     return subprocess.run(aflpp_fuzz_cmd, env=env, cwd=work_dir, \

@@ -67,7 +67,10 @@ def main(
         mutator_gen_root_dir = mutator_gen_root_dir / "instrument_fuzz"
     elif mutator_type == "custom_mutator":
         mutator_gen_root_dir = mutator_gen_root_dir / "raw_fuzz"
-    corpus_gen_dir = corpus_gen_dir / mutator_type
+    if run_perffuzz:
+        corpus_gen_dir = corpus_gen_dir / f"{mutator_type}_perffuzz"
+    else:
+        corpus_gen_dir = corpus_gen_dir / mutator_type
 
     tasks = []
     with ProcessPoolExecutor(max_workers = int(0.5 * os.cpu_count())) as executor:
@@ -96,6 +99,8 @@ def main(
                     fuzz_driver_file = get_fuzz_driver_file(problem_id, solution_id, fuzz_driver_mode)
                     program_dir = corpus_dir / solution_id
 
+                    if not seed_input_dir.exists():
+                        raise FileNotFoundError(f"{seed_input_dir} does not exist. Please generate seed inputs first.")
                     task = executor.submit(
                         fuzz_one,
                         program_dir,
