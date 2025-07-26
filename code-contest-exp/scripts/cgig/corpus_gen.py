@@ -23,6 +23,7 @@ def get_fuzz_driver_file(problem_id: str, solution_id: str, fuzz_driver_mode: st
 def main(
     fuzz_driver_mode: Literal["raw_fuzz", "instrument_fuzz"] = "raw_fuzz",
     mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator", "default_mutator"] = "custom_mutator",
+    run_perffuzz: bool = False,
     problem_with_extracted_constraint_only: bool = False,
     mutator_mode: str = "self_reflect_feedback",
     top_k_constraints: int = 1,
@@ -40,6 +41,9 @@ def main(
     else:
         raise ValueError(f"Invalid fuzz driver mode: {fuzz_driver_mode}")
 
+    if run_perffuzz:
+        assert fuzz_driver_mode == "raw_fuzz", "run_perffuzz only supports raw_fuzz"
+        assert mutator_type == "default_mutator", "run_perffuzz only supports default_mutator"
     if mutator_type == "mutator_with_generator":
         mutator_gen_root_dir = Path(config["mutator_with_generator_dir"])
     elif mutator_type == "mutator_with_constraint":
@@ -100,6 +104,7 @@ def main(
                         3600,  # timeout=3600s
                         (mutator_type != "default_mutator"), # use_custom_mutator=True,
                         mutator_type, # mutator_type=mutator_type,
+                        run_perffuzz, # run_perffuzz=run_perffuzz
                         custom_mutator_dir, # custom_mutator_dir=custom_mutator_dir
                     )
                     tasks.append((problem_id, fuzz_driver_file, task))
@@ -127,6 +132,7 @@ def main(
                         3600,  # timeout=3600s
                         True, # use_custom_mutator=True,
                         mutator_type, # mutator_type=mutator_type,
+                        run_perffuzz, # run_perffuzz=run_perffuzz
                         custom_mutator_dir, # custom_mutator_dir=custom_mutator_dir
                     )
                     tasks.append((problem_id, fuzz_driver_file, task))

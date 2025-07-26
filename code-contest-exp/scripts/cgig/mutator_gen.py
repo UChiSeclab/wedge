@@ -169,6 +169,7 @@ def prompt_and_dump_results(
         timeout=180,
         use_custom_mutator=True,
         mutator_type=mutator_type,
+        run_perffuzz=False,  # run_perffuzz is not supported here
         custom_mutator_dir=mutator_gen_try_cnt_dir,
     )
 
