@@ -116,7 +116,8 @@ def fuzz_one(program_dir: Path, program_file: Path, seed_input_dir: Path, timeou
         timeout=timeout, use_custom_mutator=use_custom_mutator, \
             mutator_type=mutator_type, run_perffuzz=run_perffuzz, \
                 custom_mutator_dir=custom_mutator_dir)
-    if fuzz_result.returncode != 0:
+    if (run_perffuzz and fuzz_result.returncode != 124) or \
+        (not run_perffuzz and fuzz_result.returncode != 0):
         eprint(f"AFL++ failed for {program_dir}")
         eprint(f"AFL++ return code: {fuzz_result.returncode}")
         eprint("debug stderr of program_dir", program_dir)

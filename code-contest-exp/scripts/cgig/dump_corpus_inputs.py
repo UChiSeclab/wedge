@@ -12,7 +12,7 @@ from input_validator_run import find_validator_files
 from cgig.cgig_utils import problem_has_extracted_constraint, get_solution_and_input_pair_list_with_constraint
 
 
-def process_problem(problem_id: str, corpus_gen_dir: str, validator_mode:str, fuzz_driver_mode:str, strategy: str, num_fuzz_drivers: int, results: Dict[str, int], mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator"] = "custom_mutator", mutator_per_solution: bool = False):
+def process_problem(problem_id: str, corpus_gen_dir: str, validator_mode:str, fuzz_driver_mode:str, strategy: str, num_fuzz_drivers: int, results: Dict[str, int], mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator"] = "custom_mutator", run_perffuzz: bool = False, mutator_per_solution: bool = False):
     print(f"Processing problem: {problem_id}")
     problem_dir = Path(config["problem_root_dir"]) / problem_id
     corpus_dir = corpus_gen_dir / problem_id
@@ -29,7 +29,10 @@ def process_problem(problem_id: str, corpus_gen_dir: str, validator_mode:str, fu
 
     valid_inputs = 0
     invalid_inputs = 0
-    strategy_input_dir = problem_dir / f"{strategy}_{fuzz_driver_mode}_{mutator_type}" / "input"
+    if not run_perffuzz:
+        strategy_input_dir = problem_dir / f"{strategy}_{fuzz_driver_mode}_{mutator_type}" / "input"
+    else:
+        strategy_input_dir = problem_dir / f"{strategy}_{fuzz_driver_mode}_{mutator_type}_perffuzz" / "input"
     print(f"strategy input directory: {strategy_input_dir}")
     strategy_input_dir.mkdir(parents=True, exist_ok=True)
     assert validator_file.exists(), f"Validator file {validator_file} does not exist"
@@ -37,7 +40,10 @@ def process_problem(problem_id: str, corpus_gen_dir: str, validator_mode:str, fu
         solution_and_input_pair_list = get_solution_and_input_pair_list_with_constraint(problem_id, top_k=num_fuzz_drivers)
         for solution_id, input_pair_id in solution_and_input_pair_list:
             program_dir = corpus_dir / solution_id
-            queue_dir = program_dir / f"{solution_id}_{mutator_type}_output" / "default" / "queue"
+            if not run_perffuzz:
+                queue_dir = program_dir / f"{solution_id}_{mutator_type}_output" / "default" / "queue"
+            else:
+                queue_dir = program_dir / f"{solution_id}_{mutator_type}_output" / "queue"
             slow_input_id, fast_input_id = input_pair_id
             if not queue_dir.exists():
                 print(f"[Warning] queue directory {queue_dir} does not exist. Skipping...")
@@ -66,7 +72,8 @@ def process_problem(problem_id: str, corpus_gen_dir: str, validator_mode:str, fu
 
 def main(
     fuzz_driver_mode: Literal["raw_fuzz", "instrument_fuzz"] = "raw_fuzz",
-    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator"] = "custom_mutator",
+    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator", "default_mutator"] = "custom_mutator",
+    run_perffuzz: bool = False,
     validator_mode: str = "self_reflect_feedback",
     problem_with_extracted_constraint_only: bool = False,
     num_fuzz_drivers: int = 5,
@@ -83,8 +90,13 @@ def main(
         corpus_gen_dir = Path(config["corpus_raw_gen_dir"])
     else:
         raise ValueError(f"Invalid fuzz driver mode: {fuzz_driver_mode}")
-    
-    corpus_gen_dir = corpus_gen_dir / mutator_type
+
+    if run_perffuzz:
+        assert fuzz_driver_mode == "raw_fuzz", "run_perffuzz only supports raw_fuzz"
+        assert mutator_type == "default_mutator", "run_perffuzz only supports default_mutator"
+        corpus_gen_dir = corpus_gen_dir / f"{mutator_type}_perffuzz"
+    else:
+        corpus_gen_dir = corpus_gen_dir / mutator_type
 
     filtered_problem_ids = [problem_to_id(problem) for problem in filtered_problems]
     if mutator_type in ["mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution"]:
@@ -100,7 +112,7 @@ def main(
 
         with Pool(processes = int(0.5 * os.cpu_count())) as pool:
             tasks = [
-                (problem_id, corpus_gen_dir, validator_mode, fuzz_driver_mode, strategy, num_fuzz_drivers, results, mutator_type, mutator_per_solution)
+                (problem_id, corpus_gen_dir, validator_mode, fuzz_driver_mode, strategy, num_fuzz_drivers, results, mutator_type, run_perffuzz, mutator_per_solution)
                 for problem_id in filtered_problem_ids
             ]
             pool.starmap(process_problem, tasks)
