@@ -1,0 +1,136 @@
+from pathlib import Path
+import os, sys
+import shutil
+import subprocess
+from multiprocessing import Pool, Manager
+from typing import Dict, Literal, Tuple, Any, List
+from fire import Fire
+
+from config import config
+from utils import filter_problems, get_cf_problems, record_failing_problem, problem_to_id
+from input_validator_run import find_validator_files
+from cgig.cgig_utils import problem_has_extracted_constraint, get_solution_and_input_pair_list_with_constraint
+
+def parse_plot_data_file(plot_data_file: Path) -> Tuple[int]:
+    pass
+
+def parse_fuzzer_stats_file(stats_file: Path) -> Dict[str, float]:
+    stats = {}
+    with open(stats_file, 'r') as f:
+        for line in f:
+            parts = line.split(":")
+            key = parts[0].strip()
+            value = parts[1].strip()
+            if value.replace(".", "1").isdigit():
+                stats[key] = value
+
+    return stats
+
+def display_stats(
+    stats_list: List[Dict[str, float]], # [Dict[solution_id, number]]
+    stats_names: List[str],
+):
+    assert len(stats_list) == len(stats_names), "stats_list and stats_names must have the same length"
+    for i in range(len(stats_names)):
+        # number of entries
+        print(f"{stats_names[i]}: {len(stats_list)}")
+        # average value
+        values = list(stats_list[i].values())
+        print(f"Average {stats_names[i]}: {sum(values) / len(values) if values else 0:.2f}")
+    print("\n")
+
+def main(
+    fuzz_driver_mode: Literal["raw_fuzz", "instrument_fuzz"] = "raw_fuzz",
+    mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator", "default_mutator"] = "custom_mutator",
+    run_perffuzz: bool = False,
+    perffuzz_no_guidance: bool = False,
+    validator_mode: str = "self_reflect_feedback",
+    problem_with_extracted_constraint_only: bool = False,
+    num_fuzz_drivers: int = 5,
+    mutator_per_solution: bool = False,
+):
+    strategy = "corpus"
+    filtered_problems = filter_problems(
+        get_cf_problems(use_specified_problem=config["use_specified_problem"])
+    )[:30]
+
+    if fuzz_driver_mode == "instrument_fuzz":
+        corpus_gen_dir = Path(config["corpus_instrument_gen_dir"])
+    elif fuzz_driver_mode == "raw_fuzz":
+        corpus_gen_dir = Path(config["corpus_raw_gen_dir"])
+    else:
+        raise ValueError(f"Invalid fuzz driver mode: {fuzz_driver_mode}")
+
+    if run_perffuzz:
+        assert mutator_type == "default_mutator", "run_perffuzz only supports default_mutator"
+        if perffuzz_no_guidance:
+            corpus_gen_dir = corpus_gen_dir / f"{mutator_type}_perffuzz_no_guidance"
+        else:
+            corpus_gen_dir = corpus_gen_dir / f"{mutator_type}_perffuzz"
+    else:
+        corpus_gen_dir = corpus_gen_dir / mutator_type
+
+    filtered_problem_ids = [problem_to_id(problem) for problem in filtered_problems]
+    if mutator_type in ["mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution"]:
+        assert problem_with_extracted_constraint_only, "Problem with extracted constraint only should be True for mutator_with_constraint*"
+    if problem_with_extracted_constraint_only:
+        filtered_problem_ids = [
+            problem_id for problem_id in filtered_problem_ids
+                if problem_has_extracted_constraint(problem_id)
+        ]
+
+    exec_per_sec_stats = {}
+    total_input_count_stats = {}
+    valid_inputs_stats = {}
+
+    for problem_id in filtered_problem_ids:
+        problem_dir = Path(config["problem_root_dir"]) / problem_id
+        corpus_dir = corpus_gen_dir / problem_id
+        if not corpus_dir.exists():
+            print(f"[Warning] Corpus directory {corpus_dir} does not exist for problem {problem_id}, skipping...")
+            continue
+
+        if not run_perffuzz:
+            strategy_input_dir = problem_dir / f"{strategy}_{fuzz_driver_mode}_{mutator_type}" / "input"
+        else:
+            if not perffuzz_no_guidance:
+                strategy_input_dir = problem_dir / f"{strategy}_{fuzz_driver_mode}_{mutator_type}_perffuzz" / "input"
+            else:
+                strategy_input_dir = problem_dir / f"{strategy}_{fuzz_driver_mode}_{mutator_type}_perffuzz_no_guidance" / "input"
+        if not strategy_input_dir.exists() or not os.listdir(strategy_input_dir):
+            print(f"[Warning] Strategy input directory {strategy_input_dir} does not exist or is empty for problem {problem_id}, skipping...")
+            continue
+
+        if mutator_per_solution:
+            solution_and_input_pair_list = get_solution_and_input_pair_list_with_constraint(problem_id, top_k=num_fuzz_drivers)
+            for solution_id, input_pair_id in solution_and_input_pair_list:
+                program_dir = corpus_dir / solution_id
+                if not run_perffuzz:
+                    queue_dir = program_dir / f"{solution_id}_{mutator_type}_output" / "default" / "queue"
+                else:
+                    queue_dir = program_dir / f"{solution_id}_{mutator_type}_output" / "queue"
+                slow_input_id, fast_input_id = input_pair_id
+                if not queue_dir.exists():
+                    print(f"[Warning] queue directory {queue_dir} does not exist. Skipping...")
+                    continue
+
+                num_inputs = len(list(queue_dir.glob("id:*")))
+                num_valid_inputs = len(list(os.listdir(strategy_input_dir)))
+                # plot_data_file = queue_dir.parent / "plot_data"
+                fuzzer_stats_file = queue_dir.parent / "fuzzer_stats"
+                if not fuzzer_stats_file.exists():
+                    print(f"[Warning] fuzzer_stats file {fuzzer_stats_file} does not exist for problem {problem_id}, skipping...")
+                    continue
+                fuzzer_stats = parse_fuzzer_stats_file(fuzzer_stats_file)
+                execs_per_sec = float(fuzzer_stats.get("execs_per_sec"))
+                # exec_per_sec_list.append(execs_per_sec)
+                exec_per_sec_stats[f"{problem_id}_{solution_id}"] = execs_per_sec
+                total_input_count_stats[f"{problem_id}_{solution_id}"] = num_inputs
+                valid_inputs_stats[f"{problem_id}_{solution_id}"] = num_valid_inputs
+
+    stats_list = [exec_per_sec_stats, total_input_count_stats, valid_inputs_stats]
+    stats_names = ["exec_per_sec", "total_input_count", "valid_inputs"]
+    display_stats(stats_list, stats_names)
+
+if __name__ == "__main__":
+    Fire(main)

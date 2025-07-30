@@ -12,7 +12,7 @@ from input_validator_run import find_validator_files
 from cgig.cgig_utils import problem_has_extracted_constraint, get_solution_and_input_pair_list_with_constraint
 
 
-def process_problem(problem_id: str, corpus_gen_dir: str, validator_mode:str, fuzz_driver_mode:str, strategy: str, num_fuzz_drivers: int, results: Dict[str, int], mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator"] = "custom_mutator", run_perffuzz: bool = False, mutator_per_solution: bool = False):
+def process_problem(problem_id: str, corpus_gen_dir: str, validator_mode:str, fuzz_driver_mode:str, strategy: str, num_fuzz_drivers: int, results: Dict[str, int], mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator"] = "custom_mutator", run_perffuzz: bool = False, perffuzz_no_guidance: bool = False, mutator_per_solution: bool = False):
     print(f"Processing problem: {problem_id}")
     problem_dir = Path(config["problem_root_dir"]) / problem_id
     corpus_dir = corpus_gen_dir / problem_id
@@ -32,7 +32,10 @@ def process_problem(problem_id: str, corpus_gen_dir: str, validator_mode:str, fu
     if not run_perffuzz:
         strategy_input_dir = problem_dir / f"{strategy}_{fuzz_driver_mode}_{mutator_type}" / "input"
     else:
-        strategy_input_dir = problem_dir / f"{strategy}_{fuzz_driver_mode}_{mutator_type}_perffuzz" / "input"
+        if not perffuzz_no_guidance:
+            strategy_input_dir = problem_dir / f"{strategy}_{fuzz_driver_mode}_{mutator_type}_perffuzz" / "input"
+        else:
+            strategy_input_dir = problem_dir / f"{strategy}_{fuzz_driver_mode}_{mutator_type}_perffuzz_no_guidance" / "input"
     print(f"strategy input directory: {strategy_input_dir}")
     strategy_input_dir.mkdir(parents=True, exist_ok=True)
     assert validator_file.exists(), f"Validator file {validator_file} does not exist"
@@ -74,6 +77,7 @@ def main(
     fuzz_driver_mode: Literal["raw_fuzz", "instrument_fuzz"] = "raw_fuzz",
     mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator", "default_mutator"] = "custom_mutator",
     run_perffuzz: bool = False,
+    perffuzz_no_guidance: bool = False,
     validator_mode: str = "self_reflect_feedback",
     problem_with_extracted_constraint_only: bool = False,
     num_fuzz_drivers: int = 5,
@@ -82,7 +86,7 @@ def main(
     strategy = "corpus"
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
-    )
+    )[:30]
 
     if fuzz_driver_mode == "instrument_fuzz":
         corpus_gen_dir = Path(config["corpus_instrument_gen_dir"])
@@ -92,9 +96,11 @@ def main(
         raise ValueError(f"Invalid fuzz driver mode: {fuzz_driver_mode}")
 
     if run_perffuzz:
-        assert fuzz_driver_mode == "raw_fuzz", "run_perffuzz only supports raw_fuzz"
         assert mutator_type == "default_mutator", "run_perffuzz only supports default_mutator"
-        corpus_gen_dir = corpus_gen_dir / f"{mutator_type}_perffuzz"
+        if perffuzz_no_guidance:
+            corpus_gen_dir = corpus_gen_dir / f"{mutator_type}_perffuzz_no_guidance"
+        else:
+            corpus_gen_dir = corpus_gen_dir / f"{mutator_type}_perffuzz"
     else:
         corpus_gen_dir = corpus_gen_dir / mutator_type
 
@@ -112,7 +118,7 @@ def main(
 
         with Pool(processes = int(0.5 * os.cpu_count())) as pool:
             tasks = [
-                (problem_id, corpus_gen_dir, validator_mode, fuzz_driver_mode, strategy, num_fuzz_drivers, results, mutator_type, run_perffuzz, mutator_per_solution)
+                (problem_id, corpus_gen_dir, validator_mode, fuzz_driver_mode, strategy, num_fuzz_drivers, results, mutator_type, run_perffuzz, perffuzz_no_guidance, mutator_per_solution)
                 for problem_id in filtered_problem_ids
             ]
             pool.starmap(process_problem, tasks)

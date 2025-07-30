@@ -13,7 +13,7 @@ from fire import Fire
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
-def aflpp_compile(program_file: Path, work_dir: Path, run_perffuzz: bool = False) -> subprocess.CompletedProcess:
+def aflpp_compile(program_file: Path, work_dir: Path, run_perffuzz: bool = False, perffuzz_no_guidance: bool = False) -> subprocess.CompletedProcess:
     aflpp_dir = os.environ.get("AFLPP_DIR")
     # AFLPP_DIR must be absolute path
     if not aflpp_dir or not Path(aflpp_dir).is_dir() or not Path(aflpp_dir).is_absolute():
@@ -21,8 +21,13 @@ def aflpp_compile(program_file: Path, work_dir: Path, run_perffuzz: bool = False
     perffuzz_dir = os.environ.get("PERFFUZZ_DIR")
     if run_perffuzz and not perffuzz_dir:
         raise ValueError("PERFFUZZ_DIR environment variable is not set")
+    afl_dir = os.environ.get("AFL_DIR")
+    if perffuzz_no_guidance and not afl_dir:
+        raise ValueError("AFL_DIR environment variable is not set")
     if run_perffuzz:
         fuzz_compile_exec = f"{perffuzz_dir}/afl-clang-fast++"
+        if perffuzz_no_guidance:
+            fuzz_compile_exec = f"{afl_dir}/afl-clang-fast++"
     else:
         fuzz_compile_exec = f"{aflpp_dir}/afl-clang++"
     for cpp_version in ["c++17", "c++14", "c++11"]:
@@ -40,6 +45,8 @@ def aflpp_compile(program_file: Path, work_dir: Path, run_perffuzz: bool = False
             "-o", program_file.stem,
             program_file.absolute().as_posix()
         ]
+        
+        print(f"Compiling {program_file} with command: {' '.join(aflpp_compile_cmd)}")
 
         result = subprocess.run(aflpp_compile_cmd, cwd=work_dir, \
             stdout=subprocess.PIPE, stderr=subprocess.PIPE), work_dir / program_file.stem
@@ -48,7 +55,7 @@ def aflpp_compile(program_file: Path, work_dir: Path, run_perffuzz: bool = False
 
     return result
 
-def run_aflpp(work_dir: Path, binary_file: Path, seed_input_dir: Path, timeout: int = 60, use_custom_mutator: bool = False, mutator_type: str = None, run_perffuzz: bool = False, custom_mutator_dir: Path = None) -> subprocess.CompletedProcess:
+def run_aflpp(work_dir: Path, binary_file: Path, seed_input_dir: Path, timeout: int = 60, use_custom_mutator: bool = False, mutator_type: str = None, run_perffuzz: bool = False, perffuzz_no_guidance: bool = False, custom_mutator_dir: Path = None) -> subprocess.CompletedProcess:
     aflpp_dir = os.environ.get("AFLPP_DIR")
     assert binary_file.exists(), "Executable does not exist"
     print(f"Fuzzing in {work_dir}")
@@ -57,6 +64,9 @@ def run_aflpp(work_dir: Path, binary_file: Path, seed_input_dir: Path, timeout: 
     perffuzz_dir = os.environ.get("PERFFUZZ_DIR")
     if run_perffuzz and not perffuzz_dir:
         raise ValueError("PERFFUZZ_DIR environment variable is not set")
+    afl_dir = os.environ.get("AFL_DIR")
+    if perffuzz_no_guidance and not afl_dir:
+        raise ValueError("AFL_DIR environment variable is not set")
     env = os.environ.copy()
     # cd /sys/devices/system/cpu
     # echo performance | tee cpu*/cpufreq/scaling_governor
@@ -88,6 +98,18 @@ def run_aflpp(work_dir: Path, binary_file: Path, seed_input_dir: Path, timeout: 
             "-m", "100000", # 100GB memory limit, because the other one has no limit
             "--", binary_file.absolute().as_posix()
         ]
+        if perffuzz_no_guidance:
+            # no "-p" flag
+            aflpp_fuzz_cmd = [
+            "timeout",
+            str(timeout),
+            f"{afl_dir}/afl-fuzz",
+            "-i", seed_input_dir.absolute().as_posix(), 
+            "-o", output_dir.absolute().as_posix(),
+            "-t", "20000", # 20s timeout for each run
+            "-m", "100000", # 100GB memory limit, because the other one has no limit
+            "--", binary_file.absolute().as_posix()
+        ]
     else:
         aflpp_fuzz_cmd = [
             f"{aflpp_dir}/afl-fuzz",
@@ -98,16 +120,17 @@ def run_aflpp(work_dir: Path, binary_file: Path, seed_input_dir: Path, timeout: 
             "--", binary_file.absolute().as_posix()
         ]
 
+    print(f"Running AFL++ with command: {' '.join(aflpp_fuzz_cmd)}")
     # add timeout to the command
     return subprocess.run(aflpp_fuzz_cmd, env=env, cwd=work_dir, \
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=(timeout + 30))
 
 def fuzz_one(program_dir: Path, program_file: Path, seed_input_dir: Path, timeout: int = 60, \
-    use_custom_mutator: bool = False, mutator_type: str = None, run_perffuzz: bool = False, custom_mutator_dir: Path = None) -> subprocess.CompletedProcess:
+    use_custom_mutator: bool = False, mutator_type: str = None, run_perffuzz: bool = False, perffuzz_no_guidance: bool = False, custom_mutator_dir: Path = None) -> subprocess.CompletedProcess:
     program_dir.mkdir(parents=True, exist_ok=True)
     program_file = program_file.absolute()
 
-    compile_result, bin_file = aflpp_compile(program_file, program_dir, run_perffuzz=run_perffuzz)
+    compile_result, bin_file = aflpp_compile(program_file, program_dir, run_perffuzz=run_perffuzz, perffuzz_no_guidance=perffuzz_no_guidance)
     if compile_result.returncode != 0:
         eprint(f"Compilation failed for {program_file}")
         raise SolutionCompilationError(f"Compilation failed for {program_file}", compile_result.stderr)
@@ -115,7 +138,8 @@ def fuzz_one(program_dir: Path, program_file: Path, seed_input_dir: Path, timeou
     fuzz_result = run_aflpp(program_dir, bin_file, seed_input_dir, \
         timeout=timeout, use_custom_mutator=use_custom_mutator, \
             mutator_type=mutator_type, run_perffuzz=run_perffuzz, \
-                custom_mutator_dir=custom_mutator_dir)
+                perffuzz_no_guidance=perffuzz_no_guidance, \
+                    custom_mutator_dir=custom_mutator_dir)
     if (run_perffuzz and fuzz_result.returncode != 124) or \
         (not run_perffuzz and fuzz_result.returncode != 0):
         eprint(f"AFL++ failed for {program_dir}")

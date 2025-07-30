@@ -24,6 +24,7 @@ def main(
     fuzz_driver_mode: Literal["raw_fuzz", "instrument_fuzz"] = "raw_fuzz",
     mutator_type: Literal["mutator_with_generator", "mutator_with_constraint", "mutator_with_constraint_multi", "mutator_with_constraint_per_solution", "custom_mutator", "default_mutator"] = "custom_mutator",
     run_perffuzz: bool = False,
+    perffuzz_no_guidance: bool = False,
     problem_with_extracted_constraint_only: bool = False,
     mutator_mode: str = "self_reflect_feedback",
     top_k_constraints: int = 1,
@@ -32,7 +33,7 @@ def main(
 ):
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
-    )
+    )[:30]
 
     if fuzz_driver_mode == "instrument_fuzz":
         corpus_gen_dir = Path(config["corpus_instrument_gen_dir"])
@@ -42,7 +43,7 @@ def main(
         raise ValueError(f"Invalid fuzz driver mode: {fuzz_driver_mode}")
 
     if run_perffuzz:
-        assert fuzz_driver_mode == "raw_fuzz", "run_perffuzz only supports raw_fuzz"
+        # assert fuzz_driver_mode == "raw_fuzz", "run_perffuzz only supports raw_fuzz"
         assert mutator_type == "default_mutator", "run_perffuzz only supports default_mutator"
     if mutator_type == "mutator_with_generator":
         mutator_gen_root_dir = Path(config["mutator_with_generator_dir"])
@@ -68,7 +69,10 @@ def main(
     elif mutator_type == "custom_mutator":
         mutator_gen_root_dir = mutator_gen_root_dir / "raw_fuzz"
     if run_perffuzz:
-        corpus_gen_dir = corpus_gen_dir / f"{mutator_type}_perffuzz"
+        if perffuzz_no_guidance:
+            corpus_gen_dir = corpus_gen_dir / f"{mutator_type}_perffuzz_no_guidance"
+        else:
+            corpus_gen_dir = corpus_gen_dir / f"{mutator_type}_perffuzz"
     else:
         corpus_gen_dir = corpus_gen_dir / mutator_type
 
@@ -110,6 +114,7 @@ def main(
                         (mutator_type != "default_mutator"), # use_custom_mutator=True,
                         mutator_type, # mutator_type=mutator_type,
                         run_perffuzz, # run_perffuzz=run_perffuzz
+                        perffuzz_no_guidance, # perffuzz_no_guidance=perffuzz_no_guidance
                         custom_mutator_dir, # custom_mutator_dir=custom_mutator_dir
                     )
                     tasks.append((problem_id, fuzz_driver_file, task))
@@ -138,6 +143,7 @@ def main(
                         True, # use_custom_mutator=True,
                         mutator_type, # mutator_type=mutator_type,
                         run_perffuzz, # run_perffuzz=run_perffuzz
+                        perffuzz_no_guidance, # perffuzz_no_guidance=perffuzz_no_guidance
                         custom_mutator_dir, # custom_mutator_dir=custom_mutator_dir
                     )
                     tasks.append((problem_id, fuzz_driver_file, task))
