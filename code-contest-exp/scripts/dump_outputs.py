@@ -64,7 +64,7 @@ def process_problem(problem: Dict, strategy: str):
 def main(strategy: str, problem_with_extracted_constraint_only: bool = False):
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
-    )[:30]
+    )
 
     if problem_with_extracted_constraint_only:
         filtered_problems = [

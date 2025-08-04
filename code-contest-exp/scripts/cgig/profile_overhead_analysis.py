@@ -33,7 +33,7 @@ def display_stats(
     assert len(stats_list) == len(stats_names), "stats_list and stats_names must have the same length"
     for i in range(len(stats_names)):
         # number of entries
-        print(f"{stats_names[i]}: {len(stats_list)}")
+        print(f"{stats_names[i]}: {len(stats_list[i])}")
         # average value
         values = list(stats_list[i].values())
         print(f"Average {stats_names[i]}: {sum(values) / len(values) if values else 0:.2f}")

@@ -327,7 +327,7 @@ def main(
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"]),
         filter_with_inconsistency_threshold=experiment_name != "alphacode",
-    )[:30]
+    )
     relax_flag = False
     if experiment_name in [
         "corpus",

@@ -33,7 +33,7 @@ def main(
 ):
     filtered_problems = filter_problems(
         get_cf_problems(use_specified_problem=config["use_specified_problem"])
-    )[:30]
+    )
 
     if fuzz_driver_mode == "instrument_fuzz":
         corpus_gen_dir = Path(config["corpus_instrument_gen_dir"])
