@@ -79,7 +79,12 @@ def test_case_construction(input_output_pairs: List[Tuple[Path, Path]]) -> str:
     # TODO: not sure we are going to include this as the inputs might be too long
     test_case = ""
     for i, (input_file, output_file) in enumerate(input_output_pairs):
-        test_case += f"Input {i+1}:\n{input_file.read_text()}\nOutput {i+1}:\n{output_file.read_text()}\n\n"
+        try:
+            tmp = f"Input {i+1}:\n{input_file.read_text()}\nOutput {i+1}:\n{output_file.read_text()}\n\n"
+        except UnicodeDecodeError:
+            # use iso-8859-1
+            tmp = f"Input {i+1}:\n{input_file.read_text(encoding='iso-8859-1')}\nOutput {i+1}:\n{output_file.read_text(encoding='iso-8859-1')}\n\n"
+        test_case += tmp
     return test_case
 
 def edit_one_solution(backend, model, edit_tokenizer, client, checkpoint, task_description, test_case, ori_solution_code, overhead_prompt, response_file, prompt_file, new_solution_file, include_test_case=False, num_samples=1, use_pie_prompt=False):
