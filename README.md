@@ -153,6 +153,19 @@ python scripts/run.py --experiment_name ${strategy} --problem_with_extracted_con
 ## Sanitize alphacode test results
 Since a considerable proportion of alphacode tests might violate the specified input constraints from the problem statements, we rely on the generated input validators to sanitize the alphacode tests.
 ```bash
+
+### Citation
+
+```
+@inproceedings{
+    yang-neurips25,
+    title={Synthesizing Performance Constraints for Evaluating and Improving Code Efficiency},
+    author={Jun Yang and Cheng-Chi Wang and Bogdan Alexandru Stoica and Kexin Pei},
+    booktitle={The Thirty-ninth Annual Conference on Neural Information Processing Systems},
+    year={2025},
+    url={https://openreview.net/forum?id=Qh458ZamHm}
+}
+```
 python scripts/sanitize_alphacode_result.py
 ```
 
