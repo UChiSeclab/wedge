@@ -1,175 +1,258 @@
-# Instruction on Running the Experiments
+# Synthesizing Performance Constraints for Evaluating and Improving Code Efficiency
 
-## Set of strategies to be evaluated:
-strategies=( "alphacode_sanitized" "time_contrast" "feedback_diff_solution" "feedback_diff_input" "feedback_multi_solution_diff_input" "multi_solution_diff_input" "diff_solution_one_input" "plain_problem" "slow_solution" "random_solution" "evalperf_slow_solution" "evalperf_random_solution" "corpus_mutator_with_constraint_multi" ) # this list maybe updated later
+<p align="left">
+  <a href="https://arxiv.org/" target="_blank">
+    <a href="https://arxiv.org/abs/2505.23471"><img src="https://img.shields.io/badge/arXiv-2505.23471-b31b1b.svg?style=for-the-badge">
+  </a>
+  
+</p>
 
-## Environment Setup
-We use Ubuntu 20.04 machines
+NeurIPS 2025 Artifact
 
-1. conda install environments:
-    perf: environment for the scripts
-    py27: environment for python2 solutions
-    py38: environment for python3 solutions
+This repository accompanies our NeurIPS 2025 paper, “Synthesizing Performance Constraints for Evaluating and Improving Code Efficiency.”
+If you want to re-run the full pipeline (prompting, constraint synthesis, fuzzing, execution), use the steps below.
+
+Link of our benchmark, PerfForge: https://github.com/UChiSeclab/perfforge.
+
+### Repository layout
+- `code-contest-exp/`: End-to-end experimental pipeline and Python dependencies.
+- `feedback_collection/`: Coverage/feedback collection for `cpp/`, `python/`, and `java/`.
+- `scripts/`: Orchestration utilities (collection, generation, post-processing).
+- `scripts/compile-stats/`: Stats aggregation, LaTeX tables, and plots from JSON outputs.
+- `use-cases/`: Example problems with solution variants.
+- `llm-prompts/`: Prompts for constraint, validator, and mutator generation.
+- `README-for-supplemental-materials.md`: Supplemental notes for artifact consumers.
+
+---
+
+## 1) Quick start
+
+### 1.1 System requirements
+- Ubuntu 20.04+ (tested)
+- Python 3.9+ (for the main pipeline), plus Python 2.7/3.8 for legacy solution runners
+- GCC/GCov (for C++ coverage)
+- Linux `perf` (5.15+ recommended)
+- Java 11 (for Java solutions’ coverage)
+- AFL++ (for fuzzing-based test generation)
+
+### 1.2 Create environments
+We use three conda envs: `perf` (main), `py27` (Python2 solutions), `py38` (Python3 solutions).
+
 ```bash
-# install miniconda
+# Miniconda (if needed)
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Miniconda3-latest-Linux-x86_64.sh
-# create environments
+
+# Environments
 conda create -n py27 python==2.7.13
-conda create -n py38 python==3.8 
+conda create -n py38 python==3.8
 conda create -n perf python==3.9
-conda activate perf # main environment for our experiment
+
+conda activate perf
 cd code-contest-exp
 pip install -r requirements.txt
 ```
-2. install java-11
+
+### 1.3 Java 11
 ```bash
 wget https://download.java.net/java/ga/jdk11/openjdk-11_linux-x64_bin.tar.gz
 tar -zxvf openjdk-11_linux-x64_bin.tar.gz
 ```
-3. install perf dependencies
+
+### 1.4 Linux perf
 ```bash
 sudo apt-get update
-sudo apt-get install linux-tools-common linux-tools-generic linux-tools-`uname -r`
+sudo apt-get install -y linux-tools-common linux-tools-generic linux-tools-`uname -r`
 sudo sysctl kernel.perf_event_paranoid=-1
 ```
-4. install coverage collection dependencies
+
+### 1.5 Coverage tools
 ```bash
-# cpp
-which gcov # test whether gcov is installed
+# C++
+which gcov || sudo apt-get install -y gcovr gcc g++
 pip install gcovr
-# python
+
+# Python
 pip install -r ../feedback_collection/python/requirements.txt
 ```
-5. setup AFL++ environment
+
+### 1.6 AFL++
 ```bash
-mkdir aflpp
-cd aflpp
+mkdir -p aflpp && cd aflpp
 git clone https://github.com/AFLplusplus/AFLplusplus.git
 cd AFLplusplus
 git checkout v4.30c
 export AFLPP_DIR=$(pwd)
+# Build per AFL++ docs:
+# https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/INSTALL.md
 ```
-Follow the instructions here: https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/INSTALL.md.
-## Setting PYTHONPATH
-```python
+
+### 1.7 PYTHONPATH
+```bash
 cd code-contest-exp
 export PYTHONPATH=$(pwd)/scripts:../feedback_collection
 ```
-## Adding the problems
-1. Insert the list of problem ids that you are going to run as the first element of the json file: https://github.com/bastoica/llm4perf/blob/main/code-contest-exp/problem_list.json#L2. When `use_specified_problem` is set to True in `get_cf_problems`, the first element would be used.
-2. Run `add_problem.py`. This will add the problems you specified to `config["problem_root_dir"]`.
+
+---
+
+## 2) Reproducing core experiments
+
+Below is the minimal end-to-end to (i) prepare problems and baselines, (ii) synthesize constraints, (iii) generate tests via prompting and fuzzing, (iv) sanitize, and (v) execute and aggregate results.
+
+Tip: Create logs upfront to track progress.
+```bash
+mkdir -p log/{constraint_gen,corpus_gen,cov_collect,dump,feedback_collect,gen,mutator_gen,validator_gen,run}
+```
+
+### 2.1 Add problems
+1) Choose problem IDs (see `use-cases/` for examples or configure your own set).
+2) Update the first element of `code-contest-exp/problem_list.json` with your list (used when `use_specified_problem=True` in `get_cf_problems`).
+3) Materialize problem assets:
 ```bash
 python scripts/add_problem.py
 ```
 
-## Create log directory (for debugging)
+### 2.2 Baseline: AlphaCode tests
+Generates result JSONs under `config["result_root_dir"]/alphacode` used by later steps.
 ```bash
-mkdir log
-cd log
-mkdir constraint_gen corpus_gen cov_collect dump feedback_collect gen mutator_gen validator_gen run
-cd ..
+python code-contest-exp/scripts/run.py --experiment_name alphacode > log/run/alphacode.log
 ```
 
-## Collecting Alphacode tests statistics first
-Run `run.py` for alphacode tests. This will produce result json files in `config["result_root_dir"]/alphacode` and facilitate many consequent operations.
+### 2.3 Generate input validators (LLM)
+Stores validators under `config["problem_root_dir"]/{problem_id}/validator_gen/{validator_mode}`. The run may retry until a “good” validator is found (indicated by `VAL_GT_INPUT_PASS`).
 ```bash
-python scripts/run.py --experiment_name alphacode > log/run/alphacode.log
+python code-contest-exp/scripts/input_validator_gen.py --validator_mode self_reflect_feedback > log/validator_gen/self_reflect_feedback.log
 ```
 
-## Preparing for test generation (prompting and fuzzing)
-### Input validator generation
-Run `input_validator_gen.py` to prompt the LLM to generate validator scripts. The scripts will be stored in `config["problem_root_dir"]/{problem_id}/validator_gen/{validator_mode}`. It may try multiple times to generate a good validator. If there's an empty file named `VAL_GT_INPUT_PASS` under that directory, the validator is considered good.
+### 2.4 Collect feedback (coverage/hit counts)
+We support C++/Python/Java; C++ is the most robust in our artifact.
 ```bash
-python scripts/input_validator_gen.py --validator_mode self_reflect_feedback > log/validator_gen/self_reflect_feedback.log
+python code-contest-exp/scripts/feedback_collect.py --experiment_name feedback_diff_solution --solution_language cpp > log/feedback_collect/feedback_diff_solution.log 2>&1
+python code-contest-exp/scripts/feedback_collect.py --experiment_name feedback_diff_input    --solution_language cpp > log/feedback_collect/feedback_diff_input.log 2>&1
+python code-contest-exp/scripts/feedback_collect.py --experiment_name feedback_multi_solution_diff_input --solution_language cpp --top_k 5 > log/feedback_collect/feedback_multi_solution_diff_input.log 2>&1
+
+python code-contest-exp/scripts/collect_cov_report.py --experiment_name alphacode
 ```
-### Feedback collection (coverage and hit count)
-Although our framework supports collecting coverage and hit count for cpp, python and java, the one with cpp is considered the most stable and reliable. So let's collect feedback for cpp solutions first. The results will be stored in `config["coverage_hit_count_output_dir"]` and `config["cov_data_dir"]`.
-(This may take very long.)
+
+### 2.5 Constraint extraction
+Mine contrasting input pairs (ranked by similarity and performance ratio):
 ```bash
-python scripts/feedback_collect.py --experiment_name feedback_diff_solution --solution_language cpp > log/feedback_collect/feedback_diff_solution.log 2>&1
-
-python scripts/feedback_collect.py --experiment_name feedback_diff_input --solution_language cpp > log/feedback_collect/feedback_diff_input.log 2>&1
-
-python scripts/feedback_collect.py --experiment_name feedback_multi_solution_diff_input --solution_language cpp --top_k 5 > log/feedback_collect/feedback_multi_solution_diff_input.log 2>&1
+python code-contest-exp/scripts/cgig/mine_input_pairs.py
 ```
+Synthesize performance constraints and instrument solutions:
 ```bash
-python scripts/collect_cov_report.py --experiment_name alphacode
+python code-contest-exp/scripts/cgig/constraint_gen.py > log/constraint_gen/constraint_gen.log
 ```
+Outputs include: GPT response files, instrumented programs, and at most 5 constraints per problem under `config["constraints_dir"]`.
 
-### Constraint extraction
-1. Input pair mining
+### 2.6 Mutator generation (LLM + AFL++)
+Generates a custom AFL++ mutator and validates it with a short dry-run (success yields `MUTATOR_CHECK_PASS`).
 ```bash
-python scripts/cgig/mine_input_pairs.py
+python code-contest-exp/scripts/cgig/mutator_gen.py --mutator_type mutator_with_constraint_multi --problem_with_extracted_constraint_only True --mutator_mode self_reflect_feedback > log/mutator_gen/mutator_with_constraint.log 2>&1
 ```
-This script will produce a set of contrasting input pairs in `config["input_pairs_dir"]`. The input pairs will be used to generate constraints. The input pairs are ranked based on similarity and performance ratio.
 
-2. Constraint generation
+### 2.7 Test generation
+Prompting strategies (examples):
+- Plain problem prompting (no constraints):
 ```bash
-python scripts/cgig/constraint_gen.py > log/constraint_gen/constraint_gen.log
+python code-contest-exp/scripts/gen_tests.py \
+  --experiment_name plain_problem \
+  --prompt_language java \
+  --run_tests True \
+  --validator_mode self_reflect_feedback \
+  --max_retry 10
 ```
-This script will extract constraints from solutions along with input pairs and write to `config["constraints_dir"]`. At most 5 input pairs (constraints) per problem. It will generate a response file from GPT (which can serve as a COT) and an instrumented program (original solution + inserted constraints).
-
-### Mutator generation
-Run `mutator_gen.py` to generate mutators that can be used for fuzzing.
+- With feedback (multi-solution diffs):
 ```bash
-python scripts/cgig/mutator_gen.py --mutator_type mutator_with_constraint_multi --problem_with_extracted_constraint_only True --mutator_mode self_reflect_feedback > log/mutator_gen/mutator_with_constraint.log 2>&1
+python code-contest-exp/scripts/gen_tests.py \
+  --experiment_name with_feedback_multi_solution_diff_input \
+  --prompt_language java \
+  --run_tests True \
+  --validator_mode self_reflect_feedback \
+  --max_retry 10
 ```
-This script will produce a mutator script which is located in `constraint_guided_input_gen`. Different mutator modes have different directories. This script will try to generate a `mutator.py` script that serves as a custom mutator module for AFL++. It will run AFL++ with this mutator on some solutions for 180s. If it can successfully finish the run without failure, it is good and an empty file named `MUTATOR_CHECK_PASS` will be produced, otherwise it just retries until the retry limit is reached.
 
-
-## Test generation
-### Prompting strategies
-Replace the path to code-contest-exp to your absolute path in `scripts_hub/gen_all.sh` and run the script.
-Note that it may try up to 10 times to produce a valid generator. If all attempts failed, it will record that in the file `config["gen_tests_failing_problem_record"]`. If we distribute the experiments in different machines, in the evaluation stage we need to merge them.
-### Fuzzing strategies
-Run the `corpus_gen.py` script to launch fuzzing.
+Fuzzing strategies (AFL++):
 ```bash
-python scripts/cgig/corpus_gen.py --mutator_type mutator_with_constraint_multi --problem_with_extracted_constraint_only True > log/corpus_gen/mutator_with_constraint_multi.log 2>&1
+python code-contest-exp/scripts/cgig/corpus_gen.py --mutator_type mutator_with_constraint_multi --problem_with_extracted_constraint_only True > log/corpus_gen/mutator_with_constraint_multi.log 2>&1
 ```
 
-## Post processing
-### Alphacode tests
-We observed that many alphacode test inputs are actually violating the natural language constraints. So we need to sanitize the alphacode tests with our validators:
+### 2.8 Post-processing
+Sanitize AlphaCode tests with generated validators:
 ```bash
-python scripts/sanitize_alphacode_result.py
+python code-contest-exp/scripts/sanitize_alphacode_result.py
 ```
-It will produce directories that contain sanitized alphacode tests in `config["problem_root_dir"]/{problem_id}/alphacode_sanitized`. We evaluate `alphacode_sanitized` as a standalone strategy.
-### AFL++-generated tests
-Similarly the fuzzer generated tests are not guaranteed to be valid. We validate and dump the fuzzer generated tests from the AFL++ output directory into the `config["problem_root_dir"]/{problem_id}/{strategy}` directory.
+This creates `config["problem_root_dir"]/{problem_id}/alphacode_sanitized` (evaluated as a separate strategy).
+
+Validate and dump AFL++ corpora into per-problem strategy directories:
 ```bash
-python scripts/cgig/dump_corpus_inputs.py --mutator_type mutator_with_constraint_multi --problem_with_extracted_constraint_only True > log/dump/corpus_mutator_with_constraint_multi.log
+python code-contest-exp/scripts/cgig/dump_corpus_inputs.py --mutator_type mutator_with_constraint_multi --problem_with_extracted_constraint_only True > log/dump/corpus_mutator_with_constraint_multi.log
 ```
-## Test execution
-For prompting strategies:
+
+### 2.9 Execute strategies
+Prompting strategies:
 ```bash
-python scripts/run.py --experiment_name ${strategy} >> log/run/${strategy}.log
+python code-contest-exp/scripts/run.py --experiment_name ${strategy} >> log/run/${strategy}.log
 ```
-For fuzzing strategies:
+Fuzzing strategies:
 ```bash
-python scripts/run.py --experiment_name ${strategy} --problem_with_extracted_constraint_only True >> log/run/${strategy}.log
+python code-contest-exp/scripts/run.py --experiment_name ${strategy} --problem_with_extracted_constraint_only True >> log/run/${strategy}.log
 ```
 
-## Sanitize alphacode test results
-Since a considerable proportion of alphacode tests might violate the specified input constraints from the problem statements, we rely on the generated input validators to sanitize the alphacode tests.
+---
+
+## 3) Aggregating results, tables, and plots
+
+You can compile cross-technique statistics and figures from the experiment outputs using `scripts/compile-stats`:
+
+Example:
 ```bash
-python scripts/sanitize_alphacode_result.py
+python3 scripts/compile-stats/main.py \
+  --json-dir /abs/path/to/results/json/root \
+  --output-csv-dir ./scripts/compile-stats/csv_out \
+  --plot-output-dir ./scripts/compile-stats/plots \
+  --language cpp
 ```
+This will populate CSVs and plots under `scripts/compile-stats/{csv_out,plots}`. Configure techniques, baselines, and styles in `scripts/compile-stats/config.py`.
 
-## About monitoring the experiments
-Just check the log files and corresponding output files to see if everything is going OK. For example, when running `run.py`, check if the number of files under `results/${strategy}` is keeping increasing, etc.
+To customize the set of problems/techniques for compiled figures from pipeline outputs, edit `scripts/compile-stats/config.py`.
 
+---
 
-## Citation
+## 4) Practical notes
 
-```
+- Long-running steps: Coverage collection, constraint synthesis, and AFL++ fuzzing can be time-consuming. We recommend starting with a small problem subset to validate your setup end-to-end, then scaling out.
+- LLM access: The validator/constraint/mutator steps use LLM prompting. Configure your provider credentials via environment variables as appropriate for your setup. See scripts under `scripts/cgig/` and `llm-prompts/`.
+- Monitoring: Check log files and output directories continuously (e.g., `results/${strategy}` growth during runs).
+- Languages: While C++ has the most mature support in this artifact, we provide Python/Java paths for completeness.
+
+---
+
+## 5) Troubleshooting
+
+- `perf` permissions: Make sure `kernel.perf_event_paranoid=-1`. A reboot may be necessary on some systems after changing sysctl.
+- AFL++ build: Follow the upstream install docs for your distro and ensure `AFLPP_DIR` is exported in the shell running our scripts.
+- AFL++ hack: we increased the max file size that AFL++ can mutate from 1MB to 10MB by modifying `#define MAX_FILE (1 * 1024 * 1024L)` in `include/config.h` file.
+- `gcov`/coverage mismatch: Ensure your compiler and `gcov` versions are compatible; recompile solutions if needed.
+- Java coverage: Ensure Java 11 runtime and the provided coverage jars are accessible (see `feedback_collection/java/lib/`).
+
+---
+
+## 6) Citation
+
+```bibtex
 @inproceedings{
-    yang-neurips25,
-    title={Synthesizing Performance Constraints for Evaluating and Improving Code Efficiency},
-    author={Jun Yang and Cheng-Chi Wang and Bogdan Alexandru Stoica and Kexin Pei},
-    booktitle={The Thirty-ninth Annual Conference on Neural Information Processing Systems},
-    year={2025},
-    url={https://openreview.net/forum?id=Qh458ZamHm}
+yang2025synthesizing,
+title={Synthesizing Performance Constraints for Evaluating and Improving Code Efficiency},
+author={Jun Yang and Cheng-Chi Wang and Bogdan Alexandru Stoica and Kexin Pei},
+booktitle={The Thirty-ninth Annual Conference on Neural Information Processing Systems},
+year={2025},
+url={https://openreview.net/forum?id=Qh458ZamHm}
 }
-
 ```
+
+---
+
+## 7) License
+
+Licensing may vary across components. Please see per-directory notices. If in doubt, contact the authors.
